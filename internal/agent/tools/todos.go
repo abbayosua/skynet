@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/session"
+	"github.com/code-yeongyu/skynet/internal/session"
 )
 
 //go:embed todos.md
@@ -38,6 +38,7 @@ func NewTodosTool(sessions session.Service) fantasy.AgentTool {
 		TodosToolName,
 		todosDescription,
 		func(ctx context.Context, params TodosParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
+			ReportActivity(ctx, "Planning tasks...")
 			sessionID := GetSessionFromContext(ctx)
 			if sessionID == "" {
 				return fantasy.ToolResponse{}, fmt.Errorf("session ID is required for managing todos")

@@ -12,6 +12,9 @@ const (
 	// TypeReAuthenticate indicates the agent encountered an
 	// authentication error and the user needs to re-authenticate.
 	TypeReAuthenticate Type = "re_authenticate"
+	// TypeActivityUpdate indicates the agent started a new activity
+	// (tool execution, thinking, etc.) during processing.
+	TypeActivityUpdate Type = "activity_update"
 )
 
 // Notification represents a domain event published by the agent.
@@ -20,4 +23,5 @@ type Notification struct {
 	SessionTitle string
 	Type         Type
 	ProviderID   string
+	Activity     string // populated for TypeActivityUpdate
 }

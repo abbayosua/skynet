@@ -1,4 +1,4 @@
-// Package logo renders a Crush wordmark in a stylized way.
+// Package logo renders a SkyNet wordmark in a stylized way.
 package logo
 
 import (
@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/crush/internal/ui/styles"
+	"github.com/code-yeongyu/skynet/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -40,11 +40,6 @@ type Opts struct {
 // The compact argument determines whether it renders compact for the sidebar
 // or wider for the main pane.
 func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
-	charm := "Charm™"
-	if !o.Hyper {
-		charm = " " + charm
-	}
-
 	fg := func(c color.Color, s string) string {
 		return lipgloss.NewStyle().Foreground(c).Render(s)
 	}
@@ -62,11 +57,12 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 		}
 	}
 	crushLetterforms := []letterform{
-		LetterC,
-		LetterR,
-		LetterU,
 		LetterSAlt,
-		LetterH,
+		LetterK,
+		LetterYAlt,
+		LetterN,
+		LetterE,
+		LetterT,
 	}
 	if o.Hyper && !compact {
 		crushLetterforms = append(hyperLetterforms, crushLetterforms...)
@@ -91,15 +87,15 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 	}
 	crush = b.String()
 
-	// Charm and version.
+	// Version info.
 	metaRowGap := 1
-	maxVersionWidth := crushWidth - lipgloss.Width(charm) - metaRowGap
+	maxVersionWidth := crushWidth - metaRowGap
 	version = ansi.Truncate(version, maxVersionWidth, "…") // truncate version if too long.
 	if o.Hyper && compact {
 		version += " "
 	}
-	gap := max(0, crushWidth-lipgloss.Width(charm)-lipgloss.Width(version))
-	metaRow := fg(o.CharmColor, charm) + strings.Repeat(" ", gap) + fg(o.VersionColor, version)
+	gap := max(0, crushWidth-lipgloss.Width(version))
+	metaRow := strings.Repeat(" ", gap) + fg(o.VersionColor, version)
 
 	// Join the meta row and big Crush title.
 	crush = strings.TrimSpace(metaRow + "\n" + crush)
@@ -149,16 +145,11 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 // SmallRender renders a smaller version of the Crush logo, suitable for
 // smaller windows or sidebar usage.
 func SmallRender(t *styles.Styles, width int, o Opts) string {
-	name := "Crush"
+	name := "SkyNet"
 	if o.Hyper {
-		name = "HYPERCRUSH"
+		name = "HYPERSKYNET"
 	}
-	charm := "Charm™"
-	if !o.Hyper {
-		charm = " " + charm
-	}
-	title := t.Logo.SmallCharm.Render(charm)
-	title = fmt.Sprintf("%s %s", title, styles.ApplyBoldForegroundGrad(t.Logo.GradCanvas, name, t.Logo.SmallGradFromColor, t.Logo.SmallGradToColor))
+	title := styles.ApplyBoldForegroundGrad(t.Logo.GradCanvas, name, t.Logo.SmallGradFromColor, t.Logo.SmallGradToColor)
 	remainingWidth := width - lipgloss.Width(title) - 1 // 1 for the space after the name
 	if remainingWidth > 0 {
 		lines := strings.Repeat("╱", remainingWidth)
@@ -166,3 +157,4 @@ func SmallRender(t *styles.Styles, width int, o Opts) string {
 	}
 	return title
 }
+

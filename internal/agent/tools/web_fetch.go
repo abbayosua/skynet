@@ -43,6 +43,8 @@ func NewWebFetchTool(workingDir string, client *http.Client) fantasy.AgentTool {
 				return fantasy.NewTextErrorResponse("url is required"), nil
 			}
 
+			ReportActivity(ctx, "Fetching: "+params.URL)
+
 			content, err := FetchURLAndConvert(ctx, client, params.URL)
 			if err != nil {
 				return fantasy.NewTextErrorResponse(fmt.Sprintf("Failed to fetch URL: %s", err)), nil

@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/filepathext"
-	"github.com/charmbracelet/crush/internal/fsext"
+	"github.com/code-yeongyu/skynet/internal/filepathext"
+	"github.com/code-yeongyu/skynet/internal/fsext"
 )
 
 const GlobToolName = "glob"
@@ -56,6 +56,8 @@ func NewGlobTool(workingDir string) fantasy.AgentTool {
 			if params.Pattern == "" {
 				return fantasy.NewTextErrorResponse("pattern is required"), nil
 			}
+
+			ReportActivity(ctx, "Searching: "+params.Pattern)
 
 			searchPath := cmp.Or(params.Path, workingDir)
 

@@ -8,14 +8,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/charmbracelet/crush/internal/commands"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/ui/common"
-	"github.com/charmbracelet/crush/internal/ui/util"
+	"github.com/code-yeongyu/skynet/internal/commands"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/code-yeongyu/skynet/internal/ui/util"
 )
 
 // ActionClose is a message to close the current dialog.
@@ -53,6 +53,10 @@ type (
 	ActionToggleYoloMode              struct{}
 	ActionToggleNotifications         struct{}
 	ActionToggleTransparentBackground struct{}
+	ActionToggleRalphLoop             struct{}
+	ActionToggleTaskPlanner           struct{}
+	ActionConnectTelegram             struct{ Token string }
+	ActionDisconnectTelegram          struct{}
 	ActionInitializeProject           struct{}
 	ActionSummarize                   struct {
 		SessionID string

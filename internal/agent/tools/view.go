@@ -17,11 +17,12 @@ import (
 	"unicode/utf8"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/filepathext"
-	"github.com/charmbracelet/crush/internal/filetracker"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/skills"
+	"github.com/code-yeongyu/skynet/internal/filepathext"
+	"github.com/code-yeongyu/skynet/internal/filetracker"
+	"github.com/code-yeongyu/skynet/internal/hashline"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/skills"
 )
 
 //go:embed view.md.tpl
@@ -102,6 +103,8 @@ func NewViewTool(
 			if params.FilePath == "" {
 				return fantasy.NewTextErrorResponse("file_path is required"), nil
 			}
+
+			ReportActivity(ctx, "Reading: "+params.FilePath)
 
 			// Handle builtin skill files (crush: prefix).
 			if strings.HasPrefix(params.FilePath, skills.BuiltinPrefix) {
@@ -278,28 +281,7 @@ func NewViewTool(
 }
 
 func addLineNumbers(content string, startLine int) string {
-	if content == "" {
-		return ""
-	}
-
-	lines := strings.Split(content, "\n")
-
-	var result []string
-	for i, line := range lines {
-		line = strings.TrimSuffix(line, "\r")
-
-		lineNum := i + startLine
-		numStr := fmt.Sprintf("%d", lineNum)
-
-		if len(numStr) >= 6 {
-			result = append(result, fmt.Sprintf("%s|%s", numStr, line))
-		} else {
-			paddedNum := fmt.Sprintf("%6s", numStr)
-			result = append(result, fmt.Sprintf("%s|%s", paddedNum, line))
-		}
-	}
-
-	return strings.Join(result, "\n")
+	return hashline.AnnotateLines(content, startLine)
 }
 
 func readTextFile(filePath string, offset, limit, maxContentSize int) (string, bool, error) {

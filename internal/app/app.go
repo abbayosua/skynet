@@ -18,27 +18,28 @@ import (
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/fantasy"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/crush/internal/agent"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/agent/tools/mcp"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/db"
-	"github.com/charmbracelet/crush/internal/event"
-	"github.com/charmbracelet/crush/internal/filetracker"
-	"github.com/charmbracelet/crush/internal/format"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/log"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/shell"
-	"github.com/charmbracelet/crush/internal/skills"
-	"github.com/charmbracelet/crush/internal/ui/anim"
-	"github.com/charmbracelet/crush/internal/ui/styles"
-	"github.com/charmbracelet/crush/internal/update"
-	"github.com/charmbracelet/crush/internal/version"
+	"github.com/code-yeongyu/skynet/internal/agent"
+	"github.com/code-yeongyu/skynet/internal/agent/notify"
+	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/db"
+	"github.com/code-yeongyu/skynet/internal/event"
+	"github.com/code-yeongyu/skynet/internal/filetracker"
+	"github.com/code-yeongyu/skynet/internal/format"
+	"github.com/code-yeongyu/skynet/internal/history"
+	"github.com/code-yeongyu/skynet/internal/log"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/code-yeongyu/skynet/internal/skills"
+	"github.com/code-yeongyu/skynet/internal/telegram"
+	"github.com/code-yeongyu/skynet/internal/ui/anim"
+	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/code-yeongyu/skynet/internal/update"
+	"github.com/code-yeongyu/skynet/internal/version"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/charmbracelet/x/term"
@@ -52,6 +53,7 @@ type UpdateAvailableMsg struct {
 }
 
 type App struct {
+	q           *db.Queries
 	Sessions    session.Service
 	Messages    message.Service
 	History     history.Service
@@ -73,6 +75,9 @@ type App struct {
 	globalCtx          context.Context
 	cleanupFuncs       []func(context.Context) error
 	agentNotifications *pubsub.Broker[notify.Notification]
+
+	TelegramBot *telegram.Bot
+	tuiProgram  *tea.Program
 }
 
 // New initializes a new application instance.
@@ -89,6 +94,7 @@ func New(ctx context.Context, conn *sql.DB, store *config.ConfigStore) (*App, er
 	}
 
 	app := &App{
+		q:           q,
 		Sessions:    sessions,
 		Messages:    messages,
 		History:     files,
@@ -166,9 +172,270 @@ func (app *App) SendEvent(msg tea.Msg) {
 	app.events.Publish(pubsub.UpdatedEvent, msg)
 }
 
+// mirrorMessagesToTelegram subscribes to message events and forwards
+// assistant (AI) messages to Telegram for bi-directional mirroring.
+func (app *App) mirrorMessagesToTelegram(ctx context.Context, bot *telegram.Bot) {
+	sub := app.Messages.Subscribe(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt, ok := <-sub:
+			if !ok {
+				return
+			}
+			if evt.Type != pubsub.CreatedEvent && evt.Type != pubsub.UpdatedEvent {
+				continue
+			}
+			msg := evt.Payload
+			if msg.Role != message.Assistant {
+				continue
+			}
+			if !msg.IsFinished() {
+				continue
+			}
+			text := msg.Content().String()
+			if text == "" {
+				continue
+			}
+			full := fullTelegramText(text)
+			if err := bot.SendMessage(full); err != nil {
+				slog.Warn("Telegram: failed to send message mirror", "error", err)
+			} else {
+				slog.Debug("Telegram: sent message mirror", "session_id", msg.SessionID, "msg_id", msg.ID, "len", len(text))
+			}
+		}
+	}
+}
+
+// mirrorActivityToTelegram subscribes to agent activity notifications
+// and sends activity updates to Telegram. Updates are rate-limited to
+// at most one message per 3 seconds and only sent when the activity
+// changes.
+func (app *App) mirrorActivityToTelegram(ctx context.Context, bot *telegram.Bot) {
+	sub := app.agentNotifications.Subscribe(ctx)
+	var lastSentAt time.Time
+	var lastActivity string
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt, ok := <-sub:
+			if !ok {
+				return
+			}
+			n := evt.Payload
+			if n.Type != notify.TypeActivityUpdate {
+				continue
+			}
+			if n.Activity == "" || n.Activity == lastActivity {
+				continue
+			}
+			// Rate limit: at most one activity per 3 seconds.
+			if time.Since(lastSentAt) < 3*time.Second {
+				continue
+			}
+			lastActivity = n.Activity
+			lastSentAt = time.Now()
+			msg := "🤖 " + n.Activity
+			if err := bot.SendMessage(msg); err != nil {
+				slog.Warn("Telegram: failed to send activity update", "error", err)
+			}
+		}
+	}
+}
+
+// fullTelegramText returns the full assistant text with a prefix.
+func fullTelegramText(text string) string {
+	cleaned := strings.TrimSpace(text)
+	if cleaned == "" {
+		return "(no text output)"
+	}
+	return "🤖 " + cleaned
+}
+
 // AgentNotifications returns the broker for agent notification events.
 func (app *App) AgentNotifications() *pubsub.Broker[notify.Notification] {
 	return app.agentNotifications
+}
+
+// StartTelegramBot creates and starts a Telegram bot with the given token.
+func (app *App) StartTelegramBot(token string) error {
+	if app.TelegramBot != nil {
+		app.TelegramBot.Stop()
+	}
+
+	bot := telegram.NewBot(token)
+	app.TelegramBot = bot
+	app.serviceEventsWG.Add(1)
+	go func() {
+		defer app.serviceEventsWG.Done()
+		bot.Start(app.globalCtx)
+	}()
+
+	// Start heartbeat goroutine to update last_heartbeat_at.
+	// This allows other instances to detect that this bot is in use.
+	app.serviceEventsWG.Add(1)
+	go func() {
+		defer app.serviceEventsWG.Done()
+		// Wait for the bot to connect and get its username.
+		time.Sleep(2 * time.Second)
+		username := bot.Username()
+		if username == "" {
+			return
+		}
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-app.globalCtx.Done():
+				return
+			case <-ticker.C:
+				now := time.Now().Unix()
+				_ = app.q.UpdateTelegramBotHeartbeat(app.globalCtx, db.UpdateTelegramBotHeartbeatParams{
+					LastHeartbeatAt: now,
+					InstanceID:      "",
+					BotUsername:     username,
+				})
+			}
+		}
+	}()
+
+	// Start mirror goroutine (TUI→Telegram).
+	go app.mirrorMessagesToTelegram(app.globalCtx, bot)
+
+	// Start activity mirror goroutine (Agent activity → Telegram).
+	go app.mirrorActivityToTelegram(app.globalCtx, bot)
+
+	// Start forwarding goroutine (Telegram→TUI).
+	if app.tuiProgram != nil {
+		go func() {
+			for {
+				select {
+				case <-app.globalCtx.Done():
+					return
+				case msg, ok := <-bot.Incoming():
+					if !ok {
+						return
+					}
+					app.tuiProgram.Send(telegram.IncomingMessage{Text: msg})
+				}
+			}
+		}()
+	}
+
+	slog.Info("Telegram bot started at runtime")
+	return nil
+}
+
+// StopTelegramBot stops the running Telegram bot.
+func (app *App) StopTelegramBot() {
+	if app.TelegramBot != nil {
+		// Clear heartbeat so the bot won't appear as "active"
+		// when the user restarts and reconnects.
+		username := app.TelegramBot.Username()
+		if username != "" {
+			_ = app.q.UpdateTelegramBotHeartbeat(context.Background(), db.UpdateTelegramBotHeartbeatParams{
+				LastHeartbeatAt: 0,
+				InstanceID:      "",
+				BotUsername:     username,
+			})
+		}
+		app.TelegramBot.Stop()
+		app.TelegramBot = nil
+	}
+	slog.Info("Telegram bot stopped")
+}
+
+// TelegramBotInfo holds saved bot info.
+type TelegramBotInfo struct {
+	Username string
+	IsActive bool
+	LastUsed int64
+}
+
+// ListTelegramBots returns all saved Telegram bots, sorted by last use.
+func (app *App) ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error) {
+	bots, err := app.q.ListTelegramBots(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if this instance has a bot currently running.
+	botRunning := app.TelegramBot != nil && app.TelegramBot.Connected()
+	currentUsername := ""
+	if botRunning {
+		currentUsername = app.TelegramBot.Username()
+	}
+
+	now := time.Now().Unix()
+	infos := make([]TelegramBotInfo, 0, len(bots))
+	for _, b := range bots {
+		heartbeatFresh := b.LastHeartbeatAt > 0 && (now-b.LastHeartbeatAt) < 90
+		if !heartbeatFresh {
+			infos = append(infos, TelegramBotInfo{
+				Username: b.BotUsername,
+				IsActive: false,
+				LastUsed: b.LastUsedAt,
+			})
+			continue
+		}
+
+		// Heartbeat is fresh. Determine if it's truly active elsewhere.
+		isActive := true
+
+		// 1. If WE are running this bot right now, it's not "active elsewhere".
+		if botRunning && b.BotUsername == currentUsername {
+			isActive = false
+		}
+
+		// 2. If no bot is running in this instance and heartbeat is older
+		//    than the heartbeat interval (30s), the remote instance likely
+		//    crashed or exited without clearing. Treat as inactive.
+		if !botRunning && (now-b.LastHeartbeatAt) > 30 {
+			isActive = false
+		}
+
+		infos = append(infos, TelegramBotInfo{
+			Username: b.BotUsername,
+			IsActive: isActive,
+			LastUsed: b.LastUsedAt,
+		})
+	}
+	return infos, nil
+}
+
+// SaveTelegramBot persists bot info after a successful connection.
+func (app *App) SaveTelegramBot(ctx context.Context, username, token string) error {
+	return app.SaveTelegramBotFull(ctx, username, token, "", 0)
+}
+
+// SaveTelegramBotFull persists bot info with full details.
+func (app *App) SaveTelegramBotFull(ctx context.Context, username, token, instanceID string, chatID int64) error {
+	now := time.Now().Unix()
+	return app.q.SaveTelegramBot(ctx, db.SaveTelegramBotParams{
+		BotUsername:     username,
+		Token:           token,
+		InstanceID:      instanceID,
+		ChatID:          chatID,
+		LastHeartbeatAt: now,
+		LastUsedAt:      now,
+		CreatedAt:       now,
+	})
+}
+
+// GetTelegramBotToken returns the stored token for a saved bot.
+func (app *App) GetTelegramBotToken(ctx context.Context, username string) (string, error) {
+	bot, err := app.q.GetTelegramBotByUsername(ctx, username)
+	if err != nil {
+		return "", err
+	}
+	return bot.Token, nil
+}
+
+// DeleteTelegramBot removes a saved bot from the database.
+func (app *App) DeleteTelegramBot(ctx context.Context, username string) error {
+	return app.q.DeleteTelegramBot(ctx, username)
 }
 
 // resolveSession resolves which session to use for a non-interactive run
@@ -557,7 +824,13 @@ func (app *App) Subscribe(program *tea.Program) {
 	})
 	defer app.tuiWG.Done()
 
+	app.tuiProgram = program
+
 	events := app.events.Subscribe(tuiCtx)
+
+	// Telegram→TUI forwarding is now started dynamically in
+	// StartTelegramBot, not here (bot may not exist yet).
+
 	for {
 		select {
 		case <-tuiCtx.Done():

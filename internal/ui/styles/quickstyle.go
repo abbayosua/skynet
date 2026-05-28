@@ -10,7 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2/ansi"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/crush/internal/ui/diffview"
+	"github.com/code-yeongyu/skynet/internal/ui/diffview"
 	"github.com/charmbracelet/x/exp/charmtone"
 )
 
@@ -825,7 +825,7 @@ func quickStyle(o quickStyleOpts) Styles {
 
 	// Dialog.ListItem (commands, reasoning, models)
 	s.Dialog.ListItem.InfoBlurred = lipgloss.NewStyle().Foreground(o.fgBase)
-	s.Dialog.ListItem.InfoFocused = lipgloss.NewStyle().Foreground(o.fgBase)
+	s.Dialog.ListItem.InfoFocused = lipgloss.NewStyle().Foreground(o.accent).Bold(true)
 
 	// Dialog.Models
 	s.Dialog.Models.ConfiguredText = lipgloss.NewStyle().Foreground(o.fgMostSubtle)

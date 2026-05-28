@@ -388,6 +388,108 @@ func LetterYAlt(stretch bool) string {
 	)
 }
 
+// LetterK renders the letter K in a stylized way.
+func LetterK(stretch bool) string {
+	// Here's what we're making:
+	//
+	// █▄▄▄▄
+	// █████
+	// █▀▀▀▀
+
+	left := heredoc.Doc(`
+		█
+		█
+		█
+	`)
+	middle := heredoc.Doc(`
+
+		█
+		▀
+	`)
+	right := heredoc.Doc(`
+		▄
+		█
+	`)
+	return joinLetterform(
+		left,
+		stretchLetterformPart(middle, letterformProps{
+			stretch:    stretch,
+			width:      3,
+			minStretch: 7,
+			maxStretch: 12,
+		}),
+		right,
+	)
+}
+
+// LetterN renders the letter N in a stylized way.
+func LetterN(stretch bool) string {
+	// Here's what we're making:
+	//
+	// █▀▀▀█
+	// █▄▄██
+	// █ ▀▀▀
+
+	left := heredoc.Doc(`
+		█
+		█
+		█
+	`)
+	middle := heredoc.Doc(`
+		▀
+		▄
+		▀
+	`)
+	right := heredoc.Doc(`
+		█
+		█
+		▀
+	`)
+	return joinLetterform(
+		left,
+		stretchLetterformPart(middle, letterformProps{
+			stretch:    stretch,
+			width:      2,
+			minStretch: 6,
+			maxStretch: 10,
+		}),
+		right,
+	)
+}
+
+// LetterT renders the letter T in a stylized way.
+func LetterT(stretch bool) string {
+	// Here's what we're making:
+	//
+	// ▄▀▀▀▄
+	//   ██
+	//   ▀▀
+
+	left := heredoc.Doc(`
+		▄
+
+	`)
+	middle := heredoc.Doc(`
+		▀
+		█
+		▀
+	`)
+	right := heredoc.Doc(`
+		▄
+
+	`)
+	return joinLetterform(
+		left,
+		stretchLetterformPart(middle, letterformProps{
+			stretch:    stretch,
+			width:      3,
+			minStretch: 7,
+			maxStretch: 12,
+		}),
+		right,
+	)
+}
+
 func joinLetterform(letters ...string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, letters...)
 }

@@ -1,4 +1,4 @@
-// Package agent is the core orchestration layer for Crush AI agents.
+// Package agent is the core orchestration layer for SkyNet AI agents.
 //
 // It provides session-based AI agent functionality for managing
 // conversations, tool execution, and message handling. It coordinates
@@ -32,17 +32,17 @@ import (
 	"charm.land/fantasy/providers/openrouter"
 	"charm.land/fantasy/providers/vercel"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/agent/tools"
-	"github.com/charmbracelet/crush/internal/agent/tools/mcp"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/csync"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/stringext"
-	"github.com/charmbracelet/crush/internal/version"
+	"github.com/code-yeongyu/skynet/internal/agent/hyper"
+	"github.com/code-yeongyu/skynet/internal/agent/notify"
+	"github.com/code-yeongyu/skynet/internal/agent/tools"
+	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/csync"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/code-yeongyu/skynet/internal/stringext"
+	"github.com/code-yeongyu/skynet/internal/version"
 	"github.com/charmbracelet/x/exp/charmtone"
 )
 
@@ -55,7 +55,7 @@ const (
 	smallContextWindowRatio     = 0.2
 )
 
-var userAgent = fmt.Sprintf("Charm-Crush/%s (https://charm.land/crush)", version.Version)
+var userAgent = fmt.Sprintf("SkyNet/%s", version.Version)
 
 //go:embed templates/title.md
 var titlePrompt []byte
@@ -81,6 +81,9 @@ type SessionAgentCall struct {
 	FrequencyPenalty *float64
 	PresencePenalty  *float64
 	NonInteractive   bool
+	// EnableRalphLoop forces Ralph Loop on for this call, regardless of config.
+	// Used by the /ralph-loop trigger in the coordinator.
+	EnableRalphLoop bool
 }
 
 type SessionAgent interface {
@@ -97,6 +100,10 @@ type SessionAgent interface {
 	ClearQueue(sessionID string)
 	Summarize(context.Context, string, fantasy.ProviderOptions) error
 	Model() Model
+	// EnqueuePrompt adds a prompt to the session's message queue.
+	// The prompt will be processed on the next Run() cycle. Used by
+	// background agent completion notifications to trigger the main agent.
+	EnqueuePrompt(sessionID, prompt string)
 }
 
 type Model struct {
@@ -122,6 +129,15 @@ type sessionAgent struct {
 
 	messageQueue   *csync.Map[string, []SessionAgentCall]
 	activeRequests *csync.Map[string, context.CancelFunc]
+	ralphLoop      *ralphLoopState
+
+	currentActivity string
+}
+
+type ralphLoopState struct {
+	config       config.RalphLoop
+	iterations   *csync.Map[string, int] // sessionID -> iteration count
+	maxIteration int
 }
 
 type SessionAgentOptions struct {
@@ -136,6 +152,7 @@ type SessionAgentOptions struct {
 	Messages             message.Service
 	Tools                []fantasy.AgentTool
 	Notify               pubsub.Publisher[notify.Notification]
+	RalphLoop            *config.RalphLoop
 }
 
 func NewSessionAgent(
@@ -153,8 +170,27 @@ func NewSessionAgent(
 		tools:                csync.NewSliceFrom(opts.Tools),
 		isYolo:               opts.IsYolo,
 		notify:               opts.Notify,
-		messageQueue:         csync.NewMap[string, []SessionAgentCall](),
-		activeRequests:       csync.NewMap[string, context.CancelFunc](),
+		messageQueue:   csync.NewMap[string, []SessionAgentCall](),
+		activeRequests: csync.NewMap[string, context.CancelFunc](),
+		ralphLoop:      newRalphLoopState(opts.RalphLoop),
+	}
+}
+
+func newRalphLoopState(cfg *config.RalphLoop) *ralphLoopState {
+	if cfg == nil {
+		return &ralphLoopState{
+			config:     config.RalphLoop{Enabled: false},
+			iterations: csync.NewMap[string, int](),
+		}
+	}
+	maxIter := cfg.MaxIterations
+	if maxIter <= 0 {
+		maxIter = 100
+	}
+	return &ralphLoopState{
+		config:       *cfg,
+		iterations:   csync.NewMap[string, int](),
+		maxIteration: maxIter,
 	}
 }
 
@@ -297,6 +333,13 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 				prepared.Messages = append(prepared.Messages, userMessage.ToAIMessage()...)
 			}
 
+			// Inject background agent completion notifications.
+			if notifications := tools.GetBackgroundNotifications(call.SessionID); len(notifications) > 0 {
+				for _, n := range notifications {
+					prepared.Messages = append(prepared.Messages, fantasy.NewUserMessage(n))
+				}
+			}
+
 			prepared.Messages = a.workaroundProviderMediaLimitations(prepared.Messages, largeModel)
 
 			lastSystemRoleInx := 0
@@ -332,10 +375,12 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			callContext = context.WithValue(callContext, tools.MessageIDContextKey, assistantMsg.ID)
 			callContext = context.WithValue(callContext, tools.SupportsImagesContextKey, largeModel.CatwalkCfg.SupportsImages)
 			callContext = context.WithValue(callContext, tools.ModelNameContextKey, largeModel.CatwalkCfg.Name)
+			callContext = context.WithValue(callContext, tools.ActivityContextKey, a.setCurrentActivity)
 			currentAssistant = &assistantMsg
 			return callContext, prepared, err
 		},
 		OnReasoningStart: func(id string, reasoning fantasy.ReasoningContent) error {
+			a.setCurrentActivity("Thinking...")
 			currentAssistant.AppendReasoningContent(reasoning.Text)
 			return a.messages.Update(genCtx, *currentAssistant)
 		},
@@ -364,6 +409,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			return a.messages.Update(genCtx, *currentAssistant)
 		},
 		OnTextDelta: func(id string, text string) error {
+			a.setCurrentActivity("Writing...")
 			// Strip leading newline from initial text content. This is is
 			// particularly important in non-interactive mode where leading
 			// newlines are very visible.
@@ -375,6 +421,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			return a.messages.Update(genCtx, *currentAssistant)
 		},
 		OnToolInputStart: func(id string, toolName string) error {
+			a.setCurrentActivity("Running: " + toolName)
 			toolCall := message.ToolCall{
 				ID:               id,
 				Name:             toolName,
@@ -415,6 +462,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			return createMsgErr
 		},
 		OnStepFinish: func(stepResult fantasy.StepResult) error {
+			a.setCurrentActivity("Processing...")
 			finishReason := message.FinishReasonUnknown
 			switch stepResult.FinishReason {
 			case fantasy.FinishReasonLength:
@@ -479,6 +527,9 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			},
 		},
 	})
+
+	// Clear activity when processing completes.
+	a.setCurrentActivity("")
 
 	a.eventPromptResponded(call.SessionID, time.Since(startTime).Truncate(time.Second))
 
@@ -624,6 +675,35 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		})
 	}
 
+	// Ralph Loop: auto-continuation until task completion.
+	// Active when configured, or when triggered via /ralph-loop command.
+	ralphEnabled := a.ralphLoop != nil && !call.NonInteractive &&
+		(a.ralphLoop.config.Enabled || call.EnableRalphLoop)
+	if ralphEnabled {
+		if a.shouldContinueRalphLoop(result, call) {
+			iter, _ := a.ralphLoop.iterations.Get(call.SessionID)
+			iter++
+			a.ralphLoop.iterations.Set(call.SessionID, iter)
+			continueCall := call
+			continueCall.Prompt = fmt.Sprintf(
+				"Continue working on the original task. The original request was: %s\n\n"+
+					"Check your todo list. If any todo items remain pending or in-progress, "+
+					"you must continue working on them before declaring completion.\n\n"+
+					"If you have COMPLETED the task (all todos verified done), respond with: "+
+					"<promise>DONE</promise>\n"+
+					"Do NOT add any other text after the promise tag.",
+				call.Prompt,
+			)
+			// Queue the continuation at the front.
+			existing, _ := a.messageQueue.Get(call.SessionID)
+			if existing == nil {
+				existing = []SessionAgentCall{}
+			}
+			existing = append([]SessionAgentCall{continueCall}, existing...)
+			a.messageQueue.Set(call.SessionID, existing)
+		}
+	}
+
 	queuedMessages, ok := a.messageQueue.Get(call.SessionID)
 	if !ok || len(queuedMessages) == 0 {
 		return result, err
@@ -632,6 +712,42 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 	firstQueuedMessage := queuedMessages[0]
 	a.messageQueue.Set(call.SessionID, queuedMessages[1:])
 	return a.Run(ctx, firstQueuedMessage)
+}
+
+// shouldContinueRalphLoop checks whether the Ralph Loop should continue.
+// Returns false if the task is complete (detected via completion promise),
+// if max iterations reached, or if there was an error.
+//
+// Logic:
+//   - FinishReasonToolCalls → agent is in an active tool-call loop (handled by the
+//     fantasy framework). Do NOT inject a redundant continuation.
+//   - FinishReasonStop → agent finished its turn naturally. This is the main case
+//     where continuation may be needed if the task isn't done.
+//   - Other finish reasons (length, content-filter, error) → do not continue.
+func (a *sessionAgent) shouldContinueRalphLoop(result *fantasy.AgentResult, call SessionAgentCall) bool {
+	if result == nil {
+		return false
+	}
+
+	// Check for explicit completion promise.
+	content := result.Response.Content.Text()
+	if strings.Contains(content, "<promise>DONE</promise>") {
+		return false
+	}
+
+	// Only continue on FinishReasonStop — agent finished its turn naturally
+	// but may not be done with the task.
+	if result.Response.FinishReason != fantasy.FinishReasonStop {
+		return false
+	}
+
+	// Check max iterations.
+	iter, _ := a.ralphLoop.iterations.Get(call.SessionID)
+	if iter >= a.ralphLoop.maxIteration {
+		return false
+	}
+
+	return true
 }
 
 func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fantasy.ProviderOptions) error {
@@ -777,7 +893,12 @@ func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fan
 }
 
 func (a *sessionAgent) getCacheControlOptions() fantasy.ProviderOptions {
-	if t, _ := strconv.ParseBool(os.Getenv("CRUSH_DISABLE_ANTHROPIC_CACHE")); t {
+	// SKYNET_DISABLE_ANTHROPIC_CACHE (also checks CRUSH_ for backward compat)
+	cacheEnv := os.Getenv("SKYNET_DISABLE_ANTHROPIC_CACHE")
+	if cacheEnv == "" {
+		cacheEnv = os.Getenv("CRUSH_DISABLE_ANTHROPIC_CACHE")
+	}
+	if t, _ := strconv.ParseBool(cacheEnv); t {
 		return fantasy.ProviderOptions{}
 	}
 	return fantasy.ProviderOptions{
@@ -1151,6 +1272,22 @@ func (a *sessionAgent) updateSessionUsage(model Model, session *session.Session,
 	session.PromptTokens = usage.InputTokens + usage.CacheReadTokens
 }
 
+// setCurrentActivity updates the current activity string and publishes
+// an activity notification so downstream consumers (e.g. Telegram mirror)
+// can show what the agent is doing right now.
+func (a *sessionAgent) setCurrentActivity(activity string) {
+	if a.currentActivity == activity {
+		return
+	}
+	a.currentActivity = activity
+	if a.notify != nil {
+		a.notify.Publish(pubsub.UpdatedEvent, notify.Notification{
+			Type:     notify.TypeActivityUpdate,
+			Activity: activity,
+		})
+	}
+}
+
 func (a *sessionAgent) Cancel(sessionID string) {
 	// Cancel regular requests. Don't use Take() here - we need the entry to
 	// remain in activeRequests so IsBusy() returns true until the goroutine
@@ -1178,6 +1315,18 @@ func (a *sessionAgent) ClearQueue(sessionID string) {
 		slog.Debug("Clearing queued prompts", "session_id", sessionID)
 		a.messageQueue.Del(sessionID)
 	}
+}
+
+// EnqueuePrompt adds a prompt to the session's message queue.
+// The prompt will be processed on the next Run() cycle for this session.
+func (a *sessionAgent) EnqueuePrompt(sessionID, prompt string) {
+	existing, ok := a.messageQueue.Get(sessionID)
+	if !ok {
+		existing = []SessionAgentCall{}
+	}
+	existing = append(existing, SessionAgentCall{Prompt: prompt, NonInteractive: true})
+	a.messageQueue.Set(sessionID, existing)
+	slog.Debug("Enqueued prompt for background completion", "session_id", sessionID)
 }
 
 func (a *sessionAgent) CancelAll() {
@@ -1414,3 +1563,4 @@ func providerRetryLogFields(err *fantasy.ProviderError, delay time.Duration) []a
 	}
 	return fields
 }
+

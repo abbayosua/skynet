@@ -33,6 +33,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createSessionStmt, err = db.PrepareContext(ctx, createSession); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateSession: %w", err)
 	}
+	if q.deleteTelegramBotStmt, err = db.PrepareContext(ctx, deleteTelegramBot); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteTelegramBot: %w", err)
+	}
 	if q.deleteFileStmt, err = db.PrepareContext(ctx, deleteFile); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteFile: %w", err)
 	}
@@ -74,6 +77,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getSessionByIDStmt, err = db.PrepareContext(ctx, getSessionByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSessionByID: %w", err)
+	}
+	if q.getTelegramBotByUsernameStmt, err = db.PrepareContext(ctx, getTelegramBotByUsername); err != nil {
+		return nil, fmt.Errorf("error preparing query GetTelegramBotByUsername: %w", err)
 	}
 	if q.getToolUsageStmt, err = db.PrepareContext(ctx, getToolUsage); err != nil {
 		return nil, fmt.Errorf("error preparing query GetToolUsage: %w", err)
@@ -117,6 +123,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listSessionsStmt, err = db.PrepareContext(ctx, listSessions); err != nil {
 		return nil, fmt.Errorf("error preparing query ListSessions: %w", err)
 	}
+	if q.listTelegramBotsStmt, err = db.PrepareContext(ctx, listTelegramBots); err != nil {
+		return nil, fmt.Errorf("error preparing query ListTelegramBots: %w", err)
+	}
 	if q.listUserMessagesBySessionStmt, err = db.PrepareContext(ctx, listUserMessagesBySession); err != nil {
 		return nil, fmt.Errorf("error preparing query ListUserMessagesBySession: %w", err)
 	}
@@ -126,6 +135,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.renameSessionStmt, err = db.PrepareContext(ctx, renameSession); err != nil {
 		return nil, fmt.Errorf("error preparing query RenameSession: %w", err)
 	}
+	if q.saveTelegramBotStmt, err = db.PrepareContext(ctx, saveTelegramBot); err != nil {
+		return nil, fmt.Errorf("error preparing query SaveTelegramBot: %w", err)
+	}
 	if q.updateMessageStmt, err = db.PrepareContext(ctx, updateMessage); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateMessage: %w", err)
 	}
@@ -134,6 +146,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateSessionTitleAndUsageStmt, err = db.PrepareContext(ctx, updateSessionTitleAndUsage); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateSessionTitleAndUsage: %w", err)
+	}
+	if q.updateTelegramBotHeartbeatStmt, err = db.PrepareContext(ctx, updateTelegramBotHeartbeat); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateTelegramBotHeartbeat: %w", err)
 	}
 	return &q, nil
 }
@@ -180,6 +195,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteSessionMessagesStmt: %w", cerr)
 		}
 	}
+	if q.deleteTelegramBotStmt != nil {
+		if cerr := q.deleteTelegramBotStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteTelegramBotStmt: %w", cerr)
+		}
+	}
 	if q.getAverageResponseTimeStmt != nil {
 		if cerr := q.getAverageResponseTimeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAverageResponseTimeStmt: %w", cerr)
@@ -223,6 +243,11 @@ func (q *Queries) Close() error {
 	if q.getSessionByIDStmt != nil {
 		if cerr := q.getSessionByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getSessionByIDStmt: %w", cerr)
+		}
+	}
+	if q.getTelegramBotByUsernameStmt != nil {
+		if cerr := q.getTelegramBotByUsernameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getTelegramBotByUsernameStmt: %w", cerr)
 		}
 	}
 	if q.getToolUsageStmt != nil {
@@ -295,6 +320,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listSessionsStmt: %w", cerr)
 		}
 	}
+	if q.listTelegramBotsStmt != nil {
+		if cerr := q.listTelegramBotsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listTelegramBotsStmt: %w", cerr)
+		}
+	}
 	if q.listUserMessagesBySessionStmt != nil {
 		if cerr := q.listUserMessagesBySessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listUserMessagesBySessionStmt: %w", cerr)
@@ -310,6 +340,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing renameSessionStmt: %w", cerr)
 		}
 	}
+	if q.saveTelegramBotStmt != nil {
+		if cerr := q.saveTelegramBotStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing saveTelegramBotStmt: %w", cerr)
+		}
+	}
 	if q.updateMessageStmt != nil {
 		if cerr := q.updateMessageStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateMessageStmt: %w", cerr)
@@ -323,6 +358,11 @@ func (q *Queries) Close() error {
 	if q.updateSessionTitleAndUsageStmt != nil {
 		if cerr := q.updateSessionTitleAndUsageStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateSessionTitleAndUsageStmt: %w", cerr)
+		}
+	}
+	if q.updateTelegramBotHeartbeatStmt != nil {
+		if cerr := q.updateTelegramBotHeartbeatStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateTelegramBotHeartbeatStmt: %w", cerr)
 		}
 	}
 	return err
@@ -372,6 +412,7 @@ type Queries struct {
 	deleteSessionStmt              *sql.Stmt
 	deleteSessionFilesStmt         *sql.Stmt
 	deleteSessionMessagesStmt      *sql.Stmt
+	deleteTelegramBotStmt          *sql.Stmt
 	getAverageResponseTimeStmt     *sql.Stmt
 	getFileStmt                    *sql.Stmt
 	getFileByPathAndSessionStmt    *sql.Stmt
@@ -381,6 +422,7 @@ type Queries struct {
 	getMessageStmt                 *sql.Stmt
 	getRecentActivityStmt          *sql.Stmt
 	getSessionByIDStmt             *sql.Stmt
+	getTelegramBotByUsernameStmt   *sql.Stmt
 	getToolUsageStmt               *sql.Stmt
 	getTotalStatsStmt              *sql.Stmt
 	getUsageByDayStmt              *sql.Stmt
@@ -395,12 +437,15 @@ type Queries struct {
 	listNewFilesStmt               *sql.Stmt
 	listSessionReadFilesStmt       *sql.Stmt
 	listSessionsStmt               *sql.Stmt
+	listTelegramBotsStmt           *sql.Stmt
 	listUserMessagesBySessionStmt  *sql.Stmt
 	recordFileReadStmt             *sql.Stmt
 	renameSessionStmt              *sql.Stmt
+	saveTelegramBotStmt            *sql.Stmt
 	updateMessageStmt              *sql.Stmt
 	updateSessionStmt              *sql.Stmt
 	updateSessionTitleAndUsageStmt *sql.Stmt
+	updateTelegramBotHeartbeatStmt *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -415,6 +460,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		deleteSessionStmt:              q.deleteSessionStmt,
 		deleteSessionFilesStmt:         q.deleteSessionFilesStmt,
 		deleteSessionMessagesStmt:      q.deleteSessionMessagesStmt,
+		deleteTelegramBotStmt:          q.deleteTelegramBotStmt,
 		getAverageResponseTimeStmt:     q.getAverageResponseTimeStmt,
 		getFileStmt:                    q.getFileStmt,
 		getFileByPathAndSessionStmt:    q.getFileByPathAndSessionStmt,
@@ -424,6 +470,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getMessageStmt:                 q.getMessageStmt,
 		getRecentActivityStmt:          q.getRecentActivityStmt,
 		getSessionByIDStmt:             q.getSessionByIDStmt,
+		getTelegramBotByUsernameStmt:   q.getTelegramBotByUsernameStmt,
 		getToolUsageStmt:               q.getToolUsageStmt,
 		getTotalStatsStmt:              q.getTotalStatsStmt,
 		getUsageByDayStmt:              q.getUsageByDayStmt,
@@ -438,11 +485,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		listNewFilesStmt:               q.listNewFilesStmt,
 		listSessionReadFilesStmt:       q.listSessionReadFilesStmt,
 		listSessionsStmt:               q.listSessionsStmt,
+		listTelegramBotsStmt:           q.listTelegramBotsStmt,
 		listUserMessagesBySessionStmt:  q.listUserMessagesBySessionStmt,
 		recordFileReadStmt:             q.recordFileReadStmt,
 		renameSessionStmt:              q.renameSessionStmt,
+		saveTelegramBotStmt:            q.saveTelegramBotStmt,
 		updateMessageStmt:              q.updateMessageStmt,
 		updateSessionStmt:              q.updateSessionStmt,
 		updateSessionTitleAndUsageStmt: q.updateSessionTitleAndUsageStmt,
+		updateTelegramBotHeartbeatStmt: q.updateTelegramBotHeartbeatStmt,
 	}
 }

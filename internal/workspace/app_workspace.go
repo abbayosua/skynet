@@ -7,17 +7,17 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/crush/internal/agent"
-	mcptools "github.com/charmbracelet/crush/internal/agent/tools/mcp"
-	"github.com/charmbracelet/crush/internal/app"
-	"github.com/charmbracelet/crush/internal/commands"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/session"
+	"github.com/code-yeongyu/skynet/internal/agent"
+	mcptools "github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
+	"github.com/code-yeongyu/skynet/internal/app"
+	"github.com/code-yeongyu/skynet/internal/commands"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/history"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/session"
 )
 
 // AppWorkspace implements the Workspace interface by delegating
@@ -379,6 +379,42 @@ func (w *AppWorkspace) Subscribe(program *tea.Program) {
 
 func (w *AppWorkspace) Shutdown() {
 	w.app.Shutdown()
+}
+
+func (w *AppWorkspace) TelegramBotStart(token string) error {
+	return w.app.StartTelegramBot(token)
+}
+
+func (w *AppWorkspace) TelegramBotStop() {
+	w.app.StopTelegramBot()
+}
+
+func (w *AppWorkspace) ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error) {
+	appBots, err := w.app.ListTelegramBots(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bots := make([]TelegramBotInfo, len(appBots))
+	for i, b := range appBots {
+		bots[i] = TelegramBotInfo{
+			Username: b.Username,
+			IsActive: b.IsActive,
+			LastUsed: b.LastUsed,
+		}
+	}
+	return bots, nil
+}
+
+func (w *AppWorkspace) GetTelegramBotToken(ctx context.Context, username string) (string, error) {
+	return w.app.GetTelegramBotToken(ctx, username)
+}
+
+func (w *AppWorkspace) DeleteTelegramBot(ctx context.Context, username string) error {
+	return w.app.DeleteTelegramBot(ctx, username)
+}
+
+func (w *AppWorkspace) SaveTelegramBot(ctx context.Context, username, token string) error {
+	return w.app.SaveTelegramBot(ctx, username, token)
 }
 
 // App returns the underlying app.App instance.

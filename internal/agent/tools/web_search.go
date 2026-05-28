@@ -41,6 +41,8 @@ func NewWebSearchTool(client *http.Client) fantasy.AgentTool {
 				return fantasy.NewTextErrorResponse("query is required"), nil
 			}
 
+			ReportActivity(ctx, "Searching web: "+params.Query)
+
 			maxResults := params.MaxResults
 			if maxResults <= 0 {
 				maxResults = 10

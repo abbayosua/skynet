@@ -15,6 +15,7 @@ type (
 	messageIDContextKey string
 	supportsImagesKey   string
 	modelNameKey        string
+	activityFuncKey     string
 )
 
 const (
@@ -26,6 +27,10 @@ const (
 	SupportsImagesContextKey supportsImagesKey = "supports_images"
 	// ModelNameContextKey is the key for the model name in the context.
 	ModelNameContextKey modelNameKey = "model_name"
+	// ActivityContextKey is the key for the activity reporting function.
+	// The function accepts a human-readable string describing what the
+	// tool is currently doing (e.g., "Running: go test ./...").
+	ActivityContextKey activityFuncKey = "activity_func"
 )
 
 // getContextValue is a generic helper that retrieves a typed value from context.
@@ -59,6 +64,18 @@ func GetSupportsImagesFromContext(ctx context.Context) bool {
 // GetModelNameFromContext retrieves the model name from the context.
 func GetModelNameFromContext(ctx context.Context) string {
 	return getContextValue(ctx, ModelNameContextKey, "")
+}
+
+// ReportActivity reports the current activity to the agent, which may
+// forward it to Telegram or other activity sinks. The activity string
+// should be a short human-readable description of what the tool is
+// doing (e.g. "Running: go test ./..."). It is a no-op if no activity
+// reporter is set in the context.
+func ReportActivity(ctx context.Context, activity string) {
+	fn := getContextValue[func(string)](ctx, ActivityContextKey, nil)
+	if fn != nil {
+		fn(activity)
+	}
 }
 
 // NewPermissionDeniedResponse returns a tool response indicating the user

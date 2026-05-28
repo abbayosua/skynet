@@ -25,34 +25,35 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	agenttools "github.com/charmbracelet/crush/internal/agent/tools"
-	"github.com/charmbracelet/crush/internal/agent/tools/mcp"
-	"github.com/charmbracelet/crush/internal/app"
-	"github.com/charmbracelet/crush/internal/commands"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/fsext"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/home"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/skills"
-	"github.com/charmbracelet/crush/internal/ui/anim"
-	"github.com/charmbracelet/crush/internal/ui/attachments"
-	"github.com/charmbracelet/crush/internal/ui/chat"
-	"github.com/charmbracelet/crush/internal/ui/common"
-	"github.com/charmbracelet/crush/internal/ui/completions"
-	"github.com/charmbracelet/crush/internal/ui/dialog"
-	fimage "github.com/charmbracelet/crush/internal/ui/image"
-	"github.com/charmbracelet/crush/internal/ui/logo"
-	"github.com/charmbracelet/crush/internal/ui/notification"
-	"github.com/charmbracelet/crush/internal/ui/styles"
-	"github.com/charmbracelet/crush/internal/ui/util"
-	"github.com/charmbracelet/crush/internal/version"
-	"github.com/charmbracelet/crush/internal/workspace"
+	"github.com/code-yeongyu/skynet/internal/agent/hyper"
+	"github.com/code-yeongyu/skynet/internal/agent/notify"
+	agenttools "github.com/code-yeongyu/skynet/internal/agent/tools"
+	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
+	"github.com/code-yeongyu/skynet/internal/app"
+	"github.com/code-yeongyu/skynet/internal/commands"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/fsext"
+	"github.com/code-yeongyu/skynet/internal/history"
+	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/code-yeongyu/skynet/internal/skills"
+	"github.com/code-yeongyu/skynet/internal/telegram"
+	"github.com/code-yeongyu/skynet/internal/ui/anim"
+	"github.com/code-yeongyu/skynet/internal/ui/attachments"
+	"github.com/code-yeongyu/skynet/internal/ui/chat"
+	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/code-yeongyu/skynet/internal/ui/completions"
+	"github.com/code-yeongyu/skynet/internal/ui/dialog"
+	fimage "github.com/code-yeongyu/skynet/internal/ui/image"
+	"github.com/code-yeongyu/skynet/internal/ui/logo"
+	"github.com/code-yeongyu/skynet/internal/ui/notification"
+	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/code-yeongyu/skynet/internal/ui/util"
+	"github.com/code-yeongyu/skynet/internal/version"
+	"github.com/code-yeongyu/skynet/internal/workspace"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/ultraviolet/layout"
 	"github.com/charmbracelet/ultraviolet/screen"
@@ -556,6 +557,12 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sendMessageMsg:
 		cmds = append(cmds, m.sendMessage(msg.Content, msg.Attachments...))
 
+	case telegram.IncomingMessage:
+		if m.state == uiChat || m.state == uiLanding {
+			m.com.Workspace.PermissionSetSkipRequests(true)
+			cmds = append(cmds, m.sendMessage(msg.Text))
+		}
+
 	case userCommandsLoadedMsg:
 		m.customCommands = msg.Commands
 		dia := m.dialog.Dialog(dialog.CommandsID)
@@ -664,7 +671,7 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 		if cmd := m.sendNotification(notification.Notification{
-			Title:   "Crush is waiting...",
+			Title:   "SkyNet is waiting...",
 			Message: fmt.Sprintf("Permission required to execute \"%s\"", msg.Payload.ToolName),
 		}); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -882,7 +889,7 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case app.UpdateAvailableMsg:
 		text := fmt.Sprintf("Crush update available: v%s → v%s.", msg.CurrentVersion, msg.LatestVersion)
 		if msg.IsDevelopment {
-			text = fmt.Sprintf("This is a development version of Crush. The latest version is v%s.", msg.LatestVersion)
+			text = fmt.Sprintf("This is a development version of SkyNet. The latest version is v%s.", msg.LatestVersion)
 		}
 		ttl := 10 * time.Second
 		m.status.SetInfoMsg(util.InfoMsg{
@@ -1348,6 +1355,76 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		m.com.Workspace.PermissionSetSkipRequests(yolo)
 		m.setEditorPrompt(yolo)
 		m.dialog.CloseDialog(dialog.CommandsID)
+	case dialog.ActionToggleRalphLoop:
+		m.dialog.CloseDialog(dialog.CommandsID)
+		cmds = append(cmds, func() tea.Msg {
+			cfg := m.com.Config()
+			if cfg == nil {
+				return util.ReportError(errors.New("configuration not found"))()
+			}
+
+			isEnabled := cfg.Options != nil && cfg.Options.RalphLoop != nil && cfg.Options.RalphLoop.Enabled
+			newValue := !isEnabled
+			if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.ralph_loop.enabled", newValue); err != nil {
+				return util.ReportError(err)()
+			}
+
+			status := "disabled"
+			if newValue {
+				status = "enabled"
+			}
+			return util.NewInfoMsg("Ralph Loop " + status)
+		})
+	case dialog.ActionToggleTaskPlanner:
+		m.dialog.CloseDialog(dialog.CommandsID)
+		cmds = append(cmds, func() tea.Msg {
+			cfg := m.com.Config()
+			if cfg == nil {
+				return util.ReportError(errors.New("configuration not found"))()
+			}
+
+			isEnabled := cfg.Options != nil && cfg.Options.TaskPlanner != nil && cfg.Options.TaskPlanner.Enabled
+			newValue := !isEnabled
+			if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.task_planner.enabled", newValue); err != nil {
+				return util.ReportError(err)()
+			}
+
+			status := "disabled"
+			if newValue {
+				status = "enabled"
+			}
+			return util.NewInfoMsg("Task Planner " + status)
+		})
+	case dialog.ActionConnectTelegram:
+		m.dialog.CloseDialog(dialog.TelegramID)
+		cmds = append(cmds, func() tea.Msg {
+			if err := m.com.Workspace.TelegramBotStart(msg.Token); err != nil {
+				return util.ReportError(err)()
+			}
+			// Save bot info to DB in a goroutine so we don't block the UI.
+			go func() {
+				// Create a temporary bot to get the username.
+				// The actual running bot was started by TelegramBotStart.
+				tmpBot := telegram.NewBot(msg.Token)
+				if tmpBot.TestToken() {
+					username := tmpBot.Username()
+					if username != "" {
+						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						defer cancel()
+						if err := m.com.Workspace.SaveTelegramBot(ctx, username, msg.Token); err != nil {
+							slog.Warn("Failed to save telegram bot", "error", err)
+						}
+					}
+				}
+			}()
+			return util.NewInfoMsg("Telegram connected! Send /start to your bot.")
+		})
+	case dialog.ActionDisconnectTelegram:
+		m.dialog.CloseDialog(dialog.TelegramID)
+		cmds = append(cmds, func() tea.Msg {
+			m.com.Workspace.TelegramBotStop()
+			return util.NewInfoMsg("Telegram disconnected")
+		})
 	case dialog.ActionToggleNotifications:
 		cfg := m.com.Config()
 		if cfg != nil && cfg.Options != nil {
@@ -2200,7 +2277,7 @@ func (m *UI) Draw(scr uv.Screen, area uv.Rectangle) *tea.Cursor {
 	}
 
 	// Debugging rendering (visually see when the tui rerenders)
-	if os.Getenv("CRUSH_UI_DEBUG") == "true" {
+	if os.Getenv("SKYNET_UI_DEBUG") == "true" {
 		debugView := lipgloss.NewStyle().Background(lipgloss.ANSIColor(rand.Intn(256))).Width(4).Height(2)
 		debug := uv.NewStyledString(debugView.String())
 		debug.Draw(scr, image.Rectangle{
@@ -2246,7 +2323,7 @@ func (m *UI) View() tea.View {
 	}
 	v.MouseMode = tea.MouseModeCellMotion
 	v.ReportFocus = m.caps.ReportFocusEvents
-	v.WindowTitle = "crush " + home.Short(m.com.Workspace.WorkingDir())
+	v.WindowTitle = "skynet " + home.Short(m.com.Workspace.WorkingDir())
 
 	canvas := uv.NewScreenBuffer(m.width, m.height)
 	v.Cursor = m.Draw(canvas, canvas.Bounds())
@@ -3243,6 +3320,10 @@ func (m *UI) openDialog(id string) tea.Cmd {
 		if cmd := m.openQuitDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	case dialog.TelegramID:
+		if cmd := m.openTelegramDialog(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	default:
 		// Unknown dialog
 		break
@@ -3261,6 +3342,24 @@ func (m *UI) openQuitDialog() tea.Cmd {
 	quitDialog := dialog.NewQuit(m.com)
 	m.dialog.OpenDialog(quitDialog)
 	return nil
+}
+
+// openTelegramDialog opens the Telegram connect dialog.
+func (m *UI) openTelegramDialog() tea.Cmd {
+	if m.dialog.ContainsDialog(dialog.TelegramID) {
+		m.dialog.BringToFront(dialog.TelegramID)
+		return nil
+	}
+
+	savedBots, err := m.com.Workspace.ListTelegramBots(context.Background())
+	if err != nil {
+		slog.Warn("Failed to list saved telegram bots", "error", err)
+		savedBots = nil
+	}
+
+	dia, cmd := dialog.NewTelegramConnect(m.com, savedBots)
+	m.dialog.OpenDialog(dia)
+	return cmd
 }
 
 // openModelsDialog opens the models dialog.
@@ -3402,7 +3501,7 @@ func (m *UI) handleAgentNotification(n notify.Notification) tea.Cmd {
 	case notify.TypeAgentFinished:
 		var cmds []tea.Cmd
 		cmds = append(cmds, m.sendNotification(notification.Notification{
-			Title:   "Crush is waiting...",
+			Title:   "SkyNet is waiting...",
 			Message: fmt.Sprintf("Agent's turn completed in \"%s\"", n.SessionTitle),
 		}))
 		if m.com.IsHyper() {
@@ -3806,7 +3905,7 @@ func (m *UI) disableDockerMCP() tea.Msg {
 	return util.NewInfoMsg("Docker MCP disabled successfully")
 }
 
-// renderLogo renders the Crush logo with the given styles and dimensions.
+// renderLogo renders the SkyNet logo with the given styles and dimensions.
 func renderLogo(t *styles.Styles, compact, hyper bool, width int) string {
 	return logo.Render(t.Logo.GradCanvas, version.Version, compact, logo.Opts{
 		FieldColor:   t.Logo.FieldColor,
@@ -3818,3 +3917,5 @@ func renderLogo(t *styles.Styles, compact, hyper bool, width int) string {
 		Hyper:        hyper,
 	})
 }
+
+

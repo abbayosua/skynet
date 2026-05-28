@@ -67,6 +67,8 @@ func NewSourcegraphTool(client *http.Client) fantasy.AgentTool {
 				return fantasy.NewTextErrorResponse("Query parameter is required"), nil
 			}
 
+			ReportActivity(ctx, "Searching sourcegraph: "+params.Query)
+
 			if params.Count <= 0 {
 				params.Count = 10
 			} else if params.Count > 20 {
@@ -118,7 +120,7 @@ func NewSourcegraphTool(client *http.Client) fantasy.AgentTool {
 			}
 
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("User-Agent", "crush/1.0")
+			req.Header.Set("User-Agent", "skynet/1.0")
 
 			resp, err := client.Do(req)
 			if err != nil {

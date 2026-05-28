@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -9,19 +10,19 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/agent/tools/mcp"
-	"github.com/charmbracelet/crush/internal/client"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/log"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/proto"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/session"
+	"github.com/code-yeongyu/skynet/internal/agent/notify"
+	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
+	"github.com/code-yeongyu/skynet/internal/client"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/history"
+	"github.com/code-yeongyu/skynet/internal/log"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/proto"
+	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/code-yeongyu/skynet/internal/session"
 	"github.com/charmbracelet/x/powernap/pkg/lsp/protocol"
 )
 
@@ -561,6 +562,29 @@ func (w *ClientWorkspace) Subscribe(program *tea.Program) {
 
 func (w *ClientWorkspace) Shutdown() {
 	_ = w.client.DeleteWorkspace(context.Background(), w.workspaceID())
+}
+
+func (w *ClientWorkspace) TelegramBotStart(token string) error {
+	return errors.New("Telegram bot not supported in client mode")
+}
+
+func (w *ClientWorkspace) TelegramBotStop() {
+}
+
+func (w *ClientWorkspace) ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error) {
+	return nil, errors.New("Telegram bot not supported in client mode")
+}
+
+func (w *ClientWorkspace) GetTelegramBotToken(ctx context.Context, username string) (string, error) {
+	return "", errors.New("Telegram bot not supported in client mode")
+}
+
+func (w *ClientWorkspace) DeleteTelegramBot(ctx context.Context, username string) error {
+	return errors.New("Telegram bot not supported in client mode")
+}
+
+func (w *ClientWorkspace) SaveTelegramBot(ctx context.Context, username, token string) error {
+	return errors.New("Telegram bot not supported in client mode")
 }
 
 // translateEvent converts proto-typed SSE events into the domain types

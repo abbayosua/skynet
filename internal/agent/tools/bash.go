@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/fsext"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/shell"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/fsext"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/shell"
 )
 
 type BashParams struct {
@@ -198,6 +198,8 @@ func NewBashTool(permissions permission.Service, workingDir string, attribution 
 			if params.Command == "" {
 				return fantasy.NewTextErrorResponse("missing command"), nil
 			}
+
+			ReportActivity(ctx, "Running: "+params.Command)
 
 			// Determine working directory
 			execWorkingDir := cmp.Or(params.WorkingDir, workingDir)

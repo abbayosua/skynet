@@ -10,14 +10,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/catwalk/pkg/catwalk"
-	mcptools "github.com/charmbracelet/crush/internal/agent/tools/mcp"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/session"
+	mcptools "github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/history"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/session"
 )
 
 // LSPClientInfo holds information about an LSP client's state. This is
@@ -141,6 +141,21 @@ type Workspace interface {
 	// Events
 	Subscribe(program *tea.Program)
 	Shutdown()
+
+	// Telegram bot runtime management
+	TelegramBotStart(token string) error
+	TelegramBotStop()
+	ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error)
+	GetTelegramBotToken(ctx context.Context, username string) (string, error)
+	SaveTelegramBot(ctx context.Context, username, token string) error
+	DeleteTelegramBot(ctx context.Context, username string) error
+}
+
+// TelegramBotInfo holds saved bot info exposed to the UI.
+type TelegramBotInfo struct {
+	Username string `json:"username"`
+	IsActive bool   `json:"is_active"`
+	LastUsed int64  `json:"last_used"`
 }
 
 // MCPResourceContents holds the contents of an MCP resource.

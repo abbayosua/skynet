@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/csync"
-	"github.com/charmbracelet/crush/internal/fsext"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/csync"
+	"github.com/code-yeongyu/skynet/internal/fsext"
 )
 
 // regexCache provides thread-safe caching of compiled regex patterns
@@ -128,6 +128,8 @@ func NewGrepTool(workingDir string, config config.ToolGrep) fantasy.AgentTool {
 			if params.Pattern == "" {
 				return fantasy.NewTextErrorResponse("pattern is required"), nil
 			}
+
+			ReportActivity(ctx, "Searching: "+params.Pattern)
 
 			searchPattern := params.Pattern
 			if params.LiteralText {

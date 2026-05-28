@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/diff"
-	"github.com/charmbracelet/crush/internal/filepathext"
-	"github.com/charmbracelet/crush/internal/filetracker"
-	"github.com/charmbracelet/crush/internal/fsext"
-	"github.com/charmbracelet/crush/internal/history"
+	"github.com/code-yeongyu/skynet/internal/diff"
+	"github.com/code-yeongyu/skynet/internal/filepathext"
+	"github.com/code-yeongyu/skynet/internal/filetracker"
+	"github.com/code-yeongyu/skynet/internal/fsext"
+	"github.com/code-yeongyu/skynet/internal/history"
 
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/permission"
 )
 
 type EditParams struct {
@@ -73,6 +73,8 @@ func NewEditTool(
 			if params.FilePath == "" {
 				return fantasy.NewTextErrorResponse("file_path is required"), nil
 			}
+
+			ReportActivity(ctx, "Editing: "+params.FilePath)
 
 			params.FilePath = filepathext.SmartJoin(workingDir, params.FilePath)
 
