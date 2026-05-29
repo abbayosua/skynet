@@ -145,10 +145,6 @@ type Workspace interface {
 	// Telegram bot runtime management
 	TelegramBotStart(token string) error
 	TelegramBotStop()
-	ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error)
-	GetTelegramBotToken(ctx context.Context, username string) (string, error)
-	SaveTelegramBot(ctx context.Context, username, token string) error
-	DeleteTelegramBot(ctx context.Context, username string) error
 }
 
 // TelegramBotInfo holds saved bot info exposed to the UI.

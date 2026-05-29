@@ -531,6 +531,19 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 	// Clear activity when processing completes.
 	a.setCurrentActivity("")
 
+	// Publish final assistant content for Telegram activity mirror.
+	// This is a more reliable delivery path than the message pubsub
+	// (mirrorMessagesToTelegram) which can drop events under contention.
+	if currentAssistant != nil && err == nil && a.notify != nil {
+		content := currentAssistant.Content().String()
+		if content != "" {
+			a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
+				Type:     notify.TypeAgentResponded,
+				Activity: content,
+			})
+		}
+	}
+
 	a.eventPromptResponded(call.SessionID, time.Since(startTime).Truncate(time.Second))
 
 	if err != nil {

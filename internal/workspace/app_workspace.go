@@ -389,34 +389,6 @@ func (w *AppWorkspace) TelegramBotStop() {
 	w.app.StopTelegramBot()
 }
 
-func (w *AppWorkspace) ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error) {
-	appBots, err := w.app.ListTelegramBots(ctx)
-	if err != nil {
-		return nil, err
-	}
-	bots := make([]TelegramBotInfo, len(appBots))
-	for i, b := range appBots {
-		bots[i] = TelegramBotInfo{
-			Username: b.Username,
-			IsActive: b.IsActive,
-			LastUsed: b.LastUsed,
-		}
-	}
-	return bots, nil
-}
-
-func (w *AppWorkspace) GetTelegramBotToken(ctx context.Context, username string) (string, error) {
-	return w.app.GetTelegramBotToken(ctx, username)
-}
-
-func (w *AppWorkspace) DeleteTelegramBot(ctx context.Context, username string) error {
-	return w.app.DeleteTelegramBot(ctx, username)
-}
-
-func (w *AppWorkspace) SaveTelegramBot(ctx context.Context, username, token string) error {
-	return w.app.SaveTelegramBot(ctx, username, token)
-}
-
 // App returns the underlying app.App instance.
 func (w *AppWorkspace) App() *app.App {
 	return w.app

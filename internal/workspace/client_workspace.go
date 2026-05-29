@@ -571,22 +571,6 @@ func (w *ClientWorkspace) TelegramBotStart(token string) error {
 func (w *ClientWorkspace) TelegramBotStop() {
 }
 
-func (w *ClientWorkspace) ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error) {
-	return nil, errors.New("Telegram bot not supported in client mode")
-}
-
-func (w *ClientWorkspace) GetTelegramBotToken(ctx context.Context, username string) (string, error) {
-	return "", errors.New("Telegram bot not supported in client mode")
-}
-
-func (w *ClientWorkspace) DeleteTelegramBot(ctx context.Context, username string) error {
-	return errors.New("Telegram bot not supported in client mode")
-}
-
-func (w *ClientWorkspace) SaveTelegramBot(ctx context.Context, username, token string) error {
-	return errors.New("Telegram bot not supported in client mode")
-}
-
 // translateEvent converts proto-typed SSE events into the domain types
 // that the TUI's Update() method expects.
 func translateEvent(ev any) tea.Msg {

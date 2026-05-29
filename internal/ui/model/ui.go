@@ -1401,22 +1401,6 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			if err := m.com.Workspace.TelegramBotStart(msg.Token); err != nil {
 				return util.ReportError(err)()
 			}
-			// Save bot info to DB in a goroutine so we don't block the UI.
-			go func() {
-				// Create a temporary bot to get the username.
-				// The actual running bot was started by TelegramBotStart.
-				tmpBot := telegram.NewBot(msg.Token)
-				if tmpBot.TestToken() {
-					username := tmpBot.Username()
-					if username != "" {
-						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-						defer cancel()
-						if err := m.com.Workspace.SaveTelegramBot(ctx, username, msg.Token); err != nil {
-							slog.Warn("Failed to save telegram bot", "error", err)
-						}
-					}
-				}
-			}()
 			return util.NewInfoMsg("Telegram connected! Send /start to your bot.")
 		})
 	case dialog.ActionDisconnectTelegram:
@@ -3351,13 +3335,7 @@ func (m *UI) openTelegramDialog() tea.Cmd {
 		return nil
 	}
 
-	savedBots, err := m.com.Workspace.ListTelegramBots(context.Background())
-	if err != nil {
-		slog.Warn("Failed to list saved telegram bots", "error", err)
-		savedBots = nil
-	}
-
-	dia, cmd := dialog.NewTelegramConnect(m.com, savedBots)
+	dia, cmd := dialog.NewTelegramConnect(m.com)
 	m.dialog.OpenDialog(dia)
 	return cmd
 }

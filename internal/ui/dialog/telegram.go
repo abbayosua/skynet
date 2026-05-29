@@ -1,7 +1,6 @@
 package dialog
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/code-yeongyu/skynet/internal/telegram"
 	"github.com/code-yeongyu/skynet/internal/ui/common"
-	"github.com/code-yeongyu/skynet/internal/workspace"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 
@@ -22,8 +20,7 @@ const TelegramID = "telegram_connect"
 type TelegramConnectState int
 
 const (
-	TelegramStatePicker TelegramConnectState = iota
-	TelegramStateInput
+	TelegramStateInput TelegramConnectState = iota
 	TelegramStateVerifying
 	TelegramStateSuccess
 	TelegramStateError
@@ -37,53 +34,32 @@ type TelegramConnect struct {
 	height int
 
 	keyMap struct {
-		Up     key.Binding
-		Down   key.Binding
 		Submit key.Binding
 		Close  key.Binding
 	}
-
-	input    textinput.Model
-	spinner  spinner.Model
-	help     help.Model
-	err      string
-
-	savedBots []workspace.TelegramBotInfo
-	selected  int
+	input   textinput.Model
+	spinner spinner.Model
+	help    help.Model
+	err     string
 }
 
 var _ Dialog = (*TelegramConnect)(nil)
 
 // NewTelegramConnect creates a new Telegram connect dialog.
-func NewTelegramConnect(com *common.Common, savedBots []workspace.TelegramBotInfo) (*TelegramConnect, tea.Cmd) {
+func NewTelegramConnect(com *common.Common) (*TelegramConnect, tea.Cmd) {
 	t := com.Styles
 
 	m := &TelegramConnect{
-		com:       com,
-		width:     60,
-		savedBots: savedBots,
-		selected:  0,
+		com:   com,
+		width: 60,
 	}
 
 	m.input = textinput.New()
 	m.input.SetVirtualCursor(false)
 	m.input.Placeholder = "Enter your Telegram bot token..."
 	m.input.SetStyles(com.Styles.TextInput)
+	m.input.Focus()
 
-	// If no saved bots, go directly to input.
-	if len(savedBots) == 0 {
-		m.state = TelegramStateInput
-		m.input.Focus()
-	}
-
-	m.keyMap.Up = key.NewBinding(
-		key.WithKeys("up", "k"),
-		key.WithHelp("↑/k", "up"),
-	)
-	m.keyMap.Down = key.NewBinding(
-		key.WithKeys("down", "j"),
-		key.WithHelp("↓/j", "down"),
-	)
 	m.keyMap.Submit = key.NewBinding(
 		key.WithKeys("enter"),
 		key.WithHelp("enter", "connect"),
@@ -121,9 +97,7 @@ func (t *TelegramConnect) HandleMsg(msg tea.Msg) Action {
 			t.state = TelegramStateError
 			t.err = msg.err
 			t.input.SetValue("")
-			if t.savedBots == nil {
-				t.savedBots = []workspace.TelegramBotInfo{}
-			}
+			t.input.Focus()
 		} else {
 			t.state = TelegramStateSuccess
 			return ActionConnectTelegram{Token: msg.token}
@@ -132,60 +106,22 @@ func (t *TelegramConnect) HandleMsg(msg tea.Msg) Action {
 		switch {
 		case key.Matches(msg, t.keyMap.Close):
 			return ActionClose{}
-		case key.Matches(msg, t.keyMap.Up):
-			if t.state == TelegramStatePicker {
-				if t.selected > 0 {
-					t.selected--
-				}
-			}
-		case key.Matches(msg, t.keyMap.Down):
-			if t.state == TelegramStatePicker {
-				if t.selected < len(t.savedBots) {
-					t.selected++
-				}
-			}
 		case key.Matches(msg, t.keyMap.Submit):
-			switch t.state {
-			case TelegramStatePicker:
-				// If selected index is within saved bots, use saved bot.
-				if t.selected < len(t.savedBots) {
-					bot := t.savedBots[t.selected]
-					if bot.IsActive {
-						// Cannot select an active bot.
-						t.state = TelegramStateError
-						t.err = fmt.Sprintf("Bot @%s is already connected in another SkyNet instance", bot.Username)
-						return nil
-					}
-					t.state = TelegramStateVerifying
-					return ActionCmd{Cmd: func() tea.Msg {
-						token, err := t.com.Workspace.GetTelegramBotToken(context.Background(), bot.Username)
-						if err != nil {
-							return telegramVerifiedMsg{err: fmt.Sprintf("Failed to get bot token: %v", err)}
-						}
-						botCheck := telegram.NewBot(token)
-						if botCheck.TestToken() {
-							return telegramVerifiedMsg{token: token}
-						}
-						return telegramVerifiedMsg{err: "Bot token is no longer valid. Try reconnecting."}
-					}}
-				}
-				// "Connect new bot..." selected — switch to input.
-				t.state = TelegramStateInput
-				t.input.Focus()
-			case TelegramStateInput:
-				token := strings.TrimSpace(t.input.Value())
-				if token == "" {
-					break
-				}
-				t.state = TelegramStateVerifying
-				return ActionCmd{Cmd: func() tea.Msg {
-					bot := telegram.NewBot(token)
-					if bot.TestToken() {
-						return telegramVerifiedMsg{token: token}
-					}
-					return telegramVerifiedMsg{err: "Invalid token or network error"}
-				}}
+			if t.state != TelegramStateInput {
+				break
 			}
+			token := strings.TrimSpace(t.input.Value())
+			if token == "" {
+				break
+			}
+			t.state = TelegramStateVerifying
+			return ActionCmd{Cmd: func() tea.Msg {
+				bot := telegram.NewBot(token)
+				if bot.TestToken() {
+					return telegramVerifiedMsg{token: token}
+				}
+				return telegramVerifiedMsg{err: "Invalid token or network error"}
+			}}
 		default:
 			if t.state == TelegramStateInput {
 				var cmd tea.Cmd
@@ -212,28 +148,6 @@ func (t *TelegramConnect) Draw(scr uv.Screen, area uv.Rectangle) *tea.Cursor {
 	rc := NewRenderContext(t.com.Styles, t.width)
 
 	switch t.state {
-	case TelegramStatePicker:
-		rc.Title = "Select a saved bot"
-		rc.AddPart(t.com.Styles.Dialog.NormalItem.Render("Select a saved bot or connect a new one:"))
-		for i, bot := range t.savedBots {
-			label := fmt.Sprintf("@%s", bot.Username)
-			if bot.IsActive {
-				label += " (active in another instance)"
-				rc.AddPart(t.com.Styles.Dialog.ListItem.InfoBlurred.Render(label))
-			} else if i == t.selected {
-				rc.AddPart(t.com.Styles.Dialog.ListItem.InfoFocused.Render(label))
-			} else {
-				rc.AddPart(t.com.Styles.Dialog.ListItem.InfoBlurred.Render(label))
-			}
-		}
-		// Always show "Connect new bot..." option.
-		newBotLabel := "Connect new bot..."
-		if t.selected == len(t.savedBots) {
-			rc.AddPart(t.com.Styles.Dialog.ListItem.InfoFocused.Render(newBotLabel))
-		} else {
-			rc.AddPart(t.com.Styles.Dialog.ListItem.InfoBlurred.Render(newBotLabel))
-		}
-		rc.Help = t.help.View(t)
 	case TelegramStateInput:
 		rc.Title = "Connect Telegram"
 		inputView := t.com.Styles.Dialog.InputPrompt.Render(t.input.View())
@@ -259,14 +173,6 @@ func (t *TelegramConnect) Draw(scr uv.Screen, area uv.Rectangle) *tea.Cursor {
 
 // ShortHelp implements [help.KeyMap].
 func (t *TelegramConnect) ShortHelp() []key.Binding {
-	if t.state == TelegramStatePicker {
-		return []key.Binding{
-			t.keyMap.Up,
-			t.keyMap.Down,
-			t.keyMap.Submit,
-			t.keyMap.Close,
-		}
-	}
 	return []key.Binding{
 		t.keyMap.Submit,
 		t.keyMap.Close,

@@ -53,7 +53,6 @@ type UpdateAvailableMsg struct {
 }
 
 type App struct {
-	q           *db.Queries
 	Sessions    session.Service
 	Messages    message.Service
 	History     history.Service
@@ -94,7 +93,6 @@ func New(ctx context.Context, conn *sql.DB, store *config.ConfigStore) (*App, er
 	}
 
 	app := &App{
-		q:           q,
 		Sessions:    sessions,
 		Messages:    messages,
 		History:     files,
@@ -225,21 +223,37 @@ func (app *App) mirrorActivityToTelegram(ctx context.Context, bot *telegram.Bot)
 				return
 			}
 			n := evt.Payload
-			if n.Type != notify.TypeActivityUpdate {
-				continue
-			}
-			if n.Activity == "" || n.Activity == lastActivity {
-				continue
-			}
-			// Rate limit: at most one activity per 3 seconds.
-			if time.Since(lastSentAt) < 3*time.Second {
-				continue
-			}
-			lastActivity = n.Activity
-			lastSentAt = time.Now()
-			msg := "🤖 " + n.Activity
-			if err := bot.SendMessage(msg); err != nil {
-				slog.Warn("Telegram: failed to send activity update", "error", err)
+			switch n.Type {
+			case notify.TypeActivityUpdate:
+				if n.Activity == "" || n.Activity == lastActivity {
+					continue
+				}
+				// Rate limit: at most one activity per 3 seconds.
+				if time.Since(lastSentAt) < 3*time.Second {
+					continue
+				}
+				lastActivity = n.Activity
+				lastSentAt = time.Now()
+				msg := "🤖 " + n.Activity
+				if err := bot.SendMessage(msg); err != nil {
+					slog.Warn("Telegram: failed to send activity update", "error", err)
+				}
+
+			case notify.TypeAgentResponded:
+				// Send the final assistant response to Telegram.
+				// This is a more reliable delivery path than the
+				// message pubsub (mirrorMessagesToTelegram) which
+				// can drop events under channel contention.
+				if n.Activity == "" {
+					continue
+				}
+				lastActivity = n.Activity
+				full := "🤖 " + n.Activity
+				if err := bot.SendMessage(full); err != nil {
+					slog.Warn("Telegram: failed to send final response", "error", err)
+				} else {
+					slog.Debug("Telegram: sent final response from activity mirror", "len", len(n.Activity))
+				}
 			}
 		}
 	}
@@ -273,34 +287,6 @@ func (app *App) StartTelegramBot(token string) error {
 		bot.Start(app.globalCtx)
 	}()
 
-	// Start heartbeat goroutine to update last_heartbeat_at.
-	// This allows other instances to detect that this bot is in use.
-	app.serviceEventsWG.Add(1)
-	go func() {
-		defer app.serviceEventsWG.Done()
-		// Wait for the bot to connect and get its username.
-		time.Sleep(2 * time.Second)
-		username := bot.Username()
-		if username == "" {
-			return
-		}
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-app.globalCtx.Done():
-				return
-			case <-ticker.C:
-				now := time.Now().Unix()
-				_ = app.q.UpdateTelegramBotHeartbeat(app.globalCtx, db.UpdateTelegramBotHeartbeatParams{
-					LastHeartbeatAt: now,
-					InstanceID:      "",
-					BotUsername:     username,
-				})
-			}
-		}
-	}()
-
 	// Start mirror goroutine (TUI→Telegram).
 	go app.mirrorMessagesToTelegram(app.globalCtx, bot)
 
@@ -331,112 +317,13 @@ func (app *App) StartTelegramBot(token string) error {
 // StopTelegramBot stops the running Telegram bot.
 func (app *App) StopTelegramBot() {
 	if app.TelegramBot != nil {
-		// Clear heartbeat so the bot won't appear as "active"
-		// when the user restarts and reconnects.
-		username := app.TelegramBot.Username()
-		if username != "" {
-			_ = app.q.UpdateTelegramBotHeartbeat(context.Background(), db.UpdateTelegramBotHeartbeatParams{
-				LastHeartbeatAt: 0,
-				InstanceID:      "",
-				BotUsername:     username,
-			})
-		}
 		app.TelegramBot.Stop()
 		app.TelegramBot = nil
 	}
 	slog.Info("Telegram bot stopped")
 }
 
-// TelegramBotInfo holds saved bot info.
-type TelegramBotInfo struct {
-	Username string
-	IsActive bool
-	LastUsed int64
-}
 
-// ListTelegramBots returns all saved Telegram bots, sorted by last use.
-func (app *App) ListTelegramBots(ctx context.Context) ([]TelegramBotInfo, error) {
-	bots, err := app.q.ListTelegramBots(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if this instance has a bot currently running.
-	botRunning := app.TelegramBot != nil && app.TelegramBot.Connected()
-	currentUsername := ""
-	if botRunning {
-		currentUsername = app.TelegramBot.Username()
-	}
-
-	now := time.Now().Unix()
-	infos := make([]TelegramBotInfo, 0, len(bots))
-	for _, b := range bots {
-		heartbeatFresh := b.LastHeartbeatAt > 0 && (now-b.LastHeartbeatAt) < 90
-		if !heartbeatFresh {
-			infos = append(infos, TelegramBotInfo{
-				Username: b.BotUsername,
-				IsActive: false,
-				LastUsed: b.LastUsedAt,
-			})
-			continue
-		}
-
-		// Heartbeat is fresh. Determine if it's truly active elsewhere.
-		isActive := true
-
-		// 1. If WE are running this bot right now, it's not "active elsewhere".
-		if botRunning && b.BotUsername == currentUsername {
-			isActive = false
-		}
-
-		// 2. If no bot is running in this instance and heartbeat is older
-		//    than the heartbeat interval (30s), the remote instance likely
-		//    crashed or exited without clearing. Treat as inactive.
-		if !botRunning && (now-b.LastHeartbeatAt) > 30 {
-			isActive = false
-		}
-
-		infos = append(infos, TelegramBotInfo{
-			Username: b.BotUsername,
-			IsActive: isActive,
-			LastUsed: b.LastUsedAt,
-		})
-	}
-	return infos, nil
-}
-
-// SaveTelegramBot persists bot info after a successful connection.
-func (app *App) SaveTelegramBot(ctx context.Context, username, token string) error {
-	return app.SaveTelegramBotFull(ctx, username, token, "", 0)
-}
-
-// SaveTelegramBotFull persists bot info with full details.
-func (app *App) SaveTelegramBotFull(ctx context.Context, username, token, instanceID string, chatID int64) error {
-	now := time.Now().Unix()
-	return app.q.SaveTelegramBot(ctx, db.SaveTelegramBotParams{
-		BotUsername:     username,
-		Token:           token,
-		InstanceID:      instanceID,
-		ChatID:          chatID,
-		LastHeartbeatAt: now,
-		LastUsedAt:      now,
-		CreatedAt:       now,
-	})
-}
-
-// GetTelegramBotToken returns the stored token for a saved bot.
-func (app *App) GetTelegramBotToken(ctx context.Context, username string) (string, error) {
-	bot, err := app.q.GetTelegramBotByUsername(ctx, username)
-	if err != nil {
-		return "", err
-	}
-	return bot.Token, nil
-}
-
-// DeleteTelegramBot removes a saved bot from the database.
-func (app *App) DeleteTelegramBot(ctx context.Context, username string) error {
-	return app.q.DeleteTelegramBot(ctx, username)
-}
 
 // resolveSession resolves which session to use for a non-interactive run
 // If continueSessionID is set, it looks up that session by ID

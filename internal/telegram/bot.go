@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -319,13 +318,13 @@ func (b *Bot) getUpdates(ctx context.Context) ([]Update, error) {
 }
 
 func (b *Bot) sendMessagePart(chatID int64, text string) error {
-	// Escape Telegram MarkdownV2 special characters so the message
-	// can be sent with parse_mode=MarkdownV2 without triggering API errors.
-	safe := sanitizeMarkdownV2(text)
+	// Strip common markdown syntax and pipe tables so the message
+	// is clean readable text when sent with parse_mode disabled.
+	safe := stripMarkdown(text)
 	payload := map[string]interface{}{
 		"chat_id":    chatID,
 		"text":       safe,
-		"parse_mode": "MarkdownV2",
+		"parse_mode": "",
 	}
 
 	body, err := json.Marshal(payload)
@@ -389,11 +388,10 @@ func splitMessage(text string, maxLen int) []string {
 	return parts
 }
 
-// sanitizeMarkdownV2 prepares text for Telegram's MarkdownV2 parse mode.
-// It strips pipe tables (Telegram doesn't support them) and escapes
-// only the special characters that would cause parse errors without
-// breaking valid markdown (bold, italic, code, links).
-func sanitizeMarkdownV2(text string) string {
+// stripMarkdown removes common markdown formatting and pipe tables
+// from text, leaving clean plain text suitable for Telegram with
+// parse_mode disabled.
+func stripMarkdown(text string) string {
 	lines := strings.Split(text, "\n")
 	var out []string
 	inCodeBlock := false
@@ -401,13 +399,18 @@ func sanitizeMarkdownV2(text string) string {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// Track code blocks — leave them entirely untouched.
+		// Track code blocks — keep content but remove the markers.
 		if strings.HasPrefix(trimmed, "```") {
 			inCodeBlock = !inCodeBlock
-			out = append(out, line)
+			if !inCodeBlock {
+				// End of code block — skip the ``` line.
+				continue
+			}
+			// Skip the opening ``` line.
 			continue
 		}
 
+		// Inside code block — keep content as-is.
 		if inCodeBlock {
 			out = append(out, line)
 			continue
@@ -428,10 +431,10 @@ func sanitizeMarkdownV2(text string) string {
 			line = strings.Join(parts, " — ")
 		}
 
-		// Escape problematic characters that Telegram's MarkdownV2
-		// parser chokes on when they appear outside valid markdown.
-		// We use a safe approach: escape only what's necessary.
-		line = escapeMarkdownV2Safe(line)
+		// Clean up common markdown formatting.
+		line = strings.ReplaceAll(line, "**", "")
+		line = strings.ReplaceAll(line, "__", "")
+		line = strings.ReplaceAll(line, "```", "")
 
 		out = append(out, line)
 	}
@@ -455,84 +458,4 @@ func isTableSeparator(line string) bool {
 // isTableRow returns true if the line starts and ends with | (a table row).
 func isTableRow(line string) bool {
 	return strings.HasPrefix(line, "|") && strings.HasSuffix(line, "|")
-}
-
-// escapeMarkdownV2Safe escapes characters that would cause Telegram's
-// MarkdownV2 parser to error, while preserving common markdown patterns.
-//
-// Characters that are special in MarkdownV2:
-//   _ * [ ] ( ) ~ ` > # + - = | { } . !
-//
-// We escape only when the character is NOT part of a valid markdown
-// construct by using a placeholder-then-restore strategy.
-func escapeMarkdownV2Safe(s string) string {
-	type segment struct {
-		text string
-		raw  bool // true = leave untouched (already valid markdown)
-	}
-
-	var segs []segment
-	pos := 0
-
-	// Match valid markdown constructs — we'll keep these raw.
-	// Order matters: longer patterns first.
-	re := regexp.MustCompile(
-		`(` + "`" + `[^` + "`" + `]+` + "`" + `)|` + // inline code `code`
-			`(\*\*[^*]+\*\*)|` + // bold **text**
-			`(\*[^*]+\*)|` + // italic *text*
-			`(__[^_]+__)|` + // bold __text__
-			`(_[^_]+_)|` + // italic _text_
-			`(!?\[[^\]]*\]\([^)]*\))|` + // links [text](url) or images ![alt](url)
-			`(>+)`, // blockquote markers
-	)
-
-	matches := re.FindAllStringSubmatchIndex(s, -1)
-	for _, m := range matches {
-		start, end := m[0], m[1]
-
-		// Text before this match — needs escaping.
-		if pos < start {
-			segs = append(segs, segment{text: s[pos:start], raw: false})
-		}
-
-		// The matched markdown — keep raw.
-		segs = append(segs, segment{text: s[start:end], raw: true})
-		pos = end
-	}
-
-	// Remaining text after last match.
-	if pos < len(s) {
-		segs = append(segs, segment{text: s[pos:], raw: false})
-	}
-
-	// Build result: escape non-raw segments.
-	var buf strings.Builder
-	for _, seg := range segs {
-		if seg.raw {
-			buf.WriteString(seg.text)
-		} else {
-			buf.WriteString(escapeChars(seg.text))
-		}
-	}
-
-	return buf.String()
-}
-
-// escapeChars escapes Telegram MarkdownV2 special characters.
-func escapeChars(s string) string {
-	// Characters that must be escaped in MarkdownV2:
-	// _ * [ ] ( ) ~ ` > # + - = | { } . !
-	var b strings.Builder
-	b.Grow(len(s) * 2)
-	for _, r := range s {
-		switch r {
-		case '\\', '_', '*', '[', ']', '(', ')', '~',
-			'`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!':
-			b.WriteRune('\\')
-			b.WriteRune(r)
-		default:
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }

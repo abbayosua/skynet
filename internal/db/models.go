@@ -37,16 +37,6 @@ type ReadFile struct {
 	ReadAt    int64  `json:"read_at"`
 }
 
-type TelegramBot struct {
-	BotUsername      string `json:"bot_username"`
-	Token            string `json:"token"`
-	InstanceID       string `json:"instance_id"`
-	ChatID           int64  `json:"chat_id"`
-	LastHeartbeatAt  int64  `json:"last_heartbeat_at"`
-	LastUsedAt       int64  `json:"last_used_at"`
-	CreatedAt        int64  `json:"created_at"`
-}
-
 type Session struct {
 	ID               string         `json:"id"`
 	ParentSessionID  sql.NullString `json:"parent_session_id"`

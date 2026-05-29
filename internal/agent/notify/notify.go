@@ -15,6 +15,10 @@ const (
 	// TypeActivityUpdate indicates the agent started a new activity
 	// (tool execution, thinking, etc.) during processing.
 	TypeActivityUpdate Type = "activity_update"
+	// TypeAgentResponded carries the final assistant message content
+	// after the agent finishes processing. Used by Telegram mirror
+	// as a reliable delivery path for the final response.
+	TypeAgentResponded Type = "agent_responded"
 )
 
 // Notification represents a domain event published by the agent.
