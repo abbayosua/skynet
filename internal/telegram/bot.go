@@ -80,7 +80,7 @@ func NewBot(token string) *Bot {
 	return &Bot{
 		token:    token,
 		client:   &http.Client{Timeout: 15 * time.Second},
-		longPollClient: &http.Client{Timeout: pollTimeout + 30*time.Second},
+		longPollClient: &http.Client{Timeout: 90 * time.Second},
 		baseURL:  apiBase,
 		incoming: make(chan string, 100),
 		done:     make(chan struct{}),

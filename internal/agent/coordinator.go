@@ -15,27 +15,28 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/agent/hyper"
-	"github.com/charmbracelet/crush/internal/agent/notify"
-	"github.com/charmbracelet/crush/internal/agent/prompt"
-	"github.com/charmbracelet/crush/internal/agent/tools"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/event"
-	"github.com/charmbracelet/crush/internal/filetracker"
-	"github.com/charmbracelet/crush/internal/history"
-	"github.com/charmbracelet/crush/internal/home"
-	"github.com/charmbracelet/crush/internal/hooks"
-	"github.com/charmbracelet/crush/internal/log"
-	"github.com/charmbracelet/crush/internal/lsp"
-	"github.com/charmbracelet/crush/internal/message"
-	"github.com/charmbracelet/crush/internal/oauth/copilot"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/pubsub"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/skills"
+	"github.com/code-yeongyu/skynet/internal/agent/hyper"
+	"github.com/code-yeongyu/skynet/internal/agent/notify"
+	promptpkg "github.com/code-yeongyu/skynet/internal/agent/prompt"
+	"github.com/code-yeongyu/skynet/internal/agent/tools"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/event"
+	"github.com/code-yeongyu/skynet/internal/filetracker"
+	"github.com/code-yeongyu/skynet/internal/history"
+	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/code-yeongyu/skynet/internal/hooks"
+	"github.com/code-yeongyu/skynet/internal/log"
+	"github.com/code-yeongyu/skynet/internal/lsp"
+	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/code-yeongyu/skynet/internal/oauth/copilot"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/code-yeongyu/skynet/internal/skills"
 	"golang.org/x/sync/errgroup"
 
 	"charm.land/fantasy/providers/anthropic"
@@ -144,7 +145,7 @@ func NewCoordinator(
 	}
 
 	// TODO: make this dynamic when we support multiple agents
-	prompt, err := coderPrompt(prompt.WithWorkingDir(c.cfg.WorkingDir()))
+	prompt, err := coderPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir()))
 	if err != nil {
 		return nil, err
 	}
@@ -199,10 +200,35 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 		slog.Error("Failed to refresh OAuth2 token. Proceeding with existing token.", "error", err)
 	}
 
+	// Detect /ralph-loop trigger prefix. When set, enables Ralph Loop for
+	// this run regardless of config. The prefix is stripped from the prompt.
+	// ALSO check the current config for Ralph Loop enabled state (not cached).
+	enableRalphLoop := false
+	cleanPrompt := prompt
+	cfg := c.cfg.Config()
+	if cfg != nil && cfg.Options != nil && cfg.Options.RalphLoop != nil && cfg.Options.RalphLoop.Enabled {
+		enableRalphLoop = true
+	}
+
+	// Rebuild system prompt with current config so Task Planner toggle
+	// (and other dynamic options) take effect immediately.
+	if cfg != nil && c.currentAgent != nil {
+		if p, err := coderPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir())); err == nil {
+			if systemPrompt, err := p.Build(ctx, model.Model.Provider(), model.Model.Model(), c.cfg); err == nil {
+				c.currentAgent.SetSystemPrompt(systemPrompt)
+			}
+		}
+	}
+
+	if strings.HasPrefix(strings.TrimSpace(prompt), "/ralph-loop") {
+		enableRalphLoop = true
+		cleanPrompt = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(prompt), "/ralph-loop"))
+	}
+
 	run := func() (*fantasy.AgentResult, error) {
 		return c.currentAgent.Run(ctx, SessionAgentCall{
 			SessionID:        sessionID,
-			Prompt:           prompt,
+			Prompt:           cleanPrompt,
 			Attachments:      attachments,
 			MaxOutputTokens:  maxTokens,
 			ProviderOptions:  mergedOptions,
@@ -211,6 +237,7 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 			TopK:             topK,
 			FrequencyPenalty: freqPenalty,
 			PresencePenalty:  presPenalty,
+			EnableRalphLoop:  enableRalphLoop,
 		})
 	}
 	beforeLoaded := c.skillTracker.LoadedNames()
@@ -415,7 +442,7 @@ func mergeCallOptions(model Model, cfg config.ProviderConfig) (fantasy.ProviderO
 	return modelOptions, temp, topP, topK, freqPenalty, presPenalty
 }
 
-func (c *coordinator) buildAgent(ctx context.Context, prompt *prompt.Prompt, agent config.Agent, isSubAgent bool) (SessionAgent, error) {
+func (c *coordinator) buildAgent(ctx context.Context, prompt *promptpkg.Prompt, agent config.Agent, isSubAgent bool) (SessionAgent, error) {
 	large, small, err := c.buildAgentModels(ctx, isSubAgent)
 	if err != nil {
 		return nil, err
@@ -434,6 +461,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *prompt.Prompt, age
 		Messages:             c.messages,
 		Tools:                nil,
 		Notify:               c.notify,
+		RalphLoop:            c.cfg.Config().Options.RalphLoop,
 	})
 
 	c.readyWg.Go(func() error {
@@ -483,12 +511,36 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 		}
 	}
 
-	logFile := filepath.Join(c.cfg.Config().Options.DataDirectory, "logs", "crush.log")
+	logFile := filepath.Join(c.cfg.Config().Options.DataDirectory, "logs", "skynet.log")
 
 	// Build hook runner if PreToolUse hooks are configured.
 	var hookRunner *hooks.Runner
 	if preToolHooks := c.cfg.Config().Hooks[hooks.EventPreToolUse]; len(preToolHooks) > 0 {
 		hookRunner = hooks.NewRunner(preToolHooks, c.cfg.WorkingDir(), c.cfg.WorkingDir())
+	}
+
+	// Initialize background agent manager once and reuse across builds.
+	// This ensures spawned agents survive tool rebuilds (e.g. MCP updates).
+	if backgroundAgentManager == nil {
+		backgroundAgentManager = tools.NewBackgroundAgentManager(
+			c.runBackgroundTask,
+			tools.WithMaxConcurrentAgents(maxConcurrentAgents),
+			tools.WithDefaultAgentTimeout(10*time.Minute),
+			tools.WithOnComplete(func(agentID, sessionID, summary string) {
+				// Enqueue a prompt to the main agent so it processes
+				// the background task result on its next turn.
+				c.currentAgent.EnqueuePrompt(sessionID,
+					fmt.Sprintf("A background task has completed.\n\n"+
+						"Agent: `%s`\nSummary: %s\n\n"+
+						"Review the result and take appropriate action.",
+						agentID, summary))
+			}),
+		)
+	}
+
+	// Initialize team orchestrator once and reuse across builds.
+	if teamOrchestrator == nil {
+		teamOrchestrator = tools.NewTeamOrchestrator(c.runBackgroundTask, maxConcurrentAgents)
 	}
 
 	allTools = append(allTools,
@@ -499,11 +551,19 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 		tools.NewJobKillTool(),
 		tools.NewDownloadTool(c.permissions, c.cfg.WorkingDir(), nil),
 		tools.NewEditTool(c.lspManager, c.permissions, c.history, c.filetracker, c.cfg.WorkingDir()),
+		tools.NewHashlineEditTool(c.lspManager, c.permissions, c.history, c.filetracker, c.cfg.WorkingDir()),
 		tools.NewMultiEditTool(c.lspManager, c.permissions, c.history, c.filetracker, c.cfg.WorkingDir()),
 		tools.NewFetchTool(c.permissions, c.cfg.WorkingDir(), nil),
 		tools.NewGlobTool(c.cfg.WorkingDir()),
 		tools.NewGrepTool(c.cfg.WorkingDir(), c.cfg.Config().Tools.Grep),
 		tools.NewLsTool(c.permissions, c.cfg.WorkingDir(), c.cfg.Config().Tools.Ls),
+		tools.NewASTGrepSearchTool(c.cfg.WorkingDir()),
+		tools.NewASTGrepReplaceTool(c.cfg.WorkingDir(), c.permissions),
+		tools.NewPlannerTool(c.cfg.WorkingDir()),
+		tools.NewTeamTool(c.cfg.WorkingDir(), teamOrchestrator),
+		tools.NewSpawnAgentTool(c.cfg.WorkingDir(), backgroundAgentManager),
+		tools.NewAgentStatusTool(),
+		tools.NewCollectAgentTool(),
 		tools.NewSourcegraphTool(nil),
 		tools.NewTodosTool(c.sessions),
 		tools.NewViewTool(c.lspManager, c.permissions, c.filetracker, c.skillTracker, c.cfg.WorkingDir(), c.cfg.Config().Options.SkillsPaths...),
@@ -888,7 +948,7 @@ func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model con
 		switch providerCfg.ID {
 		case hyper.Name:
 			baseURL = hyper.BaseURL() + "/v1"
-			headers["x-crush-id"] = event.GetID()
+			headers["x-skynet-id"] = event.GetID()
 		case string(catwalk.InferenceProviderZAI):
 			if providerCfg.ExtraBody == nil {
 				providerCfg.ExtraBody = map[string]any{}
@@ -1111,6 +1171,77 @@ func (c *coordinator) runSubAgent(ctx context.Context, params subAgentParams) (f
 	return fantasy.NewTextResponse(result.Response.Content.Text()), nil
 }
 
+// runBackgroundTask runs an agent task in isolation, without a parent session.
+// Used by the BackgroundAgentManager for async background agent execution.
+// It creates a standalone session, builds a task agent, executes the prompt,
+// and returns the text result. The caller is responsible for timeout/cancellation
+// via the supplied context.
+func (c *coordinator) runBackgroundTask(ctx context.Context, userPrompt string) (string, error) {
+	agentCfg, ok := c.cfg.Config().Agents[config.AgentTask]
+	if !ok {
+		return "", errors.New("task agent not configured")
+	}
+
+	p, err := taskPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir()))
+	if err != nil {
+		return "", err
+	}
+
+	agent, err := c.buildAgent(ctx, p, agentCfg, true)
+	if err != nil {
+		return "", err
+	}
+
+	// Create a standalone session for this background task.
+	sess, err := c.sessions.Create(ctx, "Background Task")
+	if err != nil {
+		return "", fmt.Errorf("create session: %w", err)
+	}
+
+	// Auto-approve permissions for background tasks.
+	c.permissions.AutoApproveSession(sess.ID)
+
+	model := agent.Model()
+	maxTokens := model.CatwalkCfg.DefaultMaxTokens
+	if model.ModelCfg.MaxTokens != 0 {
+		maxTokens = model.ModelCfg.MaxTokens
+	}
+
+	providerCfg, ok := c.cfg.Config().Providers.Get(model.ModelCfg.Provider)
+	if !ok {
+		return "", errors.New("model provider not configured")
+	}
+
+	result, err := agent.Run(ctx, SessionAgentCall{
+		SessionID:        sess.ID,
+		Prompt:           userPrompt,
+		MaxOutputTokens:  maxTokens,
+		ProviderOptions:  getProviderOptions(model, providerCfg),
+		Temperature:      model.ModelCfg.Temperature,
+		TopP:             model.ModelCfg.TopP,
+		TopK:             model.ModelCfg.TopK,
+		FrequencyPenalty: model.ModelCfg.FrequencyPenalty,
+		PresencePenalty:  model.ModelCfg.PresencePenalty,
+		NonInteractive:   true,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return result.Response.Content.Text(), nil
+}
+
+// backgroundAgentManager is the shared background agent manager used by all tools.
+// It is initialized once in buildTools and reused across spawn calls.
+var backgroundAgentManager *tools.BackgroundAgentManager
+
+// teamOrchestrator is the shared team orchestrator used by the team tool.
+// It is initialized once in buildTools and reused across rebuilds.
+var teamOrchestrator *tools.TeamOrchestrator
+
+// maxConcurrentAgents controls how many background/team tasks can run simultaneously.
+const maxConcurrentAgents = 5
+
 // updateParentSessionCost accumulates the cost from a child session to its parent session.
 func (c *coordinator) updateParentSessionCost(ctx context.Context, childSessionID, parentSessionID string) error {
 	childSession, err := c.sessions.Get(ctx, childSessionID)
@@ -1272,3 +1403,4 @@ func logDiscoveryStats(
 		"active_names", activeNames,
 	)
 }
+

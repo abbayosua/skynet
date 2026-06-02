@@ -17,7 +17,7 @@ type NativeBackend struct {
 
 // NewNativeBackend creates a new native notification backend.
 func NewNativeBackend(icon any) *NativeBackend {
-	beeep.AppName = "Crush"
+	beeep.AppName = "SkyNet"
 	return &NativeBackend{
 		icon:       icon,
 		notifyFunc: beeep.Notify,
@@ -47,3 +47,4 @@ func (b *NativeBackend) SetNotifyFunc(fn func(title, message string, icon any) e
 func (b *NativeBackend) ResetNotifyFunc() {
 	b.notifyFunc = beeep.Notify
 }
+

@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/charlievieth/fastwalk"
-	"github.com/charmbracelet/crush/internal/csync"
-	"github.com/charmbracelet/crush/internal/home"
+	"github.com/code-yeongyu/skynet/internal/csync"
+	"github.com/code-yeongyu/skynet/internal/home"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
@@ -34,7 +34,8 @@ var fastIgnoreDirs = map[string]bool{
 	".Trash":          true,
 	".Spotlight-V100": true,
 	".fseventsd":      true,
-	".crush":          true,
+	".crush":          true,  // backward compatibility
+	".skynet":         true,
 	"OrbStack":        true,
 	".local":          true,
 	".share":          true,
@@ -108,10 +109,14 @@ var gitGlobalIgnorePatterns = sync.OnceValue(func() []gitignore.Pattern {
 	return parsePatterns(strings.Split(string(bts), "\n"), nil)
 })
 
-// crushGlobalIgnorePatterns returns patterns from the user's
-// ~/.config/crush/ignore file.
-var crushGlobalIgnorePatterns = sync.OnceValue(func() []gitignore.Pattern {
-	name := filepath.Join(home.Config(), "crush", "ignore")
+// skynetGlobalIgnorePatterns returns patterns from the user's
+// ~/.config/skynet/ignore file (also checks ~/.config/crush/ignore for backward compat).
+var skynetGlobalIgnorePatterns = sync.OnceValue(func() []gitignore.Pattern {
+	name := filepath.Join(home.Config(), "skynet", "ignore")
+	if _, err := os.Stat(name); os.IsNotExist(err) {
+		// Fall back to crush ignore file for backward compatibility.
+		name = filepath.Join(home.Config(), "crush", "ignore")
+	}
 	bts, err := os.ReadFile(name)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -199,7 +204,7 @@ func (dl *directoryLister) getCombinedMatcher(dir string) gitignore.Matcher {
 
 		// Add global ignore patterns (git core.excludesFile + crush global ignore).
 		allPatterns = append(allPatterns, gitGlobalIgnorePatterns()...)
-		allPatterns = append(allPatterns, crushGlobalIgnorePatterns()...)
+		allPatterns = append(allPatterns, skynetGlobalIgnorePatterns()...)
 
 		// Collect patterns from root to this directory.
 		relDir, _ := filepath.Rel(dl.rootPath, dir)
@@ -314,3 +319,5 @@ func ListDirectory(initialPath string, ignorePatterns []string, depth, limit int
 	matches, truncated := truncate(slices.Collect(found.Seq()), limit)
 	return matches, truncated || errors.Is(err, filepath.SkipAll), nil
 }
+
+

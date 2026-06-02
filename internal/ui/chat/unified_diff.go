@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/crush/internal/diffdetect"
-	"github.com/charmbracelet/crush/internal/ui/common"
-	"github.com/charmbracelet/crush/internal/ui/styles"
+	"github.com/code-yeongyu/skynet/internal/diffdetect"
+	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/code-yeongyu/skynet/internal/ui/styles"
 )
 
 type parsedDiffFile struct {

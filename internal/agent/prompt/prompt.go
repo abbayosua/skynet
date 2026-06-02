@@ -12,11 +12,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/filepathext"
-	"github.com/charmbracelet/crush/internal/home"
-	"github.com/charmbracelet/crush/internal/shell"
-	"github.com/charmbracelet/crush/internal/skills"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/filepathext"
+	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/code-yeongyu/skynet/internal/skills"
 )
 
 // Prompt represents a template-based prompt generator.
@@ -38,7 +38,8 @@ type PromptDat struct {
 	Date          string
 	GitStatus     string
 	ContextFiles  []ContextFile
-	AvailSkillXML string
+	AvailSkillXML      string
+	TaskPlannerEnabled bool
 }
 
 type ContextFile struct {
@@ -208,6 +209,7 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 		Platform:      platform,
 		Date:          p.now().Format("1/2/2006"),
 		AvailSkillXML: availSkillXML,
+		TaskPlannerEnabled: cfg.Options != nil && cfg.Options.TaskPlanner != nil && cfg.Options.TaskPlanner.Enabled,
 	}
 	if isGit {
 		var err error

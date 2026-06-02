@@ -6,11 +6,11 @@ import (
 
 	"charm.land/glamour/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
-	"github.com/charmbracelet/crush/internal/ui/styles"
-	"github.com/charmbracelet/crush/internal/ui/xchroma"
+	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/code-yeongyu/skynet/internal/ui/xchroma"
 )
 
-const formatterName = "crush"
+const formatterName = "skynet"
 
 func init() {
 	// NOTE: Glamour does not offer us an option to pass the formatter
@@ -137,3 +137,4 @@ func LockMarkdownRenderer(r *glamour.TermRenderer) *sync.Mutex {
 	rendererLocks[r] = mu
 	return mu
 }
+

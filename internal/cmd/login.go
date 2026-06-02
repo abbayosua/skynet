@@ -9,11 +9,11 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/atotto/clipboard"
-	"github.com/charmbracelet/crush/internal/client"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/oauth/copilot"
-	"github.com/charmbracelet/crush/internal/oauth/hyper"
+	"github.com/code-yeongyu/skynet/internal/client"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/code-yeongyu/skynet/internal/oauth/copilot"
+	"github.com/code-yeongyu/skynet/internal/oauth/hyper"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
@@ -22,7 +22,7 @@ import (
 var loginCmd = &cobra.Command{
 	Aliases: []string{"auth"},
 	Use:     "login [platform]",
-	Short:   "Login Crush to a platform",
+	Short:   "Login SkyNet to a platform",
 	Long: `Login Crush to a specified platform.
 The platform should be provided as an argument.
 Available platforms are: hyper, copilot.`,

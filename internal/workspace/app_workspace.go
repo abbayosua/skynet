@@ -389,6 +389,10 @@ func (w *AppWorkspace) TelegramBotStop() {
 	w.app.StopTelegramBot()
 }
 
+func (w *AppWorkspace) SendTelegramMessage(ctx context.Context, text string) error {
+	return w.app.SendTelegramMessage(ctx, text)
+}
+
 // App returns the underlying app.App instance.
 func (w *AppWorkspace) App() *app.App {
 	return w.app

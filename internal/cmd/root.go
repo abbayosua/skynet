@@ -24,20 +24,20 @@ import (
 	fang "charm.land/fang/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
-	"github.com/charmbracelet/crush/internal/app"
-	"github.com/charmbracelet/crush/internal/client"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/db"
-	"github.com/charmbracelet/crush/internal/event"
-	crushlog "github.com/charmbracelet/crush/internal/log"
-	"github.com/charmbracelet/crush/internal/projects"
-	"github.com/charmbracelet/crush/internal/proto"
-	"github.com/charmbracelet/crush/internal/server"
-	"github.com/charmbracelet/crush/internal/session"
-	"github.com/charmbracelet/crush/internal/ui/common"
-	ui "github.com/charmbracelet/crush/internal/ui/model"
-	"github.com/charmbracelet/crush/internal/version"
-	"github.com/charmbracelet/crush/internal/workspace"
+	"github.com/code-yeongyu/skynet/internal/app"
+	"github.com/code-yeongyu/skynet/internal/client"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/db"
+	"github.com/code-yeongyu/skynet/internal/event"
+	crushlog "github.com/code-yeongyu/skynet/internal/log"
+	"github.com/code-yeongyu/skynet/internal/projects"
+	"github.com/code-yeongyu/skynet/internal/proto"
+	"github.com/code-yeongyu/skynet/internal/server"
+	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/code-yeongyu/skynet/internal/ui/common"
+	ui "github.com/code-yeongyu/skynet/internal/ui/model"
+	"github.com/code-yeongyu/skynet/internal/version"
+	"github.com/code-yeongyu/skynet/internal/workspace"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
@@ -50,11 +50,12 @@ var clientHost string
 
 func init() {
 	rootCmd.PersistentFlags().StringP("cwd", "c", "", "Current working directory")
-	rootCmd.PersistentFlags().StringP("data-dir", "D", "", "Custom crush data directory")
+	rootCmd.PersistentFlags().StringP("data-dir", "D", "", 		"Custom skynet data directory")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Debug")
 	rootCmd.PersistentFlags().StringVarP(&clientHost, "host", "H", server.DefaultHost(), "Connect to a specific crush server host (for advanced users)")
 	rootCmd.Flags().BoolP("help", "h", false, "Help")
 	rootCmd.Flags().BoolP("yolo", "y", false, "Automatically accept all permissions (dangerous mode)")
+	rootCmd.Flags().StringP("telegram", "t", "", "Telegram bot token for chat mirroring")
 	rootCmd.Flags().StringP("session", "s", "", "Continue a previous session by ID")
 	rootCmd.Flags().BoolP("continue", "C", false, "Continue the most recent session")
 	rootCmd.MarkFlagsMutuallyExclusive("session", "continue")
@@ -74,33 +75,36 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "crush",
+	Use:   "skynet",
 	Short: "A terminal-first AI assistant for software development",
 	Long:  "A glamorous, terminal-first AI assistant for software development and adjacent tasks",
 	Example: `
 # Run in interactive mode
-crush
+skynet
 
 # Run non-interactively
-crush run "Guess my 5 favorite Pokémon"
+skynet run "Guess my 5 favorite Pokémon"
 
 # Run a non-interactively with pipes and redirection
-cat README.md | crush run "make this more glamorous" > GLAMOROUS_README.md
+cat README.md | skynet run "make this more glamorous" > GLAMOROUS_README.md
 
 # Run with debug logging in a specific directory
-crush --debug --cwd /path/to/project
+skynet --debug --cwd /path/to/project
 
 # Run in yolo mode (auto-accept all permissions; use with care)
-crush --yolo
+skynet --yolo
 
 # Run with custom data directory
-crush --data-dir /path/to/custom/.crush
+skynet --data-dir /path/to/custom/
 
 # Continue a previous session
-crush --session {session-id}
+skynet --session {session-id}
 
 # Continue the most recent session
-crush --continue
+skynet --continue
+
+# Run with Telegram bot mirroring
+skynet --yolo --telegram {bot-token}
   `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sessionID, _ := cmd.Flags().GetString("session")
@@ -111,6 +115,13 @@ crush --continue
 			return err
 		}
 		defer cleanup()
+
+		// Start Telegram bot if token provided via --telegram flag.
+		if token, _ := cmd.Flags().GetString("telegram"); token != "" {
+			if err := ws.TelegramBotStart(token); err != nil {
+				slog.Warn("Failed to start Telegram bot", "error", err)
+			}
+		}
 
 		if sessionID != "" {
 			sess, err := resolveWorkspaceSessionID(cmd.Context(), ws, sessionID)
@@ -137,7 +148,7 @@ crush --continue
 		if _, err := program.Run(); err != nil {
 			event.Error(err)
 			slog.Error("TUI run error", "error", err)
-			return errors.New("Crush crashed. If metrics are enabled, we were notified about it. If you'd like to report it, please copy the stacktrace above and open an issue at https://github.com/charmbracelet/crush/issues/new?template=bug.yml") //nolint:staticcheck
+			return errors.New("SkyNet crashed. If metrics are enabled, we were notified about it. If you'd like to report it, please copy the stacktrace above and open an issue at https://github.com/code-yeongyu/skynet/issues/new?template=bug.yml") //nolint:staticcheck
 		}
 		return nil
 	},
@@ -208,9 +219,14 @@ func supportsProgressBar() bool {
 }
 
 // useClientServer returns true when the client/server architecture is
-// enabled via the CRUSH_CLIENT_SERVER environment variable.
+// enabled via the SKYNET_CLIENT_SERVER environment variable (or CRUSH_CLIENT_SERVER
+// for backward compatibility).
 func useClientServer() bool {
-	v, _ := strconv.ParseBool(os.Getenv("CRUSH_CLIENT_SERVER"))
+	env := os.Getenv("SKYNET_CLIENT_SERVER")
+	if env == "" {
+		env = os.Getenv("CRUSH_CLIENT_SERVER")
+	}
+	v, _ := strconv.ParseBool(env)
 	return v
 }
 
@@ -283,7 +299,7 @@ func setupLocalWorkspace(cmd *cobra.Command) (workspace.Workspace, func(), error
 		return nil, nil, err
 	}
 
-	logFile := filepath.Join(cfg.Options.DataDirectory, "logs", "crush.log")
+	logFile := filepath.Join(cfg.Options.DataDirectory, "logs", "skynet.log")
 	crushlog.Setup(logFile, debug)
 
 	appInstance, err := app.New(ctx, conn, store)
@@ -367,7 +383,7 @@ func connectToServer(cmd *cobra.Command) (*client.Client, *proto.Workspace, func
 	}
 
 	if ws.Config != nil {
-		logFile := filepath.Join(ws.Config.Options.DataDirectory, "logs", "crush.log")
+		logFile := filepath.Join(ws.Config.Options.DataDirectory, "logs", "skynet.log")
 		crushlog.Setup(logFile, debug)
 	}
 
@@ -490,10 +506,13 @@ func safeHostName(hostURL *url.URL) string {
 }
 
 // serverReadyTimeout returns the total budget for the readiness probe.
-// Overridable via CRUSH_SERVER_READY_TIMEOUT (parsed as a Go duration).
+// Overridable via SKYNET_SERVER_READY_TIMEOUT (or CRUSH_SERVER_READY_TIMEOUT for backward compat).
 func serverReadyTimeout() time.Duration {
 	const def = 10 * time.Second
-	v := os.Getenv("CRUSH_SERVER_READY_TIMEOUT")
+	v := os.Getenv("SKYNET_SERVER_READY_TIMEOUT")
+	if v == "" {
+		v = os.Getenv("CRUSH_SERVER_READY_TIMEOUT")
+	}
 	if v == "" {
 		return def
 	}
@@ -694,7 +713,11 @@ func startDetachedServer(cmd *cobra.Command, hostURL *url.URL) error {
 }
 
 func shouldEnableMetrics(cfg *config.Config) bool {
-	if v, _ := strconv.ParseBool(os.Getenv("CRUSH_DISABLE_METRICS")); v {
+	metricsEnv := os.Getenv("SKYNET_DISABLE_METRICS")
+	if metricsEnv == "" {
+		metricsEnv = os.Getenv("CRUSH_DISABLE_METRICS")
+	}
+	if v, _ := strconv.ParseBool(metricsEnv); v {
 		return false
 	}
 	if v, _ := strconv.ParseBool(os.Getenv("DO_NOT_TRACK")); v {
@@ -796,3 +819,4 @@ var oldGitIgnore string
 
 //go:embed gitignore/default
 var defaultGitIgnore string
+

@@ -323,7 +323,13 @@ func (app *App) StopTelegramBot() {
 	slog.Info("Telegram bot stopped")
 }
 
-
+// SendTelegramMessage sends a text message to the connected Telegram chat.
+func (app *App) SendTelegramMessage(ctx context.Context, text string) error {
+	if app.TelegramBot == nil {
+		return fmt.Errorf("no telegram bot connected")
+	}
+	return app.TelegramBot.SendMessage(text)
+}
 
 // resolveSession resolves which session to use for a non-interactive run
 // If continueSessionID is set, it looks up that session by ID

@@ -34,17 +34,19 @@ const (
 	ShellTypePowerShell
 )
 
-// CrushEnvMarkers returns a fresh slice of the environment variables that
-// Crush unconditionally sets on every shell it spawns — both the interactive
+// SkyNetEnvMarkers returns a fresh slice of the environment variables that
+// SkyNet unconditionally sets on every shell it spawns - both the interactive
 // bash tool's [Shell] and the hook runner's [Run] calls. Tools that want to
 // detect "am I being invoked by an AI agent?" can check any of these.
 // Keeping them in one place guarantees the two shell surfaces cannot drift.
-// A fresh slice is returned on every call so callers may append freely.
-func CrushEnvMarkers() []string {
+func SkyNetEnvMarkers() []string {
 	return []string{
-		"CRUSH=1",
-		"AGENT=crush",
-		"AI_AGENT=crush",
+		"CRUSH=1",         // backward compatibility
+		"AGENT=crush",     // backward compatibility
+		"AI_AGENT=crush",  // backward compatibility
+		"SKYNET=1",
+		"AGENT=skynet",
+		"AI_AGENT=skynet",
 	}
 }
 
@@ -94,8 +96,8 @@ func NewShell(opts *Options) *Shell {
 		env = os.Environ()
 	}
 
-	// Allow tools to detect execution by Crush.
-	env = append(env, CrushEnvMarkers()...)
+	// Allow tools to detect execution by SkyNet.
+	env = append(env, SkyNetEnvMarkers()...)
 
 	logger := opts.Logger
 	if logger == nil {
@@ -305,3 +307,4 @@ func ExitCode(err error) int {
 	}
 	return 1
 }
+

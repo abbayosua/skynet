@@ -9,11 +9,11 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/crush/internal/commands"
-	"github.com/charmbracelet/crush/internal/config"
-	"github.com/charmbracelet/crush/internal/ui/common"
-	"github.com/charmbracelet/crush/internal/ui/list"
-	"github.com/charmbracelet/crush/internal/ui/styles"
+	"github.com/code-yeongyu/skynet/internal/commands"
+	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/code-yeongyu/skynet/internal/ui/list"
+	"github.com/code-yeongyu/skynet/internal/ui/styles"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 
@@ -509,6 +509,25 @@ func (c *Commands) defaultCommands() []*CommandItem {
 		notificationLabel = "Enable Notifications"
 	}
 	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_notifications", notificationLabel, "", ActionToggleNotifications{}))
+
+	// Add Ralph Loop toggle.
+	ralphLoopLabel := "Disable Ralph Loop"
+	isRalphLoopEnabled := cfg != nil && cfg.Options != nil && cfg.Options.RalphLoop != nil && cfg.Options.RalphLoop.Enabled
+	if !isRalphLoopEnabled {
+		ralphLoopLabel = "Enable Ralph Loop"
+	}
+	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_ralph_loop", ralphLoopLabel, "", ActionToggleRalphLoop{}))
+
+	// Add Task Planner toggle.
+	taskPlannerLabel := "Disable Task Planner"
+	isTaskPlannerEnabled := cfg != nil && cfg.Options != nil && cfg.Options.TaskPlanner != nil && cfg.Options.TaskPlanner.Enabled
+	if !isTaskPlannerEnabled {
+		taskPlannerLabel = "Enable Task Planner"
+	}
+	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_task_planner", taskPlannerLabel, "", ActionToggleTaskPlanner{}))
+
+	// Add Telegram connect. Always show since it's in-memory per instance.
+	commands = append(commands, NewCommandItem(c.com.Styles, "connect_telegram", "Connect Telegram", "", ActionOpenDialog{TelegramID}))
 
 	commands = append(commands,
 		NewCommandItem(c.com.Styles, "toggle_yolo", "Toggle Yolo Mode", "", ActionToggleYoloMode{}),

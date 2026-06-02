@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	githubApiUrl = "https://api.github.com/repos/charmbracelet/crush/releases/latest"
-	userAgent    = "crush/1.0"
+	githubApiUrl = "https://api.github.com/repos/code-yeongyu/skynet/releases/latest"
+	userAgent    = "skynet/1.0"
 )
 
 // Default is the default [Client].
@@ -116,3 +116,4 @@ func (c *github) Latest(ctx context.Context) (*Release, error) {
 
 	return &release, nil
 }
+

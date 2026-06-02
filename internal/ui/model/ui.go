@@ -560,7 +560,77 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case telegram.IncomingMessage:
 		if m.state == uiChat || m.state == uiLanding {
 			m.com.Workspace.PermissionSetSkipRequests(true)
-			cmds = append(cmds, m.sendMessage(msg.Text))
+
+			text := strings.TrimSpace(msg.Text)
+			switch {
+			case text == "/new":
+				// Create a new session and confirm via Telegram.
+				if m.isAgentBusy() {
+					cmds = append(cmds, func() tea.Msg {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "Agent is busy, please wait...")
+						return nil
+					})
+					break
+				}
+				if cmd := m.newSession(); cmd != nil {
+					cmds = append(cmds, cmd)
+				}
+				cmds = append(cmds, func() tea.Msg {
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), "✅ New session created. Send a message to start.")
+					return nil
+				})
+
+			case text == "/summarize":
+				// Summarize the current session.
+				if m.isAgentBusy() {
+					cmds = append(cmds, func() tea.Msg {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "Agent is busy, please wait...")
+						return nil
+					})
+					break
+				}
+				sessionID := m.session.ID
+				if sessionID == "" {
+					cmds = append(cmds, func() tea.Msg {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "No active session to summarize.")
+						return nil
+					})
+					break
+				}
+				cmds = append(cmds, func() tea.Msg {
+					err := m.com.Workspace.AgentSummarize(context.Background(), sessionID)
+					if err != nil {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "❌ Failed to summarize: "+err.Error())
+						return util.ReportError(err)()
+					}
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), "✅ Session summarized successfully.")
+					return nil
+				})
+
+			case text == "/ralph":
+				cmds = append(cmds, func() tea.Msg {
+					cfg := m.com.Config()
+					if cfg == nil {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "❌ Configuration not found.")
+						return nil
+					}
+					isEnabled := cfg.Options != nil && cfg.Options.RalphLoop != nil && cfg.Options.RalphLoop.Enabled
+					newValue := !isEnabled
+					if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.ralph_loop.enabled", newValue); err != nil {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "❌ Failed to toggle Ralph Loop: "+err.Error())
+						return nil
+					}
+					status := "disabled"
+					if newValue {
+						status = "enabled"
+					}
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), "🔄 Ralph Loop "+status)
+					return nil
+				})
+
+			default:
+				cmds = append(cmds, m.sendMessage(text))
+			}
 		}
 
 	case userCommandsLoadedMsg:

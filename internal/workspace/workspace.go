@@ -145,6 +145,7 @@ type Workspace interface {
 	// Telegram bot runtime management
 	TelegramBotStart(token string) error
 	TelegramBotStop()
+	SendTelegramMessage(ctx context.Context, text string) error
 }
 
 // TelegramBotInfo holds saved bot info exposed to the UI.

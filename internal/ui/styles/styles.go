@@ -13,7 +13,7 @@ import (
 	"charm.land/glamour/v2/ansi"
 	"charm.land/lipgloss/v2"
 	"github.com/alecthomas/chroma/v2"
-	"github.com/charmbracelet/crush/internal/ui/diffview"
+	"github.com/code-yeongyu/skynet/internal/ui/diffview"
 )
 
 const (
@@ -144,8 +144,8 @@ type Styles struct {
 		SmallCharm         lipgloss.Style // "Charm™" label in SmallRender
 		SmallDiagonals     lipgloss.Style // Diagonal line fill in SmallRender
 		GradCanvas         lipgloss.Style // Blank canvas for gradient painting
-		SmallGradFromColor color.Color    // Small "Crush" wordmark gradient start
-		SmallGradToColor   color.Color    // Small "Crush" wordmark gradient end
+		SmallGradFromColor color.Color    // Small "SkyNet" wordmark gradient start
+		SmallGradToColor   color.Color    // Small "SkyNet" wordmark gradient end
 	}
 
 	// Working indicator gradient (spinners/shimmers on assistant "thinking",
@@ -613,3 +613,4 @@ func chromaStyle(style ansi.StylePrimitive) string {
 
 	return s.String()
 }
+

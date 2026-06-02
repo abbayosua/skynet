@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/charmbracelet/crush/internal/filetracker"
-	"github.com/charmbracelet/crush/internal/permission"
-	"github.com/charmbracelet/crush/internal/pubsub"
+	"github.com/code-yeongyu/skynet/internal/filetracker"
+	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/code-yeongyu/skynet/internal/pubsub"
 	"github.com/stretchr/testify/require"
 )
 
@@ -125,7 +125,8 @@ func TestViewToolAllowsSmallSectionsOfLargeFiles(t *testing.T) {
 	})
 
 	require.False(t, resp.IsError)
-	require.Contains(t, resp.Content, "     2|target line")
+	require.Contains(t, resp.Content, "target line")
+	require.Contains(t, resp.Content, "     2#")
 	require.NotContains(t, resp.Content, "File is too large")
 
 	var meta ViewResponseMetadata

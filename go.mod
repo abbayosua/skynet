@@ -1,4 +1,4 @@
-module github.com/charmbracelet/crush
+module github.com/code-yeongyu/skynet
 
 go 1.26.3
 

@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/charmbracelet/crush/internal/csync"
-	"github.com/charmbracelet/crush/internal/oauth"
-	"github.com/charmbracelet/crush/internal/oauth/copilot"
+	"github.com/code-yeongyu/skynet/internal/csync"
+	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/code-yeongyu/skynet/internal/oauth/copilot"
 	"github.com/invopop/jsonschema"
 )
 
 const (
-	appName              = "crush"
-	defaultDataDirectory = ".crush"
+	appName              = "skynet"
+	defaultDataDirectory = ".skynet"
 	defaultInitializeAs  = "AGENTS.md"
 )
 
@@ -39,6 +39,12 @@ var defaultContextPaths = []string{
 	"Crush.local.md",
 	"CRUSH.md",
 	"CRUSH.local.md",
+	"skynet.md",
+	"skynet.local.md",
+	"SkyNet.md",
+	"SkyNet.local.md",
+	"SKYNET.md",
+	"SKYNET.local.md",
 	"AGENTS.md",
 	"agents.md",
 	"Agents.md",
@@ -281,6 +287,73 @@ type Options struct {
 	Progress                  *bool        `json:"progress,omitempty" jsonschema:"description=Show indeterminate progress updates during long operations,default=true"`
 	DisableNotifications      bool         `json:"disable_notifications,omitempty" jsonschema:"description=Disable desktop notifications,default=false"`
 	DisabledSkills            []string     `json:"disabled_skills,omitempty" jsonschema:"description=List of skill names to disable and hide from the agent,example=crush-config"`
+	RalphLoop                 *RalphLoop         `json:"ralph_loop,omitempty" jsonschema:"description=Auto-continuation loop settings"`
+	Telegram                  *Telegram          `json:"telegram,omitempty" jsonschema:"description=Telegram mirror bot settings"`
+	TeamMode                  *TeamMode          `json:"team_mode,omitempty" jsonschema:"description=Team mode for multi-agent coordination"`
+	TaskPlanner               *TaskPlanner       `json:"task_planner,omitempty" jsonschema:"description=Task planner with todo enforcement"`
+	BackgroundAgent           *BackgroundAgent   `json:"background_agent,omitempty" jsonschema:"description=Background agent execution settings"`
+	TokenEfficiency           *TokenEfficiency   `json:"token_efficiency,omitempty" jsonschema:"description=Token efficiency and caching settings"`
+}
+
+type RalphLoop struct {
+	Enabled       bool `json:"enabled,omitempty" jsonschema:"description=Enable automatic task continuation until completion,default=true"`
+	MaxIterations int  `json:"max_iterations,omitempty" jsonschema:"description=Maximum number of auto-continuation iterations,default=100"`
+}
+
+type Telegram struct {
+	Enabled  bool   `json:"enabled,omitempty" jsonschema:"description=Enable Telegram mirror"`
+	BotToken string `json:"bot_token,omitempty" jsonschema:"description=Telegram bot token"`
+}
+
+type TeamMode struct {
+	Enabled            bool `json:"enabled,omitempty" jsonschema:"description=Enable team mode for multi-agent coordination,default=true"`
+	MaxParallelMembers int  `json:"max_parallel_members,omitempty" jsonschema:"description=Maximum number of team members running in parallel,default=4"`
+}
+
+type TaskPlanner struct {
+	Enabled bool `json:"enabled,omitempty" jsonschema:"description=Enable task planner with todo enforcement,default=false"`
+}
+
+// BackgroundAgent controls the async background agent execution settings.
+type BackgroundAgent struct {
+	Enabled           bool `json:"enabled,omitempty" jsonschema:"description=Enable background agent execution,default=true"`
+	MaxConcurrent     int  `json:"max_concurrent,omitempty" jsonschema:"description=Maximum number of concurrently running background agents,default=5"`
+	DefaultTimeoutSec int  `json:"default_timeout_seconds,omitempty" jsonschema:"description=Default timeout in seconds for each background agent,default=600"`
+}
+
+// TokenEfficiency controls automatic token optimization features.
+// All features are enabled by default to minimize LLM token usage.
+type TokenEfficiency struct {
+	// CompressThreshold is the conversation token count at which automatic
+	// compression kicks in. Older messages are summarized into a single
+	// compressed message. Default: 100000.
+	CompressThreshold int `json:"compress_threshold,omitempty" jsonschema:"description=Token count threshold for automatic context compression,default=100000"`
+
+	// CacheEnabled controls whether deterministic tool outputs are cached.
+	// Only read-only tools (glob, grep, ls, view, diagnostics) are cached.
+	// Default: true.
+	CacheEnabled bool `json:"cache_enabled,omitempty" jsonschema:"description=Enable caching of deterministic tool outputs,default=true"`
+
+	// CacheMaxEntries is the maximum number of entries in the tool output cache.
+	// Default: 100.
+	CacheMaxEntries int `json:"cache_max_entries,omitempty" jsonschema:"description=Maximum number of cached tool outputs,default=100"`
+
+	// CacheTTLSeconds is how long a cached tool output remains valid.
+	// Default: 60.
+	CacheTTLSeconds int `json:"cache_ttl_seconds,omitempty" jsonschema:"description=Time-to-live in seconds for cached tool outputs,default=60"`
+
+	// TruncateOutputs controls whether large tool outputs are automatically
+	// truncated with a summary. Default: true.
+	TruncateOutputs bool `json:"truncate_outputs,omitempty" jsonschema:"description=Enable smart truncation of large tool outputs,default=true"`
+
+	// MaxOutputLength is the maximum characters for a tool output before truncation.
+	// Default: 10000.
+	MaxOutputLength int `json:"max_output_length,omitempty" jsonschema:"description=Maximum characters per tool output before truncation,default=10000"`
+
+	// BudgetPerTurn is the target maximum tokens for a single agent turn.
+	// When approaching this budget, the system automatically compresses context.
+	// Default: 100000.
+	BudgetPerTurn int `json:"budget_per_turn,omitempty" jsonschema:"description=Target maximum tokens per agent turn,default=100000"`
 }
 
 type MCPs map[string]MCPConfig
@@ -661,13 +734,18 @@ const maxRecentModelsPerType = 5
 func allToolNames() []string {
 	return []string{
 		"agent",
+		"agent_status",
+		"ast_grep_search",
+		"ast_grep_replace",
 		"bash",
-		"crush_info",
-		"crush_logs",
+		"collect_agent",
+		"skynet_info",
+		"skynet_logs",
 		"job_output",
 		"job_kill",
 		"download",
 		"edit",
+		"hashline_edit",
 		"multiedit",
 		"lsp_diagnostics",
 		"lsp_references",
@@ -677,7 +755,10 @@ func allToolNames() []string {
 		"glob",
 		"grep",
 		"ls",
+		"planner",
+		"spawn_agent",
 		"sourcegraph",
+		"team",
 		"todos",
 		"view",
 		"write",
