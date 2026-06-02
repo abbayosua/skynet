@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# RTK hook for Crush
+# RTK hook for Skynet
 # This hook rewrites bash commands to use rtk for token savings.
 #
 # https://github.com/rtk-ai/rtk

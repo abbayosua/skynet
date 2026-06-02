@@ -15,7 +15,7 @@ import (
 var dirsCmd = &cobra.Command{
 	Use:   "dirs",
 	Short: "Show config and data directories",
-	Long: `Show where Crush stores its configuration and data,
+	Long: `Show where Skynet stores its configuration and data,
 including any project-level config files discovered
 from the current directory up to the project root.`,
 	Example: `

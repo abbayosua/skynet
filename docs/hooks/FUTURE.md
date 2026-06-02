@@ -24,7 +24,7 @@ puts there is concatenated into what the model sees. That's fine for short notes
 - Large files can push the turn past the context window.
 
 `context_files` is the lazy alternative: the hook returns **paths**, not
-contents. Crush tells the agent the files exist and are relevant, and the agent
+contents. Skynet tells the agent the files exist and are relevant, and the agent
 decides whether to open them with its existing `view` tool.
 
 ### Proposed shape
@@ -44,7 +44,7 @@ a debug log (don't fail the hook over a missing file).
 
 ### How the agent sees it
 
-Crush appends a short note to the turn's context along the lines of:
+Skynet appends a short note to the turn's context along the lines of:
 
 ```
 ## Referenced files
@@ -156,7 +156,7 @@ unaffected.
 
 ### Motivation
 
-Today Crush supports exactly one hook event, `PreToolUse`. That's enough to gate
+Today Skynet supports exactly one hook event, `PreToolUse`. That's enough to gate
 and rewrite tool calls but nothing else. The next-most-useful event is
 `UserPromptSubmit`: fires after the user hits Enter but before the turn hits the
 LLM. Lets hooks inject context, rewrite prompts, or gate on content without the

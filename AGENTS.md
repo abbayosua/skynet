@@ -1,8 +1,8 @@
-# Crush Development Guide
+# Skynet Development Guide
 
 ## Project Overview
 
-Crush is a terminal-based AI coding assistant built in Go by
+Skynet is a terminal-based AI coding assistant built in Go by
 [Charm](https://charm.land). It connects to LLMs and gives them tools to read,
 write, and execute code. It supports multiple providers (Anthropic, OpenAI,
 Gemini, Bedrock, Copilot, Hyper, MiniMax, Vercel, and more), integrates with
@@ -33,7 +33,7 @@ internal/
   hooks/                           Hook engine: runs user shell commands on hook events
     hooks.go                       Decision types, aggregation logic, event constants
     runner.go                      Parallel hook execution, timeout, dedup
-    input.go                       Stdin payload builder, env vars, stdout parsing (Crush + Claude Code compat)
+    input.go                       Stdin payload builder, env vars, stdout parsing (Skynet + Claude Code compat)
   session/session.go               Session CRUD backed by SQLite
   message/                         Message model and content types
   db/                              SQLite via sqlc, with migrations
@@ -68,7 +68,7 @@ internal/
   `.md` description file in `internal/agent/tools/`.
 - **System prompts are Go templates**: `internal/agent/templates/*.md.tpl`
   with runtime data injected.
-- **Context files**: Crush reads AGENTS.md, CRUSH.md, CLAUDE.md, GEMINI.md
+- **Context files**: Skynet reads AGENTS.md, CRUSH.md, CLAUDE.md, GEMINI.md
   (and `.local` variants) from the working directory for project-specific
   instructions.
 - **Persistence**: SQLite + sqlc. All queries live in `internal/db/sql/`,

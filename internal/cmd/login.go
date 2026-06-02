@@ -23,7 +23,7 @@ var loginCmd = &cobra.Command{
 	Aliases: []string{"auth"},
 	Use:     "login [platform]",
 	Short:   "Login SkyNet to a platform",
-	Long: `Login Crush to a specified platform.
+	Long: `Login Skynet to a specified platform.
 The platform should be provided as an argument.
 Available platforms are: hyper, copilot.`,
 	Example: `

@@ -22,7 +22,7 @@
         },
         "generated_with": {
           "type": "boolean",
-          "description": "Add Generated with Crush line to commit messages and issues and PRs",
+          "description": "Add Generated with Skynet line to commit messages and issues and PRs",
           "default": true
         }
       },

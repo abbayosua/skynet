@@ -221,7 +221,7 @@ Skynet:
 
 Is there a provider you’d like to see in Skynet? Is there an existing model that needs an update?
 
-Crush’s default model listing is managed in [Catwalk](https://github.com/charmbracelet/catwalk), a community-supported, open source repository of Skynet-compatible models, and you’re welcome to contribute.
+Skynet's default model listing is managed in [Catwalk](https://github.com/charmbracelet/catwalk), a community-supported, open source repository of Skynet-compatible models, and you're welcome to contribute.
 
 <a href="https://github.com/charmbracelet/catwalk"><img width="174" height="174" alt="Catwalk Badge" src="https://github.com/user-attachments/assets/95b49515-fe82-4409-b10d-5beb0873787d" /></a>
 

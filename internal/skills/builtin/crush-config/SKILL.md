@@ -1,11 +1,11 @@
 ---
 name: crush-config
-description: Use when the user needs help configuring Crush — working with crush.json, setting up providers, configuring LSPs, adding MCP servers, managing skills or permissions, or changing Crush behavior.
+description: Use when the user needs help configuring Skynet — working with crush.json, setting up providers, configuring LSPs, adding MCP servers, managing skills or permissions, or changing Skynet behavior.
 ---
 
-# Crush Configuration
+# Skynet Configuration
 
-Crush uses JSON configuration files with the following priority (highest to lowest):
+Skynet uses JSON configuration files with the following priority (highest to lowest):
 
 1. `.crush.json` (project-local, hidden)
 2. `crush.json` (project-local)
@@ -31,7 +31,7 @@ The `$schema` property enables IDE autocomplete but is optional.
 
 ## Shell Expansion
 
-Crush runs selected string fields through an embedded bash-compatible
+Skynet runs selected string fields through an embedded bash-compatible
 shell at load time, so values can pull from env vars, files, or helper
 commands.
 
@@ -78,7 +78,7 @@ var isn't set. Applies to MCP `headers` and provider `extra_headers`.
 
 `crush.json` is trusted code. Any `$(...)` in it runs at load time
 with the invoking user's shell privileges, before the UI appears.
-Don't launch Crush in a directory whose `crush.json` you haven't
+Don't launch Skynet in a directory whose `crush.json` you haven't
 reviewed.
 
 ## Common Tasks
@@ -298,7 +298,7 @@ exit 2
 
 ### Claude Code Compatibility
 
-Crush also supports the Claude Code hook output format:
+Skynet also supports the Claude Code hook output format:
 
 ```json
 {
