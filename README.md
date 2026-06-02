@@ -1,29 +1,28 @@
-# Crush
+# Skynet
 
 <p align="center">
-    <a href="https://stuff.charm.sh/crush/charm-crush.png"><img width="450" alt="Charm Crush Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
-    <a href="https://github.com/code-yeongyu/skynet/releases"><img src="https://img.shields.io/github/release/charmbracelet/crush" alt="Latest Release"></a>
-    <a href="https://github.com/code-yeongyu/skynet/actions"><img src="https://github.com/code-yeongyu/skynet/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
+    <a href="https://stuff.charm.sh/crush/charm-crush.png"><img width="450" alt="Charm Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
+    <a href="https://github.com/abbayosua/skynet/releases"><img src="https://img.shields.io/github/release/abbayosua/skynet" alt="Latest Release"></a>
+    <a href="https://github.com/abbayosua/skynet/actions"><img src="https://github.com/abbayosua/skynet/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
 </p>
 
-<p align="center">Your new coding bestie, now available in your favourite terminal.<br />Your tools, your code, and your workflows, wired into your LLM of choice.</p>
-<p align="center">终端里的编程新搭档，<br />无缝接入你的工具、代码与工作流，全面兼容主流 LLM 模型。</p>
+<p align="center">Teman coding baru kamu, kini tersedia di terminal favoritmu.<br />Tools, kode, dan workflow kamu, terhubung dengan LLM pilihanmu.</p>
 
-<p align="center"><img width="800" alt="Crush Demo" src="https://github.com/user-attachments/assets/58280caf-851b-470a-b6f7-d5c4ea8a1968" /></p>
+<p align="center"><img width="800" alt="Skynet Demo" src="https://github.com/user-attachments/assets/58280caf-851b-470a-b6f7-d5c4ea8a1968" /></p>
 
-## Features
+## Fitur
 
-- **Multi-Model:** choose from a wide range of LLMs or add your own via OpenAI- or Anthropic-compatible APIs
-- **Flexible:** switch LLMs mid-session while preserving context
-- **Session-Based:** maintain multiple work sessions and contexts per project
-- **LSP-Enhanced:** Crush uses LSPs for additional context, just like you do
-- **Extensible:** add capabilities via MCPs (`http`, `stdio`, and `sse`)
-- **Works Everywhere:** first-class support in every terminal on macOS, Linux, Windows (PowerShell and WSL), Android, FreeBSD, OpenBSD, and NetBSD
-- **Industrial Grade:** built on the Charm ecosystem, powering 25k+ applications, from leading open source projects to business-critical infrastructure
+- **Multi-Model:** pilih dari berbagai LLM atau tambahkan sendiri via API yang kompatibel dengan OpenAI atau Anthropic
+- **Fleksibel:** ganti LLM di tengah sesi tanpa kehilangan konteks
+- **Berbasis Sesi:** kelola banyak sesi kerja dan konteks per proyek
+- **LSP-Enhanced:** Skynet menggunakan LSP untuk konteks tambahan, sama seperti kamu
+- **Ekstensibel:** tambah kemampuan via MCP (`http`, `stdio`, dan `sse`)
+- **Berfungsi di Mana Saja:** dukung penuh di setiap terminal di macOS, Linux, Windows (PowerShell dan WSL), Android, FreeBSD, OpenBSD, dan NetBSD
+- **Kelas Industri:** dibangun di atas ekosistem Charm, yang menggerakkan 25.000+ aplikasi
 
-## Installation
+## Instalasi
 
-Use a package manager:
+Gunakan package manager:
 
 ```bash
 # Homebrew
@@ -42,7 +41,7 @@ nix run github:numtide/nix-ai-tools#crush
 pkg install crush
 ```
 
-Windows users:
+Pengguna Windows:
 
 ```bash
 # Winget
@@ -56,72 +55,17 @@ scoop install crush
 <details>
 <summary><strong>Nix (NUR)</strong></summary>
 
-Crush is available via the official Charm [NUR](https://github.com/nix-community/NUR) in `nur.repos.charmbracelet.crush`, which is the most up-to-date way to get Crush in Nix.
+Skynet tersedia via NUR resmi Charm di `nur.repos.charmbracelet.crush`. Cara paling up-to-date untuk mendapatkan Skynet di Nix.
 
-You can also try out Crush via the NUR with `nix-shell`:
+Kamu juga bisa coba Skynet via NUR dengan `nix-shell`:
 
 ```bash
 # Add the NUR channel.
 nix-channel --add https://github.com/nix-community/NUR/archive/main.tar.gz nur
 nix-channel --update
 
-# Get Crush in a Nix shell.
+# Get Skynet in a Nix shell.
 nix-shell -p '(import <nur> { pkgs = import <nixpkgs> {}; }).repos.charmbracelet.crush'
-```
-
-### NixOS & Home Manager Module Usage via NUR
-
-Crush provides NixOS and Home Manager modules via NUR.
-You can use these modules directly in your flake by importing them from NUR. Since it auto detects whether its a home manager or nixos context you can use the import the exact same way :)
-
-```nix
-{
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nur.url = "github:nix-community/NUR";
-  };
-
-  outputs = { self, nixpkgs, nur, ... }: {
-    nixosConfigurations.your-hostname = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        nur.modules.nixos.default
-        nur.repos.charmbracelet.modules.crush
-        {
-          programs.crush = {
-            enable = true;
-            settings = {
-              providers = {
-                openai = {
-                  id = "openai";
-                  name = "OpenAI";
-                  base_url = "https://api.openai.com/v1";
-                  type = "openai";
-                  api_key = "sk-fake123456789abcdef...";
-                  models = [
-                    {
-                      id = "gpt-4";
-                      name = "GPT-4";
-                    }
-                  ];
-                };
-              };
-              lsp = {
-                go = { command = "gopls"; enabled = true; };
-                nix = { command = "nil"; enabled = true; };
-              };
-              options = {
-                context_paths = [ "/etc/nixos/configuration.nix" ];
-                tui = { compact_mode = true; };
-                debug = false;
-              };
-            };
-          };
-        }
-      ];
-    };
-  };
-}
 ```
 
 </details>
@@ -153,31 +97,32 @@ sudo yum install crush
 
 </details>
 
-Or, download it:
+Atau, unduh langsung:
 
-- [Packages][releases] are available in Debian and RPM formats
-- [Binaries][releases] are available for Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD
+- [Paket][releases] tersedia dalam format Debian dan RPM
+- [Binary][releases] tersedia untuk Linux, macOS, Windows, FreeBSD, OpenBSD, dan NetBSD
 
-[releases]: https://github.com/code-yeongyu/skynet/releases
+[releases]: https://github.com/abbayosua/skynet/releases
 
-Or just install it with Go:
+Atau instal dengan Go:
 
 ```
-go install github.com/code-yeongyu/skynet@latest
+go install github.com/abbayosua/skynet@latest
 ```
 
 > [!WARNING]
-> Productivity may increase when using Crush and you may find yourself nerd
-> sniped when first using the application. If the symptoms persist, join the
-> [Slack][slack] or [Discord][discord] and nerd snipe the rest of us.
+> Produktivitas bisa meningkat saat menggunakan Skynet dan kamu mungkin akan
+> teralihkan saat pertama kali menggunakan aplikasi ini. Jika gejala menetap,
+> bergabunglah ke [Slack][slack] atau [Discord][discord] dan alihkan perhatian
+> kami yang lain.
 
-## Getting Started
+## Memulai
 
-The quickest way to get started is to grab an API key for your preferred
-provider such as Anthropic, OpenAI, Groq, OpenRouter, or Vercel AI Gateway and just start
-Crush. You'll be prompted to enter your API key.
+Cara tercepat untuk memulai adalah dengan mengambil API key untuk provider
+pilihanmu seperti Anthropic, OpenAI, Groq, OpenRouter, atau Vercel AI Gateway
+dan jalankan Skynet. Kamu akan diminta memasukkan API key.
 
-That said, you can also set environment variables for preferred providers.
+Kamu juga bisa mengatur environment variable untuk provider yang didukung.
 
 | Environment Variable        | Provider                                           |
 | --------------------------- | -------------------------------------------------- |
@@ -207,39 +152,38 @@ That said, you can also set environment variables for preferred providers.
 | `AZURE_OPENAI_API_KEY`      | Azure OpenAI models (optional when using Entra ID) |
 | `AZURE_OPENAI_API_VERSION`  | Azure OpenAI models                                |
 
-### Subscriptions
+### Langganan
 
-If you prefer subscription-based usage, here are some plans that work well in
-Crush:
+Jika kamu lebih suka penggunaan berbasis langganan, berikut beberapa paket yang kompatibel dengan Skynet:
 
 - [Synthetic](https://synthetic.new/pricing)
 - [GLM Coding Plan](https://z.ai/subscribe)
 - [Kimi Code](https://www.kimi.com/membership/pricing)
 - [MiniMax Coding Plan](https://platform.minimax.io/subscribe/coding-plan)
 
-### By the Way
+### Ngomong-ngomong
 
-Is there a provider you’d like to see in Crush? Is there an existing model that needs an update?
+Ada provider yang ingin kamu lihat di Skynet? Ada model yang perlu diperbarui?
 
-Crush’s default model listing is managed in [Catwalk](https://github.com/charmbracelet/catwalk), a community-supported, open source repository of Crush-compatible models, and you’re welcome to contribute.
+Daftar model bawaan Skynet dikelola di [Catwalk](https://github.com/charmbracelet/catwalk), repositori open source berbasis komunitas yang berisi model-model kompatibel dengan Skynet, dan kamu dipersilakan berkontribusi.
 
 <a href="https://github.com/charmbracelet/catwalk"><img width="174" height="174" alt="Catwalk Badge" src="https://github.com/user-attachments/assets/95b49515-fe82-4409-b10d-5beb0873787d" /></a>
 
-## Configuration
+## Konfigurasi
 
 > [!TIP]
-> Crush ships with a builtin `crush-config` skill for configuring itself. In
-> many cases you can simply ask Crush to configure itself.
+> Skynet hadir dengan skill bawaan `skynet-config` untuk mengkonfigurasi dirinya sendiri.
+> Dalam banyak kasus, kamu cukup meminta Skynet untuk mengkonfigurasi dirinya.
 
-Crush runs great with no configuration. That said, if you do need or want to
-customize Crush, configuration can be added either local to the project itself,
-or globally, with the following priority:
+Skynet berjalan dengan baik tanpa konfigurasi. Namun, jika kamu perlu atau ingin
+menyesuaikan Skynet, konfigurasi dapat ditambahkan baik lokal di proyek itu sendiri,
+atau global, dengan prioritas berikut:
 
 1. `.crush.json`
 2. `crush.json`
 3. `$HOME/.config/crush/crush.json`
 
-Configuration itself is stored as a JSON object:
+Konfigurasi disimpan sebagai objek JSON:
 
 ```json
 {
@@ -248,8 +192,8 @@ Configuration itself is stored as a JSON object:
 }
 ```
 
-As an additional note, Crush also stores ephemeral data, such as application
-state, in one additional location:
+Sebagai catatan tambahan, Skynet juga menyimpan data sementara, seperti status
+aplikasi, di satu lokasi tambahan:
 
 ```bash
 # Unix
@@ -260,15 +204,15 @@ $HOME/.local/share/crush/crush.json
 ```
 
 > [!TIP]
-> You can override the user and data config locations by setting:
+> Kamu bisa mengganti lokasi config user dan data dengan mengatur:
 >
 > - `CRUSH_GLOBAL_CONFIG`
 > - `CRUSH_GLOBAL_DATA`
 
-### LSPs
+### LSP
 
-Crush can use LSPs for additional context to help inform its decisions, just
-like you would. LSPs can be added manually like so:
+Skynet dapat menggunakan LSP untuk konteks tambahan guna membantu pengambilan keputusan,
+sama seperti yang kamu lakukan. LSP dapat ditambahkan secara manual seperti ini:
 
 ```json
 {
@@ -291,38 +235,38 @@ like you would. LSPs can be added manually like so:
 }
 ```
 
-### MCPs
+### MCP
 
-Crush also supports Model Context Protocol (MCP) servers through three transport
-types: `stdio` for command-line servers, `http` for HTTP endpoints, and `sse`
-for Server-Sent Events.
+Skynet juga mendukung server Model Context Protocol (MCP) melalui tiga tipe
+transport: `stdio` untuk server command-line, `http` untuk endpoint HTTP, dan `sse`
+untuk Server-Sent Events.
 
-Shell-style value expansion (`$VAR`, `${VAR:-default}`, `$(command)`, quoting,
-nesting) works in `command`, `args`, `env`, `headers`, and `url`, so
-file-based secrets work out of the box. You can use values like `"$TOKEN"`
-or `"$(cat /path/to/secret/token)"`. Expansion runs through Crush's embedded
-shell, so the same syntax works on every supported system, Windows included.
+Ekspansi nilai gaya shell (`$VAR`, `${VAR:-default}`, `$(command)`, quoting,
+nesting) berfungsi di `command`, `args`, `env`, `headers`, dan `url`, jadi
+secret berbasis file langsung berfungsi. Kamu bisa menggunakan nilai seperti `"$TOKEN"`
+atau `"$(cat /path/to/secret/token)"`. Ekspansi berjalan melalui shell bawaan Skynet,
+sehingga sintaks yang sama berfungsi di semua sistem yang didukung, termasuk Windows.
 
-Unset variables expand to the empty string by default, matching bash. For
-required credentials, use `${VAR:?message}` so an unset variable fails loudly
-at load time with `message` instead of silently resolving to empty:
+Variabel yang tidak disetel akan diperluas menjadi string kosong secara default, sesuai bash.
+Untuk kredensial wajib, gunakan `${VAR:?message}` agar variabel yang tidak disetel gagal
+dengan `message` saat dimuat, bukan diam-diam menjadi string kosong:
 
 ```json
 { "api_key": "${CODEBERG_TOKEN:?set CODEBERG_TOKEN}" }
 ```
 
-Headers (both MCP `headers` and provider `extra_headers`) whose value
-resolves to the empty string are dropped from the outgoing request rather
-than sent as `Header:`. That keeps optional env-gated headers like
-`"OpenAI-Organization": "$OPENAI_ORG_ID"` clean when the variable is unset.
+Header (baik MCP `headers` maupun provider `extra_headers`) yang nilainya
+menjadi string kosong akan dihapus dari permintaan keluar, bukan dikirim
+sebagai `Header:`. Ini menjaga header opsional yang bergantung pada env seperti
+`"OpenAI-Organization": "$OPENAI_ORG_ID"` tetap bersih saat variabel tidak disetel.
 
-Provider `extra_body` is a non-expanding JSON passthrough; put env-driven
-values in `extra_headers` or the provider's `api_key` / `base_url`, all of
-which do expand.
+Provider `extra_body` adalah JSON passthrough yang tidak diekspansi; taruh nilai
+yang digerakkan env di `extra_headers` atau `api_key` / `base_url` provider,
+semuanya mendukung ekspansi.
 
-> **Security note:** `crush.json` is trusted code. Any `$(...)` in it runs at
-> load time with your shell's privileges, before the UI appears. Don't launch
-> Crush in a directory whose `crush.json` you haven't reviewed.
+> **Catatan keamanan:** `crush.json` adalah kode tepercaya. `$(...)` di dalamnya
+> berjalan saat dimuat dengan hak istimewa shell kamu, sebelum UI muncul.
+> Jangan jalankan Skynet di direktori yang `crush.json`-nya belum kamu periksa.
 
 ```json
 {
@@ -364,24 +308,24 @@ which do expand.
 
 ### Hooks
 
-Crush has preliminary support for hooks. For details, see
-[the hook guide](./docs/hooks/).
+Skynet memiliki dukungan awal untuk hooks. Untuk detailnya, lihat
+[panduan hooks](./docs/hooks/).
 
-### Ignoring Files
+### Mengabaikan File
 
-Crush respects `.gitignore` files by default, but you can also create a
-`.crushignore` file to specify additional files and directories that Crush
-should ignore. This is useful for excluding files that you want in version
-control but don't want Crush to consider when providing context.
+Skynet menghormati file `.gitignore` secara default, tapi kamu juga bisa membuat
+file `.crushignore` untuk menentukan file dan direktori tambahan yang harus
+diabaikan Skynet. Ini berguna untuk mengecualikan file yang ingin ada di version
+control tapi tidak ingin dipertimbangkan Skynet saat memberikan konteks.
 
-The `.crushignore` file uses the same syntax as `.gitignore` and can be placed
-in the root of your project or in subdirectories.
+File `.crushignore` menggunakan sintaks yang sama dengan `.gitignore` dan bisa
+ditempatkan di root proyek atau di subdirektori.
 
-### Allowing Tools
+### Mengizinkan Tools
 
-By default, Crush will ask you for permission before running tool calls. If
-you'd like, you can allow tools to be executed without prompting you for
-permissions. Use this with care.
+Secara default, Skynet akan meminta izin sebelum menjalankan tool calls. Jika
+kamu mau, kamu bisa mengizinkan tool untuk dijalankan tanpa dimintai izin.
+Gunakan dengan hati-hati.
 
 ```json
 {
@@ -398,14 +342,14 @@ permissions. Use this with care.
 }
 ```
 
-You can also skip all permission prompts entirely by running Crush with the
-`--yolo` flag. Be very, very careful with this feature.
+Kamu juga bisa melewati semua prompt izin dengan menjalankan Skynet menggunakan
+flag `--yolo`. Berhati-hatilah dengan fitur ini.
 
-### Disabling Built-In Tools
+### Menonaktifkan Tool Bawaan
 
-If you'd like to prevent Crush from using certain built-in tools entirely, you
-can disable them via the `options.disabled_tools` list. Disabled tools are
-completely hidden from the agent.
+Jika kamu ingin mencegah Skynet menggunakan tool bawaan tertentu, kamu bisa
+menonaktifkannya melalui daftar `options.disabled_tools`. Tool yang dinonaktifkan
+sepenuhnya disembunyikan dari agent.
 
 ```json
 {
@@ -416,44 +360,43 @@ completely hidden from the agent.
 }
 ```
 
-To disable tools from MCP servers, see the [MCP config section](#mcps).
+Untuk menonaktifkan tool dari server MCP, lihat [bagian konfigurasi MCP](#mcp).
 
-### Disabling Skills
+### Menonaktifkan Skills
 
-If you'd like to prevent Crush from using certain skills entirely, you can
-disable them via the `options.disabled_skills` list. Disabled skills are hidden
-from the agent, including builtin skills and skills discovered from disk.
+Jika kamu ingin mencegah Skynet menggunakan skill tertentu, kamu bisa
+menonaktifkannya melalui daftar `options.disabled_skills`. Skill yang dinonaktifkan
+tersembunyi dari agent, termasuk skill bawaan dan skill yang ditemukan dari disk.
 
 ```json
 {
   "$schema": "https://charm.land/crush.json",
   "options": {
-    "disabled_skills": ["crush-config"]
+    "disabled_skills": ["skynet-config"]
   }
 }
 ```
 
 ### Agent Skills
 
-Crush supports the [Agent Skills](https://agentskills.io) open standard for
-extending agent capabilities with reusable skill packages. Skills are folders
-containing a `SKILL.md` file with instructions that Crush can discover and
-activate on demand.
+Skynet mendukung standar terbuka [Agent Skills](https://agentskills.io) untuk
+memperluas kemampuan agent dengan paket skill yang dapat digunakan kembali. Skill
+adalah folder yang berisi file `SKILL.md` dengan instruksi yang dapat ditemukan
+dan diaktifkan Skynet sesuai kebutuhan.
 
-The global paths we looks for skills are:
+Lokasi global yang kami cari untuk skill:
 
-* `$CRUSH_SKILLS_DIR`
-* `$XDG_CONFIG_HOME/agents/skills` or `~/.config/agents/skills/`
-* `$XDG_CONFIG_HOME/crush/skills` or `~/.config/crush/skills/`
+* `$SKYNET_SKILLS_DIR`
+* `$XDG_CONFIG_HOME/agents/skills` atau `~/.config/agents/skills/`
+* `$XDG_CONFIG_HOME/crush/skills` atau `~/.config/crush/skills/`
 * `~/.agents/skills/`
 * `~/.claude/skills/`
-* On Windows, we _also_ look at
-  * `%LOCALAPPDATA%\agents\skills\` or `%USERPROFILE%\AppData\Local\agents\skills\`
-  * `%LOCALAPPDATA%\crush\skills\` or `%USERPROFILE%\AppData\Local\crush\skills\`
-* Additional paths configured via `options.skills_paths`
+* Di Windows, kami _juga_ mencari di
+  * `%LOCALAPPDATA%\agents\skills\` atau `%USERPROFILE%\AppData\Local\agents\skills\`
+  * `%LOCALAPPDATA%\crush\skills\` atau `%USERPROFILE%\AppData\Local\crush\skills\`
+* Path tambahan yang dikonfigurasi via `options.skills_paths`
 
-On top of that, we _also_ load skills in your project from the following
-relative paths:
+Selain itu, kami _juga_ memuat skill di proyek kamu dari path relatif berikut:
 
 * `.agents/skills`
 * `.crush/skills`
@@ -472,7 +415,7 @@ relative paths:
 }
 ```
 
-You can get started with example skills from [anthropics/skills](https://github.com/anthropics/skills):
+Kamu bisa memulai dengan contoh skill dari [anthropics/skills](https://github.com/anthropics/skills):
 
 ```bash
 # Unix
@@ -490,11 +433,11 @@ git clone https://github.com/anthropics/skills.git _temp
 mv _temp/skills/* . ; rm -r -force _temp
 ```
 
-### Desktop notifications
+### Notifikasi Desktop
 
-Crush sends desktop notifications when a tool call requires permission and when
-the agent finishes its turn. They're only sent when the terminal window isn't
-focused _and_ your terminal supports reporting the focus state.
+Skynet mengirim notifikasi desktop saat tool call memerlukan izin dan saat
+agent menyelesaikan gilirannya. Notifikasi hanya dikirim saat jendela terminal
+tidak dalam fokus _dan_ terminal mendukung pelaporan status fokus.
 
 ```jsonc
 {
@@ -505,16 +448,16 @@ focused _and_ your terminal supports reporting the focus state.
 }
 ```
 
-To disable desktop notifications, set `disable_notifications` to `true` in your
-configuration. On macOS, notifications currently lack icons due to platform
-limitations.
+Untuk menonaktifkan notifikasi desktop, setel `disable_notifications` ke `true`
+dalam konfigurasi. Di macOS, notifikasi saat ini tidak memiliki ikon karena
+keterbatasan platform.
 
-### Initialization
+### Inisialisasi
 
-When you initialize a project, Crush analyzes your codebase and creates
-a context file that helps it work more effectively in future sessions.
-By default, this file is named `AGENTS.md`, but you can customize the
-name and location with the `initialize_as` option:
+Saat kamu menginisialisasi proyek, Skynet menganalisis codebase kamu dan membuat
+file konteks yang membantu bekerja lebih efektif di sesi mendatang.
+Secara default, file ini bernama `AGENTS.md`, tapi kamu bisa menyesuaikan
+nama dan lokasinya dengan opsi `initialize_as`:
 
 ```json
 {
@@ -525,16 +468,16 @@ name and location with the `initialize_as` option:
 }
 ```
 
-This is useful if you prefer a different naming convention or want to
-place the file in a specific directory (e.g., `CRUSH.md` or
-`docs/LLMs.md`). Crush will fill the file with project-specific context
-like build commands, code patterns, and conventions it discovered during
-initialization.
+Ini berguna jika kamu lebih suka konvensi penamaan berbeda atau ingin
+menempatkan file di direktori tertentu (misalnya, `CRUSH.md` atau
+`docs/LLMs.md`). Skynet akan mengisi file dengan konteks spesifik proyek
+seperti perintah build, pola kode, dan konvensi yang ditemukan selama
+inisialisasi.
 
-### Attribution Settings
+### Pengaturan Atribusi
 
-By default, Crush adds attribution information to Git commits and pull requests
-it creates. You can customize this behavior with the `attribution` option:
+Secara default, Skynet menambahkan informasi atribusi ke commit Git dan pull request
+yang dibuatnya. Kamu bisa menyesuaikan perilaku ini dengan opsi `attribution`:
 
 ```json
 {
@@ -548,30 +491,30 @@ it creates. You can customize this behavior with the `attribution` option:
 }
 ```
 
-- `trailer_style`: Controls the attribution trailer added to commit messages
+- `trailer_style`: Mengontrol trailer atribusi yang ditambahkan ke pesan commit
   (default: `assisted-by`)
-  - `assisted-by`: Adds `Assisted-by: Crush:[ModelID]` as specified in [the convention](https://docs.kernel.org/process/coding-assistants.html#attribution)
-  - `co-authored-by`: Adds `Co-Authored-By: Crush <crush@charm.land>`
-  - `none`: No attribution trailer
-- `generated_with`: When true (default), adds `💘 Generated with Crush` line to
-  commit messages and PR descriptions
+  - `assisted-by`: Menambahkan `Assisted-by: Skynet:[ModelID]` sesuai [konvensi](https://docs.kernel.org/process/coding-assistants.html#attribution)
+  - `co-authored-by`: Menambahkan `Co-Authored-By: Skynet <crush@charm.land>`
+  - `none`: Tanpa trailer atribusi
+- `generated_with`: Saat true (default), menambahkan baris `💘 Generated with Skynet` ke
+  pesan commit dan deskripsi PR
 
-### Custom Providers
+### Provider Kustom
 
-Crush supports custom provider configurations for both OpenAI-compatible and
-Anthropic-compatible APIs.
+Skynet mendukung konfigurasi provider kustom untuk API yang kompatibel dengan OpenAI
+dan Anthropic.
 
 > [!NOTE]
-> Note that we support two "types" for OpenAI. Make sure to choose the right one
-> to ensure the best experience!
+> Perhatikan bahwa kami mendukung dua "tipe" untuk OpenAI. Pastikan memilih yang tepat
+> untuk pengalaman terbaik!
 >
-> - `openai` should be used when proxying or routing requests through OpenAI.
-> - `openai-compat` should be used when using non-OpenAI providers that have OpenAI-compatible APIs.
+> - `openai` harus digunakan saat memproksi atau merutekan permintaan melalui OpenAI.
+> - `openai-compat` harus digunakan saat menggunakan provider non-OpenAI yang memiliki API kompatibel dengan OpenAI.
 
-#### OpenAI-Compatible APIs
+#### API Kompatibel OpenAI
 
-Here’s an example configuration for Deepseek, which uses an OpenAI-compatible
-API. Don't forget to set `DEEPSEEK_API_KEY` in your environment.
+Berikut contoh konfigurasi untuk Deepseek, yang menggunakan API kompatibel
+OpenAI. Jangan lupa setel `DEEPSEEK_API_KEY` di environment kamu.
 
 ```json
 {
@@ -598,9 +541,9 @@ API. Don't forget to set `DEEPSEEK_API_KEY` in your environment.
 }
 ```
 
-#### Anthropic-Compatible APIs
+#### API Kompatibel Anthropic
 
-Custom Anthropic-compatible providers follow this format:
+Provider kustom kompatibel Anthropic mengikuti format ini:
 
 ```json
 {
@@ -634,22 +577,22 @@ Custom Anthropic-compatible providers follow this format:
 
 ### Amazon Bedrock
 
-Crush currently supports running Anthropic models through Bedrock, with caching disabled.
+Skynet saat ini mendukung menjalankan model Anthropic melalui Bedrock, dengan caching dinonaktifkan.
 
-- A Bedrock provider will appear once you have AWS configured, i.e. `aws configure`
-- Crush also expects the `AWS_REGION` or `AWS_DEFAULT_REGION` to be set
-- To use a specific AWS profile set `AWS_PROFILE` in your environment, i.e. `AWS_PROFILE=myprofile crush`
-- Alternatively to `aws configure`, you can also just set `AWS_BEARER_TOKEN_BEDROCK`
+- Provider Bedrock akan muncul setelah kamu memiliki konfigurasi AWS, mis. `aws configure`
+- Skynet juga mengharapkan `AWS_REGION` atau `AWS_DEFAULT_REGION` disetel
+- Untuk menggunakan profile AWS tertentu, setel `AWS_PROFILE` di environment, mis. `AWS_PROFILE=myprofile skynet`
+- Alternatif untuk `aws configure`, kamu juga bisa setel `AWS_BEARER_TOKEN_BEDROCK`
 
 ### Vertex AI Platform
 
-Vertex AI will appear in the list of available providers when `VERTEXAI_PROJECT` and `VERTEXAI_LOCATION` are set. You will also need to be authenticated:
+Vertex AI akan muncul dalam daftar provider yang tersedia saat `VERTEXAI_PROJECT` dan `VERTEXAI_LOCATION` disetel. Kamu juga perlu diautentikasi:
 
 ```bash
 gcloud auth application-default login
 ```
 
-To add specific models to the configuration, configure as such:
+Untuk menambahkan model spesifik ke konfigurasi, atur seperti berikut:
 
 ```json
 {
@@ -675,9 +618,9 @@ To add specific models to the configuration, configure as such:
 }
 ```
 
-### Local Models
+### Model Lokal
 
-Local models can also be configured via OpenAI-compatible API. Here are two common examples:
+Model lokal juga dapat dikonfigurasi via API kompatibel OpenAI. Berikut dua contoh umum:
 
 #### Ollama
 
@@ -725,24 +668,24 @@ Local models can also be configured via OpenAI-compatible API. Here are two comm
 
 ## Logging
 
-Sometimes you need to look at logs. Luckily, Crush logs all sorts of
-stuff. Logs are stored in `./.crush/logs/crush.log` relative to the project.
+Terkadang kamu perlu melihat log. Untungnya, Skynet mencatat berbagai
+hal. Log disimpan di `./.crush/logs/crush.log` relatif terhadap proyek.
 
-The CLI also contains some helper commands to make perusing recent logs easier:
+CLI juga memiliki beberapa perintah bantuan untuk memudahkan penelusuran log terbaru:
 
 ```bash
-# Print the last 1000 lines
-crush logs
+# Cetak 1000 baris terakhir
+skynet logs
 
-# Print the last 500 lines
-crush logs --tail 500
+# Cetak 500 baris terakhir
+skynet logs --tail 500
 
-# Follow logs in real time
-crush logs --follow
+# Ikuti log secara real-time
+skynet logs --follow
 ```
 
-Want more logging? Run `crush` with the `--debug` flag, or enable it in the
-config:
+Ingin lebih banyak log? Jalankan `skynet` dengan flag `--debug`, atau aktifkan di
+konfigurasi:
 
 ```json
 {
@@ -754,22 +697,22 @@ config:
 }
 ```
 
-## Provider Auto-Updates
+## Pembaruan Provider Otomatis
 
-By default, Crush automatically checks for the latest and greatest list of
-providers and models from [Catwalk](https://github.com/charmbracelet/catwalk),
-the open source Crush provider database. This means that when new providers and
-models are available, or when model metadata changes, Crush automatically
-updates your local configuration.
+Secara default, Skynet secara otomatis memeriksa daftar terbaru
+provider dan model dari [Catwalk](https://github.com/charmbracelet/catwalk),
+database provider Skynet open source. Ini berarti saat provider dan model baru
+tersedia, atau saat metadata model berubah, Skynet secara otomatis
+memperbarui konfigurasi lokal kamu.
 
-### Disabling automatic provider updates
+### Menonaktifkan pembaruan provider otomatis
 
-For those with restricted internet access, or those who prefer to work in
-air-gapped environments, this might not be want you want, and this feature can
-be disabled.
+Bagi mereka dengan akses internet terbatas, atau yang lebih suka bekerja di
+lingkungan air-gapped, fitur ini mungkin tidak diinginkan, dan dapat
+dinonaktifkan.
 
-To disable automatic provider updates, set `disable_provider_auto_update` into
-your `crush.json` config:
+Untuk menonaktifkan pembaruan provider otomatis, setel `disable_provider_auto_update` ke
+dalam konfigurasi `crush.json`:
 
 ```json
 {
@@ -780,52 +723,50 @@ your `crush.json` config:
 }
 ```
 
-Or set the `CRUSH_DISABLE_PROVIDER_AUTO_UPDATE` environment variable:
+Atau setel environment variable `CRUSH_DISABLE_PROVIDER_AUTO_UPDATE`:
 
 ```bash
 export CRUSH_DISABLE_PROVIDER_AUTO_UPDATE=1
 ```
 
-### Manually updating providers
+### Memperbarui provider secara manual
 
-Manually updating providers is possible with the `crush update-providers`
-command:
-
-```bash
-# Update providers remotely from Catwalk.
-crush update-providers
-
-# Update providers from a custom Catwalk base URL.
-crush update-providers https://example.com/
-
-# Update providers from a local file.
-crush update-providers /path/to/local-providers.json
-
-# Reset providers to the embedded version, embedded at crush at build time.
-crush update-providers embedded
-
-# For more info:
-crush update-providers --help
-```
-
-## Metrics
-
-Crush records pseudonymous usage metrics (tied to a device-specific hash),
-which maintainers rely on to inform development and support priorities. The
-metrics include solely usage metadata; prompts and responses are NEVER
-collected.
-
-Details on exactly what’s collected are in the source code ([here](https://github.com/code-yeongyu/skynet/tree/main/internal/event)
-and [here](https://github.com/code-yeongyu/skynet/blob/main/internal/llm/agent/event.go)).
-
-You can opt out of metrics collection at any time by setting the environment
-variable by setting the following in your environment:
+Memperbarui provider secara manual dimungkinkan dengan perintah `skynet update-providers`:
 
 ```bash
-export CRUSH_DISABLE_METRICS=1
+# Perbarui provider dari Catwalk.
+skynet update-providers
+
+# Perbarui provider dari URL Catwalk kustom.
+skynet update-providers https://example.com/
+
+# Perbarui provider dari file lokal.
+skynet update-providers /path/to/local-providers.json
+
+# Reset provider ke versi bawaan, yang disematkan saat build.
+skynet update-providers embedded
+
+# Untuk info lebih lanjut:
+skynet update-providers --help
 ```
 
-Or by setting the following in your config:
+## Metrik
+
+Skynet mencatat metrik penggunaan pseudonim (terkait dengan hash perangkat),
+yang diandalkan maintainer untuk menginformasikan pengembangan dan prioritas
+dukungan. Metrik hanya mencakup metadata penggunaan; prompt dan respons TIDAK
+PERNAH dikumpulkan.
+
+Detail tentang apa yang dikumpulkan ada di kode sumber ([di sini](https://github.com/abbayosua/skynet/tree/main/internal/event)).
+
+Kamu dapat memilih keluar dari pengumpulan metrik kapan saja dengan mengatur
+environment variable berikut:
+
+```bash
+export SKYNET_DISABLE_METRICS=1
+```
+
+Atau dengan mengatur berikut dalam konfigurasi:
 
 ```json
 {
@@ -835,48 +776,48 @@ Or by setting the following in your config:
 }
 ```
 
-Crush also respects the [`DO_NOT_TRACK`](https://donottrack.sh/) convention
-which can be enabled via `export DO_NOT_TRACK=1`.
+Skynet juga menghormati konvensi [`DO_NOT_TRACK`](https://donottrack.sh/)
+yang dapat diaktifkan via `export DO_NOT_TRACK=1`.
 
-## Q&A
+## Tanya Jawab
 
-### Why is clipboard copy and paste not working?
+### Mengapa salin tempel clipboard tidak berfungsi?
 
-Installing an extra tool might be needed on Unix-like environments.
+Menginstal tool tambahan mungkin diperlukan di lingkungan mirip Unix.
 
 | Environment         | Tool                     |
 | ------------------- | ------------------------ |
-| Windows             | Native support           |
-| macOS               | Native support           |
-| Linux/BSD + Wayland | `wl-copy` and `wl-paste` |
-| Linux/BSD + X11     | `xclip` or `xsel`        |
+| Windows             | Dukungan bawaan          |
+| macOS               | Dukungan bawaan          |
+| Linux/BSD + Wayland | `wl-copy` dan `wl-paste` |
+| Linux/BSD + X11     | `xclip` atau `xsel`      |
 
-## Contributing
+## Berkontribusi
 
-See the [contributing guide](https://github.com/code-yeongyu/skynet?tab=contributing-ov-file#contributing).
+Lihat [panduan kontribusi](https://github.com/abbayosua/skynet?tab=contributing-ov-file#contributing).
 
-## Whatcha think?
+## Ada masukan?
 
-We’d love to hear your thoughts on this project. Need help? We gotchu. You can find us on:
+Kami ingin mendengar pendapatmu tentang proyek ini. Butuh bantuan? Kami siap. Temukan kami di:
 
 - [Twitter](https://twitter.com/charmcli)
 - [Slack][slack]
 - [Discord][discord]
-- [The Fediverse](https://mastodon.social/@charmcli)
+- [Fediverse](https://mastodon.social/@charmcli)
 - [Bluesky](https://bsky.app/profile/charm.land)
 
 [slack]: https://charm.land/slack
 [discord]: https://charm.land/discord
 
-## License
+## Lisensi
 
-[FSL-1.1-MIT](https://github.com/code-yeongyu/skynet/raw/main/LICENSE.md)
+[FSL-1.1-MIT](https://github.com/abbayosua/skynet/raw/main/LICENSE.md)
 
 ---
 
-Part of [Charm](https://charm.land).
+Bagian dari [Charm](https://charm.land).
 
 <a href="https://charm.land/"><img alt="The Charm logo" width="400" src="https://stuff.charm.sh/charm-banner-softy.jpg" /></a>
 
 <!--prettier-ignore-->
-Charm热爱开源 • Charm loves open source
+Charm mencintai open source • Charm loves open source
