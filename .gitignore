@@ -54,3 +54,8 @@ manpages/
 completions/crush.*sh
 .prettierignore
 .task
+
+# Node.js
+node_modules/
+package.json
+package-lock.json
