@@ -9,24 +9,58 @@ permissions:
   contents: write
 
 jobs:
-  goreleaser:
+  build:
     runs-on: ubuntu-latest
+    env:
+      GONOSUMDB: "charm.land/*"
+      GONOSUMCHECK: "*"
+      VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
           go-version: "~1.26"
           cache: true
 
-      - uses: goreleaser/goreleaser-action@v6
+      - run: go mod tidy
+
+      # Linux (Debian) build
+      - run: |
+          mkdir -p dist/linux
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/linux/skynet .
+
+      # Windows build
+      - run: |
+          mkdir -p dist/windows
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/windows/skynet.exe .
+
+      # Generate .deb package
+      - run: |
+          mkdir -p dist/deb/usr/bin
+          cp dist/linux/skynet dist/deb/usr/bin/
+          mkdir -p dist/deb/DEBIAN
+          cat > dist/deb/DEBIAN/control <<EOF
+          Package: skynet
+          Version: ${VERSION#v}
+          Section: devel
+          Priority: optional
+          Architecture: amd64
+          Maintainer: abbayosua
+          Description: A powerful terminal-based AI assistant
+          EOF
+          dpkg-deb --build dist/deb dist/skynet_${VERSION}_linux_amd64.deb
+
+      # Create archives
+      - run: tar -czf dist/skynet_${VERSION}_linux_amd64.tar.gz -C dist/linux skynet
+      - run: cd dist/windows && zip -r ../skynet_${VERSION}_windows_amd64.zip skynet.exe
+
+      # Generate checksums
+      - run: cd dist && sha256sum *.deb *.tar.gz *.zip > checksums.txt
+
+      # Create GitHub Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          distribution: goreleaser
-          version: "~2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GONOSUMDB: "charm.land/*"
-          GONOSUMCHECK: "*"
+          files: dist/*
+          generate_release_notes: true
