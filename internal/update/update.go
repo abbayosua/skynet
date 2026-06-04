@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	githubApiUrl = "https://api.github.com/repos/code-yeongyu/skynet/releases/latest"
+	githubApiUrl = "https://api.github.com/repos/abbayosua/skynet/releases/latest"
 	userAgent    = "skynet/1.0"
 )
 

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/oauth"
 )
 
 const (

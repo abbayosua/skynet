@@ -10,11 +10,11 @@ import (
 	"slices"
 
 	"charm.land/catwalk/pkg/catwalk"
-	hyperp "github.com/code-yeongyu/skynet/internal/agent/hyper"
-	"github.com/code-yeongyu/skynet/internal/env"
-	"github.com/code-yeongyu/skynet/internal/oauth"
-	"github.com/code-yeongyu/skynet/internal/oauth/copilot"
-	"github.com/code-yeongyu/skynet/internal/oauth/hyper"
+	hyperp "github.com/abbayosua/skynet/internal/agent/hyper"
+	"github.com/abbayosua/skynet/internal/env"
+	"github.com/abbayosua/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/oauth/copilot"
+	"github.com/abbayosua/skynet/internal/oauth/hyper"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

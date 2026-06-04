@@ -8,10 +8,10 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/stringext"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/stringext"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 )
 
 // DockerMCPToolMessageItem is a message item that represents a Docker MCP tool call.

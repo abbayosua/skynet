@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/history"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/history"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/pubsub"
 	"github.com/stretchr/testify/require"
 )
 

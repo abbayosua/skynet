@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/diffdetect"
-	"github.com/code-yeongyu/skynet/internal/stringext"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/diffdetect"
+	"github.com/abbayosua/skynet/internal/stringext"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 )
 
 type toolResultContentWidths struct {

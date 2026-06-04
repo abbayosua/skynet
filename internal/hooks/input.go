@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/shell"
 	"github.com/tidwall/gjson"
 )
 

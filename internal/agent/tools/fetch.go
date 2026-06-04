@@ -14,7 +14,7 @@ import (
 	"charm.land/fantasy"
 	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/permission"
 )
 
 const (

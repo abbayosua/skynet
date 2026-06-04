@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/code-yeongyu/skynet/internal/agent/notify"
-	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/app"
-	"github.com/code-yeongyu/skynet/internal/history"
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/proto"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
-	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/abbayosua/skynet/internal/agent/notify"
+	"github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/app"
+	"github.com/abbayosua/skynet/internal/history"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/session"
 )
 
 // wrapEvent converts a raw tea.Msg (a pubsub.Event[T] from the app

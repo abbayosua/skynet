@@ -14,7 +14,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/filepathext"
+	"github.com/abbayosua/skynet/internal/filepathext"
 	"mvdan.cc/sh/v3/expand"
 	"mvdan.cc/sh/v3/interp"
 	"mvdan.cc/sh/v3/syntax"

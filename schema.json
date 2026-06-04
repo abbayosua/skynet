@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/code-yeongyu/skynet/internal/config/config",
+  "$id": "https://github.com/abbayosua/skynet/internal/config/config",
   "$ref": "#/$defs/Config",
   "$defs": {
     "Attribution": {

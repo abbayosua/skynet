@@ -6,8 +6,8 @@ import (
 
 	"charm.land/glamour/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
-	"github.com/code-yeongyu/skynet/internal/ui/xchroma"
+	"github.com/abbayosua/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/ui/xchroma"
 )
 
 const formatterName = "skynet"

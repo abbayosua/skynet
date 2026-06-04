@@ -6,7 +6,7 @@
 //	@contact.name	Charm
 //	@contact.url	https://charm.sh
 //	@license.name	MIT
-//	@license.url	https://github.com/code-yeongyu/skynet/blob/main/LICENSE
+//	@license.url	https://github.com/abbayosua/skynet/blob/main/LICENSE
 //	@BasePath		/v1
 package main
 
@@ -16,8 +16,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 
-	"github.com/code-yeongyu/skynet/internal/cmd"
-	_ "github.com/code-yeongyu/skynet/internal/dns"
+	"github.com/abbayosua/skynet/internal/cmd"
+	_ "github.com/abbayosua/skynet/internal/dns"
 	_ "github.com/joho/godotenv/autoload"
 )
 

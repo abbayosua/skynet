@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/agent/tools"
-	"github.com/code-yeongyu/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/agent/tools"
+	"github.com/abbayosua/skynet/internal/proto"
 	"github.com/stretchr/testify/require"
 )
 

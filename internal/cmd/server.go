@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	crushlog "github.com/code-yeongyu/skynet/internal/log"
-	"github.com/code-yeongyu/skynet/internal/server"
+	"github.com/abbayosua/skynet/internal/config"
+	crushlog "github.com/abbayosua/skynet/internal/log"
+	"github.com/abbayosua/skynet/internal/server"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/cobra"
 )

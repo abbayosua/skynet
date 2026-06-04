@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/ui/chat"
+	"github.com/abbayosua/skynet/internal/ui/chat"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/require"

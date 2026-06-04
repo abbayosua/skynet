@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/oauth"
 )
 
 // SetConfigField sets a config key/value pair on the server.

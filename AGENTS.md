@@ -9,7 +9,7 @@ Gemini, Bedrock, Copilot, Hyper, MiniMax, Vercel, and more), integrates with
 LSPs for code intelligence, and supports extensibility via MCP servers and
 agent skills.
 
-The module path is `github.com/code-yeongyu/skynet`.
+The module path is `github.com/abbayosua/skynet`.
 
 ## Architecture
 

@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/proto"
-	"github.com/code-yeongyu/skynet/internal/server"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/server"
 )
 
 // DummyHost is used to satisfy the http.Client's requirement for a URL.

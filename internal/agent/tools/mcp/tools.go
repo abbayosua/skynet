@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/csync"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

@@ -6,9 +6,9 @@ import (
 	"slices"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/permission"
 )
 
 // whitelistDockerTools contains Docker MCP tools that don't require permission.

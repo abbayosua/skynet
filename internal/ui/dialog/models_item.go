@@ -3,10 +3,10 @@ package dialog
 import (
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/lipgloss/v2"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	"github.com/code-yeongyu/skynet/internal/ui/list"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/ui/list"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/sahilm/fuzzy"
 )

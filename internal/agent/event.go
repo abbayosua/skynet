@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/event"
+	"github.com/abbayosua/skynet/internal/event"
 )
 
 func (a *sessionAgent) eventPromptSent(sessionID string) {

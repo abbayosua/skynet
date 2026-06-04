@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/config"
 	"github.com/invopop/jsonschema"
 	"github.com/stretchr/testify/require"
 )

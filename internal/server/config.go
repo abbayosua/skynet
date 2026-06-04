@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/code-yeongyu/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/proto"
 )
 
 // handlePostWorkspaceConfigSet sets a configuration field.

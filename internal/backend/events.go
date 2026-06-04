@@ -5,10 +5,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	mcptools "github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/app"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
+	mcptools "github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/app"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/pubsub"
 )
 
 // SubscribeEvents returns a per-caller event channel for a workspace.

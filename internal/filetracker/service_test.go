@@ -6,7 +6,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/db"
 	"github.com/stretchr/testify/require"
 )
 

@@ -3,10 +3,10 @@ package model
 import (
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/skills"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	uistyles "github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/skills"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	uistyles "github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/stretchr/testify/require"
 )
 

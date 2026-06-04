@@ -10,12 +10,12 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/code-yeongyu/skynet/internal/agent/tools"
-	"github.com/code-yeongyu/skynet/internal/fsext"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/stringext"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/agent/tools"
+	"github.com/abbayosua/skynet/internal/fsext"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/stringext"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 

@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/csync"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	"github.com/code-yeongyu/skynet/internal/workspace"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/workspace"
 	"github.com/stretchr/testify/require"
 )
 

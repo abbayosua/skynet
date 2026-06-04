@@ -1,4 +1,4 @@
-module github.com/code-yeongyu/skynet
+module github.com/abbayosua/skynet
 
 go 1.26.3
 

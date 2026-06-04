@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/code-yeongyu/skynet/internal/csync"
-	"github.com/code-yeongyu/skynet/internal/oauth"
-	"github.com/code-yeongyu/skynet/internal/oauth/copilot"
+	"github.com/abbayosua/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/oauth/copilot"
 	"github.com/invopop/jsonschema"
 )
 

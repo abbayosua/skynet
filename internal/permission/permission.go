@@ -7,8 +7,8 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/code-yeongyu/skynet/internal/csync"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/pubsub"
 	"github.com/google/uuid"
 )
 

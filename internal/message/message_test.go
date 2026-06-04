@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/db"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
-	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/abbayosua/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/session"
 	"github.com/stretchr/testify/require"
 )
 

@@ -9,7 +9,7 @@ import (
 
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/lipgloss/v2/tree"
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/config"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )

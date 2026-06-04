@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/shell"
 	"github.com/stretchr/testify/require"
 )
 

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/db"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/pubsub"
 	"github.com/google/uuid"
 )
 

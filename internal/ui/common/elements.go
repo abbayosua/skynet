@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/code-yeongyu/skynet/internal/agent/hyper"
-	"github.com/code-yeongyu/skynet/internal/home"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/agent/hyper"
+	"github.com/abbayosua/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"

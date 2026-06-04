@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/pubsub"
-	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/shell"
 	"github.com/stretchr/testify/require"
 )
 

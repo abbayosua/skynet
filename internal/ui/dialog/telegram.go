@@ -9,8 +9,8 @@ import (
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/code-yeongyu/skynet/internal/telegram"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/telegram"
+	"github.com/abbayosua/skynet/internal/ui/common"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 

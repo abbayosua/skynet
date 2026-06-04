@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/diff"
-	"github.com/code-yeongyu/skynet/internal/filepathext"
-	"github.com/code-yeongyu/skynet/internal/filetracker"
-	"github.com/code-yeongyu/skynet/internal/fsext"
-	"github.com/code-yeongyu/skynet/internal/hashline"
-	"github.com/code-yeongyu/skynet/internal/history"
-	"github.com/code-yeongyu/skynet/internal/lsp"
-	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/diff"
+	"github.com/abbayosua/skynet/internal/filepathext"
+	"github.com/abbayosua/skynet/internal/filetracker"
+	"github.com/abbayosua/skynet/internal/fsext"
+	"github.com/abbayosua/skynet/internal/hashline"
+	"github.com/abbayosua/skynet/internal/history"
+	"github.com/abbayosua/skynet/internal/lsp"
+	"github.com/abbayosua/skynet/internal/permission"
 )
 
 //go:embed hashline_edit.md

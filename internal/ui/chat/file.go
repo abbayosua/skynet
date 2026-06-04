@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/agent/tools"
-	"github.com/code-yeongyu/skynet/internal/fsext"
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/agent/tools"
+	"github.com/abbayosua/skynet/internal/fsext"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 )
 
 // -----------------------------------------------------------------------------

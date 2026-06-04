@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/home"
 	"github.com/stretchr/testify/require"
 )
 

@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/charlievieth/fastwalk"
-	"github.com/code-yeongyu/skynet/internal/csync"
-	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/home"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )

@@ -14,9 +14,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/code-yeongyu/skynet/internal/commands"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	"github.com/code-yeongyu/skynet/internal/ui/util"
+	"github.com/abbayosua/skynet/internal/commands"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/ui/util"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 

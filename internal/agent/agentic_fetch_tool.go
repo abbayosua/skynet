@@ -11,9 +11,9 @@ import (
 
 	"charm.land/fantasy"
 
-	"github.com/code-yeongyu/skynet/internal/agent/prompt"
-	"github.com/code-yeongyu/skynet/internal/agent/tools"
-	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/agent/prompt"
+	"github.com/abbayosua/skynet/internal/agent/tools"
+	"github.com/abbayosua/skynet/internal/permission"
 )
 
 //go:embed templates/agentic_fetch.md

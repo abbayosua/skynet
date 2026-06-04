@@ -3,9 +3,9 @@ package backend
 import (
 	"context"
 
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/proto"
-	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/session"
 )
 
 // CreateSession creates a new session in the given workspace.

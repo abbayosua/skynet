@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/code-yeongyu/skynet/internal/ui/diffview"
+	"github.com/abbayosua/skynet/internal/ui/diffview"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/golden"
 )

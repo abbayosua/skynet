@@ -3,8 +3,8 @@ package chat
 import (
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/require"
 )

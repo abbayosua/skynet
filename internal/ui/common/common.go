@@ -7,10 +7,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
-	"github.com/code-yeongyu/skynet/internal/ui/util"
-	"github.com/code-yeongyu/skynet/internal/workspace"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/ui/util"
+	"github.com/abbayosua/skynet/internal/workspace"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 

@@ -10,14 +10,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/catwalk/pkg/catwalk"
-	mcptools "github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/history"
-	"github.com/code-yeongyu/skynet/internal/lsp"
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/oauth"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/session"
+	mcptools "github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/history"
+	"github.com/abbayosua/skynet/internal/lsp"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/session"
 )
 
 // LSPClientInfo holds information about an LSP client's state. This is

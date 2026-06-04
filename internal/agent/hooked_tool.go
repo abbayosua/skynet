@@ -7,9 +7,9 @@ import (
 	"log/slog"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/agent/tools"
-	"github.com/code-yeongyu/skynet/internal/hooks"
-	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/agent/tools"
+	"github.com/abbayosua/skynet/internal/hooks"
+	"github.com/abbayosua/skynet/internal/permission"
 	"github.com/tidwall/sjson"
 )
 

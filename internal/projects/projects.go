@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/config"
 )
 
 const projectsFileName = "projects.json"

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/home"
 )
 
 var namedArgPattern = regexp.MustCompile(`\$([A-Z][A-Z0-9_]*)`)

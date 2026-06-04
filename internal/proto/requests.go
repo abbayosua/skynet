@@ -1,6 +1,6 @@
 package proto
 
-import "github.com/code-yeongyu/skynet/internal/config"
+import "github.com/abbayosua/skynet/internal/config"
 
 // ConfigSetRequest represents a request to set a config field.
 type ConfigSetRequest struct {

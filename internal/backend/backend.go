@@ -10,13 +10,13 @@ import (
 	"log/slog"
 	"runtime"
 
-	"github.com/code-yeongyu/skynet/internal/app"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/csync"
-	"github.com/code-yeongyu/skynet/internal/db"
-	"github.com/code-yeongyu/skynet/internal/proto"
-	"github.com/code-yeongyu/skynet/internal/ui/util"
-	"github.com/code-yeongyu/skynet/internal/version"
+	"github.com/abbayosua/skynet/internal/app"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/ui/util"
+	"github.com/abbayosua/skynet/internal/version"
 	"github.com/google/uuid"
 )
 

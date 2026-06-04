@@ -7,17 +7,17 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/code-yeongyu/skynet/internal/agent"
-	mcptools "github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/app"
-	"github.com/code-yeongyu/skynet/internal/commands"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/history"
-	"github.com/code-yeongyu/skynet/internal/lsp"
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/oauth"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/session"
+	"github.com/abbayosua/skynet/internal/agent"
+	mcptools "github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/app"
+	"github.com/abbayosua/skynet/internal/commands"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/history"
+	"github.com/abbayosua/skynet/internal/lsp"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/session"
 )
 
 // AppWorkspace implements the Workspace interface by delegating

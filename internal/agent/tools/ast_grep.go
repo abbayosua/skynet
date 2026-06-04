@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/filepathext"
-	"github.com/code-yeongyu/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/filepathext"
+	"github.com/abbayosua/skynet/internal/permission"
 )
 
 //go:embed ast_grep.md

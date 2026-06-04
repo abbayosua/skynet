@@ -7,9 +7,9 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/oauth/copilot"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/oauth/copilot"
+	"github.com/abbayosua/skynet/internal/ui/common"
 )
 
 func NewOAuthCopilot(

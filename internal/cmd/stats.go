@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/db"
-	"github.com/code-yeongyu/skynet/internal/event"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/event"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 )

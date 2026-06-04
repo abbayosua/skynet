@@ -3,9 +3,9 @@ package chat
 import (
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/ui/list"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/ui/list"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/stretchr/testify/require"
 )
 

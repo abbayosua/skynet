@@ -7,9 +7,9 @@ import (
 
 	"charm.land/fantasy"
 
-	"github.com/code-yeongyu/skynet/internal/agent/prompt"
-	"github.com/code-yeongyu/skynet/internal/agent/tools"
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/agent/prompt"
+	"github.com/abbayosua/skynet/internal/agent/tools"
+	"github.com/abbayosua/skynet/internal/config"
 )
 
 //go:embed templates/agent_tool.md

@@ -8,8 +8,8 @@ import (
 	"os/signal"
 
 	"charm.land/lipgloss/v2"
-	"github.com/code-yeongyu/skynet/internal/client"
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/client"
+	"github.com/abbayosua/skynet/internal/config"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 )

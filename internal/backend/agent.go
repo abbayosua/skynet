@@ -3,8 +3,8 @@ package backend
 import (
 	"context"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/proto"
 )
 
 // SendMessage sends a prompt to the agent coordinator for the given

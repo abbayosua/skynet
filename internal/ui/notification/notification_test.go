@@ -3,7 +3,7 @@ package notification_test
 import (
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/ui/notification"
+	"github.com/abbayosua/skynet/internal/ui/notification"
 	"github.com/stretchr/testify/require"
 )
 

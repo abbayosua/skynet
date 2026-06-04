@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/agent/hyper"
-	"github.com/code-yeongyu/skynet/internal/event"
-	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/agent/hyper"
+	"github.com/abbayosua/skynet/internal/event"
+	"github.com/abbayosua/skynet/internal/oauth"
 )
 
 // DeviceAuthResponse contains the response from the device authorization endpoint.

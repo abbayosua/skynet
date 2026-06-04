@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/shell"
 )
 
 // abandonGrace is how long runOne waits after ctx cancellation for the

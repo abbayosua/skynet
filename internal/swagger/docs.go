@@ -15,7 +15,7 @@ const docTemplate = `{
         },
         "license": {
             "name": "MIT",
-            "url": "https://github.com/code-yeongyu/skynet/blob/main/LICENSE"
+            "url": "https://github.com/abbayosua/skynet/blob/main/LICENSE"
         },
         "version": "{{.Version}}"
     },

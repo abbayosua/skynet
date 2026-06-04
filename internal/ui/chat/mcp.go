@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 )
 
 // MCPToolMessageItem is a message item that represents a bash tool call.

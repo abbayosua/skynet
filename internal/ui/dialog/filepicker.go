@@ -14,9 +14,9 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/code-yeongyu/skynet/internal/home"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	fimage "github.com/code-yeongyu/skynet/internal/ui/image"
+	"github.com/abbayosua/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	fimage "github.com/abbayosua/skynet/internal/ui/image"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 

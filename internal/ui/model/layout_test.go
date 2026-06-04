@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"charm.land/bubbles/v2/textarea"
-	"github.com/code-yeongyu/skynet/internal/ui/chat"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
+	"github.com/abbayosua/skynet/internal/ui/chat"
+	"github.com/abbayosua/skynet/internal/ui/common"
 )
 
 // testMessageItem is a minimal chat item used to populate the chat list

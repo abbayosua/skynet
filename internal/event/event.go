@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/version"
+	"github.com/abbayosua/skynet/internal/version"
 	"github.com/posthog/posthog-go"
 )
 

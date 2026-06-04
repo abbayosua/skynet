@@ -18,7 +18,7 @@ var (
 	BuildID = ""
 )
 
-// A user may install crush using `go install github.com/code-yeongyu/skynet@latest`.
+// A user may install crush using `go install github.com/abbayosua/skynet@latest`.
 // without -ldflags, in which case the version above is unset. As a workaround
 // we use the embedded build version that *is* set when using `go install` (and
 // is only set for `go install` and not for `go build`).

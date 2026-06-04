@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/backend"
-	"github.com/code-yeongyu/skynet/internal/config"
-	_ "github.com/code-yeongyu/skynet/internal/swagger"
+	"github.com/abbayosua/skynet/internal/backend"
+	"github.com/abbayosua/skynet/internal/config"
+	_ "github.com/abbayosua/skynet/internal/swagger"
 	httpswagger "github.com/swaggo/http-swagger/v2"
 )
 

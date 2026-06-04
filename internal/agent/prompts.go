@@ -4,8 +4,8 @@ import (
 	"context"
 	_ "embed"
 
-	"github.com/code-yeongyu/skynet/internal/agent/prompt"
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/agent/prompt"
+	"github.com/abbayosua/skynet/internal/config"
 )
 
 //go:embed templates/coder.md.tpl

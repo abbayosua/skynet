@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"charm.land/catwalk/pkg/catwalk"
-	"github.com/code-yeongyu/skynet/internal/session"
-	"github.com/code-yeongyu/skynet/internal/ui/list"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/session"
+	"github.com/abbayosua/skynet/internal/ui/list"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/sahilm/fuzzy"
 	"github.com/stretchr/testify/require"
 )

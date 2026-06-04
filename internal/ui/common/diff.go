@@ -2,8 +2,8 @@ package common
 
 import (
 	"github.com/alecthomas/chroma/v2"
-	"github.com/code-yeongyu/skynet/internal/ui/diffview"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/ui/diffview"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 )
 
 // DiffFormatter returns a diff formatter with the given styles that can be

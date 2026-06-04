@@ -17,12 +17,12 @@ import (
 	"unicode/utf8"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/filepathext"
-	"github.com/code-yeongyu/skynet/internal/filetracker"
-	"github.com/code-yeongyu/skynet/internal/hashline"
-	"github.com/code-yeongyu/skynet/internal/lsp"
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/skills"
+	"github.com/abbayosua/skynet/internal/filepathext"
+	"github.com/abbayosua/skynet/internal/filetracker"
+	"github.com/abbayosua/skynet/internal/hashline"
+	"github.com/abbayosua/skynet/internal/lsp"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/skills"
 )
 
 //go:embed view.md.tpl

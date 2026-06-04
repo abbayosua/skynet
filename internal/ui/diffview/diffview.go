@@ -10,8 +10,8 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/aymanbagabas/go-udiff"
-	"github.com/code-yeongyu/skynet/internal/ansiext"
-	"github.com/code-yeongyu/skynet/internal/ui/xchroma"
+	"github.com/abbayosua/skynet/internal/ansiext"
+	"github.com/abbayosua/skynet/internal/ui/xchroma"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/zeebo/xxh3"
 )

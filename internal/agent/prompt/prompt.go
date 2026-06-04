@@ -12,11 +12,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/filepathext"
-	"github.com/code-yeongyu/skynet/internal/home"
-	"github.com/code-yeongyu/skynet/internal/shell"
-	"github.com/code-yeongyu/skynet/internal/skills"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/filepathext"
+	"github.com/abbayosua/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/skills"
 )
 
 // Prompt represents a template-based prompt generator.

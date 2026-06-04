@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/code-yeongyu/skynet/internal/agent"
-	mcptools "github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/commands"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/agent"
+	mcptools "github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/commands"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/oauth"
 )
 
 // MCPResourceContents holds the contents of an MCP resource returned

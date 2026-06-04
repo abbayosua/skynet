@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/csync"
 )
 
 const (

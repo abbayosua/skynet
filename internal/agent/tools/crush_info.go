@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"charm.land/fantasy"
-	"github.com/code-yeongyu/skynet/internal/agent/tools/mcp"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/lsp"
-	"github.com/code-yeongyu/skynet/internal/skills"
+	"github.com/abbayosua/skynet/internal/agent/tools/mcp"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/lsp"
+	"github.com/abbayosua/skynet/internal/skills"
 )
 
 const CrushInfoToolName = "skynet_info"

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/env"
+	"github.com/abbayosua/skynet/internal/env"
 	"github.com/stretchr/testify/require"
 )
 

@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/code-yeongyu/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/message"
 )
 
 // promptHistoryLoadedMsg is sent when prompt history is loaded.

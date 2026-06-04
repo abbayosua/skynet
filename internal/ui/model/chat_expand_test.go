@@ -3,8 +3,8 @@ package model
 import (
 	"testing"
 
-	"github.com/code-yeongyu/skynet/internal/message"
-	"github.com/code-yeongyu/skynet/internal/ui/chat"
+	"github.com/abbayosua/skynet/internal/message"
+	"github.com/abbayosua/skynet/internal/ui/chat"
 	"github.com/stretchr/testify/require"
 )
 

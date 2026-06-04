@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/csync"
-	"github.com/code-yeongyu/skynet/internal/oauth"
+	"github.com/abbayosua/skynet/internal/csync"
+	"github.com/abbayosua/skynet/internal/oauth"
 	"github.com/stretchr/testify/require"
 )
 

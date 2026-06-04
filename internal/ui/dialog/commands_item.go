@@ -3,8 +3,8 @@ package dialog
 import (
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/ui/list"
-	"github.com/code-yeongyu/skynet/internal/ui/styles"
+	"github.com/abbayosua/skynet/internal/ui/list"
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/sahilm/fuzzy"
 )
 

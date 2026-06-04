@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/env"
-	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/env"
+	"github.com/abbayosua/skynet/internal/shell"
 )
 
 // resolveTimeout bounds how long a single ResolveValue call may spend

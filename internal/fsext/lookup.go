@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/code-yeongyu/skynet/internal/home"
+	"github.com/abbayosua/skynet/internal/home"
 )
 
 // Lookup searches for a target files or directories starting from dir

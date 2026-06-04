@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/fsext"
+	"github.com/abbayosua/skynet/internal/fsext"
 )
 
 const (

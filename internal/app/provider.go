@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/code-yeongyu/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/config"
 	xstrings "github.com/charmbracelet/x/exp/strings"
 )
 

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/shell"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/shell"
 	"github.com/stretchr/testify/require"
 )
 

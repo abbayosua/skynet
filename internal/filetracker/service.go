@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/code-yeongyu/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/db"
 )
 
 // Service defines the interface for tracking file reads in sessions.

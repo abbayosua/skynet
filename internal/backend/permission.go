@@ -1,8 +1,8 @@
 package backend
 
 import (
-	"github.com/code-yeongyu/skynet/internal/permission"
-	"github.com/code-yeongyu/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/permission"
+	"github.com/abbayosua/skynet/internal/proto"
 )
 
 // GrantPermission grants, denies, or persistently grants a permission

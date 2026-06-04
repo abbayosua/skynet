@@ -24,20 +24,20 @@ import (
 	fang "charm.land/fang/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
-	"github.com/code-yeongyu/skynet/internal/app"
-	"github.com/code-yeongyu/skynet/internal/client"
-	"github.com/code-yeongyu/skynet/internal/config"
-	"github.com/code-yeongyu/skynet/internal/db"
-	"github.com/code-yeongyu/skynet/internal/event"
-	crushlog "github.com/code-yeongyu/skynet/internal/log"
-	"github.com/code-yeongyu/skynet/internal/projects"
-	"github.com/code-yeongyu/skynet/internal/proto"
-	"github.com/code-yeongyu/skynet/internal/server"
-	"github.com/code-yeongyu/skynet/internal/session"
-	"github.com/code-yeongyu/skynet/internal/ui/common"
-	ui "github.com/code-yeongyu/skynet/internal/ui/model"
-	"github.com/code-yeongyu/skynet/internal/version"
-	"github.com/code-yeongyu/skynet/internal/workspace"
+	"github.com/abbayosua/skynet/internal/app"
+	"github.com/abbayosua/skynet/internal/client"
+	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/db"
+	"github.com/abbayosua/skynet/internal/event"
+	crushlog "github.com/abbayosua/skynet/internal/log"
+	"github.com/abbayosua/skynet/internal/projects"
+	"github.com/abbayosua/skynet/internal/proto"
+	"github.com/abbayosua/skynet/internal/server"
+	"github.com/abbayosua/skynet/internal/session"
+	"github.com/abbayosua/skynet/internal/ui/common"
+	ui "github.com/abbayosua/skynet/internal/ui/model"
+	"github.com/abbayosua/skynet/internal/version"
+	"github.com/abbayosua/skynet/internal/workspace"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
@@ -148,7 +148,7 @@ skynet --yolo --telegram {bot-token}
 		if _, err := program.Run(); err != nil {
 			event.Error(err)
 			slog.Error("TUI run error", "error", err)
-			return errors.New("SkyNet crashed. If metrics are enabled, we were notified about it. If you'd like to report it, please copy the stacktrace above and open an issue at https://github.com/code-yeongyu/skynet/issues/new?template=bug.yml") //nolint:staticcheck
+			return errors.New("SkyNet crashed. If metrics are enabled, we were notified about it. If you'd like to report it, please copy the stacktrace above and open an issue at https://github.com/abbayosua/skynet/issues/new?template=bug.yml") //nolint:staticcheck
 		}
 		return nil
 	},
