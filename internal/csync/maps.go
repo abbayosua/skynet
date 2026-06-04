@@ -10,13 +10,14 @@ import (
 // Map is a concurrent map implementation that provides thread-safe access.
 type Map[K comparable, V any] struct {
 	inner map[K]V
-	mu    sync.RWMutex
+	mu    *sync.RWMutex
 }
 
 // NewMap creates a new thread-safe map with the specified key and value types.
 func NewMap[K comparable, V any]() *Map[K, V] {
 	return &Map[K, V]{
 		inner: make(map[K]V),
+		mu:    &sync.RWMutex{},
 	}
 }
 
@@ -24,13 +25,14 @@ func NewMap[K comparable, V any]() *Map[K, V] {
 func NewMapFrom[K comparable, V any](m map[K]V) *Map[K, V] {
 	return &Map[K, V]{
 		inner: m,
+		mu:    &sync.RWMutex{},
 	}
 }
 
 // NewLazyMap creates a new lazy-loaded map. The provided load function is
 // executed in a separate goroutine to populate the map.
 func NewLazyMap[K comparable, V any](load func() map[K]V) *Map[K, V] {
-	m := &Map[K, V]{}
+	m := &Map[K, V]{mu: &sync.RWMutex{}}
 	m.mu.Lock()
 	go func() {
 		defer m.mu.Unlock()
