@@ -30,3 +30,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOPROXY: direct
           GONOSUMDB: "charm.land/*"
+          GONOSUMCHECK: "*"
