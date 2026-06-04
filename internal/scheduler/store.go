@@ -5,8 +5,21 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 )
+
+func DefaultDataDir() string {
+	dir := strings.TrimSpace(os.Getenv("SKYNET_SCHEDULER_DIR"))
+	if dir != "" {
+		return dir
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".local", "share", "skynet", "scheduler")
+	}
+	return filepath.Join(home, ".local", "share", "skynet", "scheduler")
+}
 
 type Store struct {
 	mu   sync.Mutex

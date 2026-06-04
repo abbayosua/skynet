@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"charm.land/lipgloss/v2"
@@ -298,19 +295,9 @@ func init() {
 }
 
 func newSchedulerFromConfig(cmd *cobra.Command) (*scheduler.Scheduler, error) {
-	dataDir := schedulerDataDir(cmd)
-	store, err := scheduler.NewStore(dataDir)
+	store, err := scheduler.NewStore(scheduler.DefaultDataDir())
 	if err != nil {
 		return nil, fmt.Errorf("scheduler store: %w", err)
 	}
 	return scheduler.NewScheduler(store, nil), nil
-}
-
-func schedulerDataDir(cmd *cobra.Command) string {
-	dir := strings.TrimSpace(os.Getenv("SKYNET_SCHEDULER_DIR"))
-	if dir != "" {
-		return dir
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "skynet", "scheduler")
 }

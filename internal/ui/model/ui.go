@@ -38,6 +38,7 @@ import (
 	"github.com/abbayosua/skynet/internal/message"
 	"github.com/abbayosua/skynet/internal/permission"
 	"github.com/abbayosua/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/scheduler"
 	"github.com/abbayosua/skynet/internal/session"
 	"github.com/abbayosua/skynet/internal/skills"
 	"github.com/abbayosua/skynet/internal/telegram"
@@ -1515,6 +1516,35 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 				return util.ReportError(err)()
 			}
 			return nil
+		})
+		m.dialog.CloseDialog(dialog.CommandsID)
+	case dialog.ActionSchedulerList:
+		store, err := scheduler.NewStore(scheduler.DefaultDataDir())
+		if err != nil {
+			cmds = append(cmds, util.ReportError(fmt.Errorf("scheduler: %w", err)))
+			break
+		}
+		jobs := store.List()
+		var b strings.Builder
+		b.WriteString("### Scheduled Jobs\n\n")
+		if len(jobs) == 0 {
+			b.WriteString("No scheduled jobs.\n\n")
+			b.WriteString("Use `skynet schedule add --name ... --interval ... --prompt ...` from the terminal to add one.")
+		} else {
+			for _, j := range jobs {
+				status := "active"
+				if !j.Enabled {
+					status = "disabled"
+				}
+				b.WriteString(fmt.Sprintf("- **%s** (`%s`) — %s [%s]\n", j.Name, j.ID, j.Interval, status))
+				b.WriteString(fmt.Sprintf("  Prompt: %s\n", j.Prompt))
+				if !j.LastRunAt.IsZero() {
+					b.WriteString(fmt.Sprintf("  Last: %s — %s\n", j.LastRunAt.Format(time.RFC3339), j.LastResult))
+				}
+			}
+		}
+		cmds = append(cmds, func() tea.Msg {
+			return util.InfoMsg{Type: util.InfoTypeInfo, Msg: b.String()}
 		})
 		m.dialog.CloseDialog(dialog.CommandsID)
 	case dialog.ActionToggleHelp:

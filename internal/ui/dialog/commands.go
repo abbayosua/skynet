@@ -529,6 +529,9 @@ func (c *Commands) defaultCommands() []*CommandItem {
 	// Add Telegram connect. Always show since it's in-memory per instance.
 	commands = append(commands, NewCommandItem(c.com.Styles, "connect_telegram", "Connect Telegram", "", ActionOpenDialog{TelegramID}))
 
+	// Add scheduler.
+	commands = append(commands, NewCommandItem(c.com.Styles, "scheduler", "Scheduled Jobs", "", ActionSchedulerList{}))
+
 	commands = append(commands,
 		NewCommandItem(c.com.Styles, "toggle_yolo", "Toggle Yolo Mode", "", ActionToggleYoloMode{}),
 		NewCommandItem(c.com.Styles, "toggle_help", "Toggle Help", "ctrl+g", ActionToggleHelp{}),
