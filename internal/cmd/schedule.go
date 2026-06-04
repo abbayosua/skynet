@@ -22,19 +22,22 @@ Jobs run as non-interactive background tasks with auto-approved permissions.`,
 }
 
 var (
-	scheduleAddName     string
-	scheduleAddInterval string
-	scheduleAddPrompt   string
-	scheduleAddDesc     string
-	scheduleAddTimeout  int
-	scheduleListAll     bool
-	scheduleJSON        bool
+	scheduleAddName      string
+	scheduleAddInterval  string
+	scheduleAddPrompt    string
+	scheduleAddDesc      string
+	scheduleAddTimeout   int
+	scheduleAddContinue  bool
+	scheduleListAll      bool
+	scheduleJSON         bool
+	scheduleAddEnabled   bool
 )
 
 var scheduleAddCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a new scheduled job",
 	Example: `  skynet schedule add --name daily-check --interval hourly --prompt "check server status"
+  skynet schedule add --name tester --interval 15m --prompt "testing" --continue
   skynet schedule add --name weekly-report --interval "24h" --prompt "summarize this week" --timeout 300`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sched, err := newSchedulerFromConfig(cmd)
@@ -43,12 +46,13 @@ var scheduleAddCmd = &cobra.Command{
 		}
 
 		job := &scheduler.Job{
-			Name:       scheduleAddName,
-			Prompt:     scheduleAddPrompt,
+			Name:        scheduleAddName,
+			Prompt:      scheduleAddPrompt,
 			Description: scheduleAddDesc,
-			Interval:   scheduleAddInterval,
-			TimeoutSec: scheduleAddTimeout,
-			Enabled:    true,
+			Interval:    scheduleAddInterval,
+			TimeoutSec:  scheduleAddTimeout,
+			Continue:    scheduleAddContinue,
+			Enabled:     true,
 		}
 		if err := sched.AddJob(job); err != nil {
 			return fmt.Errorf("failed to add job: %w", err)
@@ -83,8 +87,12 @@ var scheduleListCmd = &cobra.Command{
 				if !scheduleListAll && !j.Enabled {
 					continue
 				}
-				fmt.Printf("%s\t%s\t%s\truns=%d\tlast=%s\n",
-					j.ID, j.Name, j.Interval, j.RunCount, j.LastRunAt.Format(time.RFC3339))
+				cont := ""
+			if j.Continue {
+				cont = "continue"
+			}
+			fmt.Printf("%s\t%s\t%s\t%s\truns=%d\tlast=%s\n",
+					j.ID, j.Name, j.Interval, cont, j.RunCount, j.LastRunAt.Format(time.RFC3339))
 			}
 			return nil
 		}
@@ -100,7 +108,11 @@ var scheduleListCmd = &cobra.Command{
 			if !j.Enabled {
 				status = mutedStyle.Render("disabled")
 			}
-			fmt.Printf("%s (%s)\n", labelStyle.Render(j.Name), j.ID)
+			mode := ""
+			if j.Continue {
+				mode = " [continue]"
+			}
+			fmt.Printf("%s (%s)%s\n", labelStyle.Render(j.Name), j.ID, mode)
 			fmt.Printf("  Interval: %s | Status: %s | Runs: %d\n", j.Interval, status, j.RunCount)
 			if j.LastRunAt.IsZero() {
 				fmt.Printf("  Last run: never\n")
@@ -135,8 +147,8 @@ var scheduleGetCmd = &cobra.Command{
 		}
 
 		if scheduleJSON {
-			fmt.Printf("id=%s name=%s prompt=%s interval=%s status=%s timeout=%d runs=%d\n",
-				job.ID, job.Name, job.Prompt, job.Interval, status, job.TimeoutSec, job.RunCount)
+			fmt.Printf("id=%s name=%s prompt=%s interval=%s status=%s continue=%v timeout=%d runs=%d\n",
+				job.ID, job.Name, job.Prompt, job.Interval, status, job.Continue, job.TimeoutSec, job.RunCount)
 			return nil
 		}
 
@@ -145,7 +157,11 @@ var scheduleGetCmd = &cobra.Command{
 		fmt.Printf("%s:   %s\n", labelStyle.Render("ID"), job.ID)
 		fmt.Printf("%s:    %s\n", labelStyle.Render("Prompt"), job.Prompt)
 		fmt.Printf("%s: %s\n", labelStyle.Render("Interval"), job.Interval)
-		fmt.Printf("%s:  %s\n", labelStyle.Render("Status"), status)
+		mode := ""
+		if job.Continue {
+			mode = " [continue]"
+		}
+		fmt.Printf("%s:  %s%s\n", labelStyle.Render("Status"), status, mode)
 		fmt.Printf("%s: %d\n", labelStyle.Render("Timeout"), job.TimeoutSec)
 		fmt.Printf("%s: %d\n", labelStyle.Render("Runs"), job.RunCount)
 		fmt.Printf("%s:   %s\n", labelStyle.Render("Created"), job.CreatedAt.Format(time.RFC3339))
@@ -192,6 +208,9 @@ var scheduleUpdateCmd = &cobra.Command{
 		if cmd.Flags().Changed("enabled") {
 			existing.Enabled = scheduleAddEnabled
 		}
+		if cmd.Flags().Changed("continue") {
+			existing.Continue = scheduleAddContinue
+		}
 
 		if err := sched.UpdateJob(existing); err != nil {
 			return fmt.Errorf("failed to update job: %w", err)
@@ -201,8 +220,6 @@ var scheduleUpdateCmd = &cobra.Command{
 		return nil
 	},
 }
-
-var scheduleAddEnabled bool
 
 var scheduleDeleteCmd = &cobra.Command{
 	Use:     "delete <id>",
@@ -252,6 +269,7 @@ func init() {
 	scheduleAddCmd.Flags().StringVarP(&scheduleAddPrompt, "prompt", "p", "", "Prompt to execute (required)")
 	scheduleAddCmd.Flags().StringVar(&scheduleAddDesc, "description", "", "Optional description")
 	scheduleAddCmd.Flags().IntVar(&scheduleAddTimeout, "timeout", 0, "Timeout in seconds")
+	scheduleAddCmd.Flags().BoolVar(&scheduleAddContinue, "continue", false, "Auto-continue: improve/test/code tanpa henti")
 	scheduleAddCmd.MarkFlagRequired("name")
 	scheduleAddCmd.MarkFlagRequired("interval")
 	scheduleAddCmd.MarkFlagRequired("prompt")
@@ -262,6 +280,7 @@ func init() {
 	scheduleUpdateCmd.Flags().StringVar(&scheduleAddDesc, "description", "", "New description")
 	scheduleUpdateCmd.Flags().IntVar(&scheduleAddTimeout, "timeout", 0, "New timeout in seconds")
 	scheduleUpdateCmd.Flags().BoolVar(&scheduleAddEnabled, "enabled", true, "Enable or disable")
+	scheduleUpdateCmd.Flags().BoolVar(&scheduleAddContinue, "continue", false, "Auto-continue toggle")
 
 	scheduleListCmd.Flags().BoolVarP(&scheduleListAll, "all", "a", false, "Include disabled jobs")
 

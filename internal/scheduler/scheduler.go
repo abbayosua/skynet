@@ -197,6 +197,11 @@ func (s *Scheduler) execute(job *Job) {
 
 	slog.Info("scheduler: executing job", "job", job.ID, "name", job.Name)
 
+	prompt := job.Prompt
+	if job.Continue {
+		prompt += "\n\n" + DefaultContinuePrompt
+	}
+
 	ctx := context.Background()
 	if job.TimeoutSec > 0 {
 		var cancel context.CancelFunc
@@ -205,7 +210,7 @@ func (s *Scheduler) execute(job *Job) {
 	}
 
 	now := time.Now()
-	result, err := s.runFn(ctx, job.Prompt)
+	result, err := s.runFn(ctx, prompt)
 
 	job.LastRunAt = now
 	job.RunCount++

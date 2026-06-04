@@ -16,12 +16,16 @@ type Job struct {
 	TimeoutSec  int       `json:"timeout_seconds,omitempty"`
 	WorkDir     string    `json:"work_dir"`
 	Enabled     bool      `json:"enabled"`
+	Continue    bool      `json:"continue,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	LastRunAt   time.Time `json:"last_run_at,omitempty"`
 	LastResult  string    `json:"last_result,omitempty"`
 	RunCount    int       `json:"run_count,omitempty"`
 }
+
+const DefaultContinuePrompt = `Lanjutkan dari yang terakhir. Baca file todo/progress yang sudah dibuat sebelumnya.
+Jika tidak ada file todo/progress sama sekali, improve codebase dan fitur yang ada, implement, lalu testing (jangan curang) sampai tidak ada bug atau breaks something, lalu dokumentasikan apa yang sudah dibuat dalam sebuah markdown file, lalu git commit (WAJIB).`
 
 type RunRecord struct {
 	JobID     string    `json:"job_id"`
