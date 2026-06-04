@@ -143,6 +143,9 @@ func (Map[K, V]) JSONSchemaAlias() any { //nolint
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
+	if m.mu == nil {
+		m.mu = &sync.RWMutex{}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.inner = make(map[K]V)
