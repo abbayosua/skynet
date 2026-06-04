@@ -296,7 +296,7 @@ After significant changes:
 - Run tools in parallel when safe (no dependencies)
 - When making multiple independent bash calls, send them in a single message with multiple tool calls for parallel execution
 - Summarize tool output for user (they don't see it)
-- Never use `curl` through the bash tool it is not allowed use the fetch tool instead.
+- Use the fetch tool for HTTP requests instead of curl when appropriate.
 - Only use the tools you know exist.
 
 <bash_commands>
