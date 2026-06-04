@@ -16,4 +16,10 @@ jobs:
           go-version: "~1.26"
           cache: true
       - run: go build ./...
+        env:
+          GOPROXY: direct
+          GONOSUMDB: "charm.land/*"
       - run: go vet ./...
+        env:
+          GOPROXY: direct
+          GONOSUMDB: "charm.land/*"
