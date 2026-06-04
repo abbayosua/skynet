@@ -6,9 +6,6 @@ project_name: skynet
 
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
-  license: "FSL-1.1-MIT"
-  homepage: "https://github.com/abbayosua/skynet"
-  description: "A powerful terminal-based AI assistant for developers, providing intelligent coding assistance directly in your terminal."
 
 snapshot:
   version_template: "0.0.0-{{ .Timestamp }}"
