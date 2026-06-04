@@ -130,13 +130,7 @@ func (d *SchedulerDialog) handleListKey(msg tea.KeyPressMsg) Action {
 	case key.Matches(msg, d.keyMap.Select):
 		if sel := d.list.SelectedItem(); sel != nil {
 			if item, ok := sel.(*SchedulerItem); ok && item.job != nil {
-				return ActionCmd{Cmd: func() tea.Msg {
-					return util.InfoMsg{Type: util.InfoTypeInfo, Msg: fmt.Sprintf(
-						"Job: %s\nInterval: %s\nPrompt: %s\nLast: %s\nResult: %s",
-						item.job.Name, item.job.Interval, item.job.Prompt,
-						item.job.LastRunAt.Format("2006-01-02 15:04"), item.job.LastResult,
-					)}
-				}}
+				return ActionRunCustomCommand{Content: item.job.Prompt}
 			}
 		}
 	case key.Matches(msg, d.keyMap.New):
