@@ -8,7 +8,6 @@ on:
 
 env:
   GONOSUMDB: "charm.land/*"
-  GONOSUMCHECK: "*"
 
 jobs:
   build:
@@ -19,6 +18,5 @@ jobs:
         with:
           go-version: "~1.26"
           cache: true
-      - run: go mod tidy
       - run: go build ./...
       - run: go vet ./...

@@ -8,12 +8,13 @@ on:
 permissions:
   contents: write
 
+env:
+  GONOSUMDB: "charm.land/*"
+
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      GONOSUMDB: "charm.land/*"
-      GONOSUMCHECK: "*"
       VERSION: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
@@ -23,9 +24,7 @@ jobs:
           go-version: "~1.26"
           cache: true
 
-      - run: go mod tidy
-
-      # Linux (Debian) build
+      # Linux build
       - run: |
           mkdir -p dist/linux
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/linux/skynet .
@@ -35,7 +34,7 @@ jobs:
           mkdir -p dist/windows
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/windows/skynet.exe .
 
-      # Generate .deb package
+      # .deb package
       - run: |
           mkdir -p dist/deb/usr/bin
           cp dist/linux/skynet dist/deb/usr/bin/
@@ -51,14 +50,14 @@ jobs:
           EOF
           dpkg-deb --build dist/deb dist/skynet_${VERSION}_linux_amd64.deb
 
-      # Create archives
+      # Archives
       - run: tar -czf dist/skynet_${VERSION}_linux_amd64.tar.gz -C dist/linux skynet
       - run: cd dist/windows && zip -r ../skynet_${VERSION}_windows_amd64.zip skynet.exe
 
-      # Generate checksums
+      # Checksums
       - run: cd dist && sha256sum *.deb *.tar.gz *.zip > checksums.txt
 
-      # Create GitHub Release
+      # GitHub Release
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
