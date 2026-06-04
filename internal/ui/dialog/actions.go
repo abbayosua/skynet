@@ -89,8 +89,6 @@ type (
 	ActionEnableDockerMCP struct{}
 	// ActionDisableDockerMCP is a message to disable Docker MCP.
 	ActionDisableDockerMCP struct{}
-	// ActionSchedulerList is a message to list scheduled jobs.
-	ActionSchedulerList struct{}
 )
 
 // Messages for API key input dialog.

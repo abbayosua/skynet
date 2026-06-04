@@ -530,7 +530,7 @@ func (c *Commands) defaultCommands() []*CommandItem {
 	commands = append(commands, NewCommandItem(c.com.Styles, "connect_telegram", "Connect Telegram", "", ActionOpenDialog{TelegramID}))
 
 	// Add scheduler.
-	commands = append(commands, NewCommandItem(c.com.Styles, "scheduler", "Scheduled Jobs", "", ActionSchedulerList{}))
+	commands = append(commands, NewCommandItem(c.com.Styles, "scheduler", "Scheduled Jobs", "", ActionOpenDialog{SchedulerID}))
 
 	commands = append(commands,
 		NewCommandItem(c.com.Styles, "toggle_yolo", "Toggle Yolo Mode", "", ActionToggleYoloMode{}),
