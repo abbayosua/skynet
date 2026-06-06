@@ -83,6 +83,9 @@ type App struct {
 	cleanupFuncs       []func(context.Context) error
 	agentNotifications *pubsub.Broker[notify.Notification]
 
+	lastTelegramMu   sync.Mutex
+	lastTelegramText string
+
 	TelegramBot *telegram.Bot
 	Scheduler   *scheduler.Scheduler
 	tuiProgram  *tea.Program
@@ -220,6 +223,15 @@ func (app *App) mirrorMessagesToTelegram(ctx context.Context, bot *telegram.Bot)
 			if text == "" {
 				continue
 			}
+
+			app.lastTelegramMu.Lock()
+			if text == app.lastTelegramText {
+				app.lastTelegramMu.Unlock()
+				continue
+			}
+			app.lastTelegramText = text
+			app.lastTelegramMu.Unlock()
+
 			full := fullTelegramText(text)
 			if err := bot.SendMessage(full); err != nil {
 				slog.Warn("Telegram: failed to send message mirror", "error", err)
@@ -271,6 +283,15 @@ func (app *App) mirrorActivityToTelegram(ctx context.Context, bot *telegram.Bot)
 				if n.Activity == "" {
 					continue
 				}
+
+				app.lastTelegramMu.Lock()
+				if n.Activity == app.lastTelegramText {
+					app.lastTelegramMu.Unlock()
+					continue
+				}
+				app.lastTelegramText = n.Activity
+				app.lastTelegramMu.Unlock()
+
 				lastActivity = n.Activity
 				full := "🤖 " + n.Activity
 				if err := bot.SendMessage(full); err != nil {
