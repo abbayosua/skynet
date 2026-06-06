@@ -35,11 +35,12 @@ type SchedulerDialog struct {
 	list *list.FilterableList
 	mode schedulerMode
 
-	jobs    []*scheduler.Job
-	store   *scheduler.Store
-	input       textinput.Model
+	jobs       []*scheduler.Job
+	store      *scheduler.Store
+	input      textinput.Model
 	addName     string
 	addInterval string
+	sessionID   string
 
 	keyMap struct {
 		Select  key.Binding
@@ -55,10 +56,11 @@ type SchedulerDialog struct {
 
 var _ Dialog = (*SchedulerDialog)(nil)
 
-func NewSchedulerDialog(com *common.Common) (*SchedulerDialog, error) {
+func NewSchedulerDialog(com *common.Common, sessionID string) (*SchedulerDialog, error) {
 	d := &SchedulerDialog{
-		com:  com,
-		mode: schedulerModeList,
+		com:       com,
+		mode:      schedulerModeList,
+		sessionID: sessionID,
 	}
 
 	var err error
@@ -177,6 +179,7 @@ func (d *SchedulerDialog) handleAddKey(msg tea.KeyPressMsg) Action {
 				Name:      d.addName,
 				Interval:  d.addInterval,
 				Prompt:    val,
+				SessionID: d.sessionID,
 				Enabled:   true,
 				CreatedAt: time.Now(),
 			}

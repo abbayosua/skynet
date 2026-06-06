@@ -15,6 +15,7 @@ type Job struct {
 	Interval    string    `json:"interval"`
 	TimeoutSec  int       `json:"timeout_seconds,omitempty"`
 	WorkDir     string    `json:"work_dir"`
+	SessionID   string    `json:"session_id,omitempty"`
 	Enabled     bool      `json:"enabled"`
 	Continue    bool      `json:"continue,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`

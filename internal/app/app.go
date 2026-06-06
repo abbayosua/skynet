@@ -55,8 +55,9 @@ type UpdateAvailableMsg struct {
 
 // SchedulerTickMsg is sent when a scheduler job fires a tick.
 type SchedulerTickMsg struct {
-	Name   string
-	Prompt string
+	Name      string
+	Prompt    string
+	SessionID string
 }
 
 type App struct {
@@ -126,8 +127,12 @@ func New(ctx context.Context, conn *sql.DB, store *config.ConfigStore) (*App, er
 		return nil, fmt.Errorf("scheduler store: %w", err)
 	}
 	app.Scheduler = scheduler.NewScheduler(schedStore)
-	app.Scheduler.SetTickHandler(func(name, prompt string) {
-		app.events.Publish(pubsub.CreatedEvent, SchedulerTickMsg{Name: name, Prompt: prompt})
+	app.Scheduler.SetTickHandler(func(job *scheduler.Job, prompt string) {
+		app.events.Publish(pubsub.CreatedEvent, SchedulerTickMsg{
+			Name:      job.Name,
+			Prompt:    prompt,
+			SessionID: job.SessionID,
+		})
 	})
 	app.Scheduler.Start()
 

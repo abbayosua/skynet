@@ -965,6 +965,9 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds = append(cmds, clearInfoMsgCmd(ttl))
 	case app.SchedulerTickMsg:
+		if msg.SessionID != "" && m.hasSession() && m.session.ID != msg.SessionID {
+			break
+		}
 		if !m.hasSession() {
 			m.pendingSchedulerQueue = append(m.pendingSchedulerQueue, msg.Prompt)
 			break
@@ -3438,7 +3441,11 @@ func (m *UI) openSchedulerDialog() tea.Cmd {
 		m.dialog.BringToFront(dialog.SchedulerID)
 		return nil
 	}
-	dia, err := dialog.NewSchedulerDialog(m.com)
+	sessionID := ""
+	if m.session != nil {
+		sessionID = m.session.ID
+	}
+	dia, err := dialog.NewSchedulerDialog(m.com, sessionID)
 	if err != nil {
 		return util.ReportError(err)
 	}

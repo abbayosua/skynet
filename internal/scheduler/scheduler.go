@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type TickHandler func(jobName, prompt string)
+type TickHandler func(job *Job, prompt string)
 
 type Scheduler struct {
 	mu      sync.Mutex
@@ -174,6 +174,6 @@ func (s *Scheduler) tick(job *Job, runFlag *atomic.Bool) {
 		if job.Continue {
 			prompt += "\n\n" + DefaultContinuePrompt
 		}
-		s.handler(job.Name, prompt)
+		s.handler(job, prompt)
 	}
 }
