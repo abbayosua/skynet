@@ -38,8 +38,35 @@ func (s *Scheduler) Start() {
 		return
 	}
 
+	s.rescan()
+
+	// Watch for new jobs added via TUI/CLI while running.
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			s.rescan()
+		}
+	}()
+}
+
+// rescan loads jobs from the store and starts any not yet running.
+func (s *Scheduler) rescan() {
+	s.mu.Lock()
+	known := make(map[string]bool, len(s.cancels))
+	for id := range s.cancels {
+		known[id] = true
+	}
+	s.mu.Unlock()
+
 	for _, job := range s.store.List() {
-		if job.Enabled {
+		if !job.Enabled {
+			continue
+		}
+		s.mu.Lock()
+		_, exists := s.cancels[job.ID]
+		s.mu.Unlock()
+		if !exists {
 			s.startJob(job)
 		}
 	}
