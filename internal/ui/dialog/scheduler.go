@@ -322,9 +322,9 @@ func (i *SchedulerItem) Finished() bool { return true }
 func (i *SchedulerItem) Filter() string { return i.job.Name }
 
 func (i *SchedulerItem) Render(width int) string {
-	status := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Render("● active")
+	status := "[active]"
 	if !i.job.Enabled {
-		status = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("○ disabled")
+		status = "[disabled]"
 	}
 	mode := ""
 	if i.job.Continue {
@@ -336,7 +336,7 @@ func (i *SchedulerItem) Render(width int) string {
 		second = second[:50] + "..."
 	}
 	if !i.job.LastRunAt.IsZero() {
-		second += fmt.Sprintf(" — last: %s", i.job.LastResult)
+		second += fmt.Sprintf(" — %s", i.job.LastResult)
 	}
-	return first + "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(second)
+	return first + "\n" + second
 }
