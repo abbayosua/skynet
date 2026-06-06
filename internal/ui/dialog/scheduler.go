@@ -37,8 +37,9 @@ type SchedulerDialog struct {
 
 	jobs    []*scheduler.Job
 	store   *scheduler.Store
-	input   textinput.Model
-	addName string
+	input       textinput.Model
+	addName     string
+	addInterval string
 
 	keyMap struct {
 		Select  key.Binding
@@ -167,13 +168,14 @@ func (d *SchedulerDialog) handleAddKey(msg tea.KeyPressMsg) Action {
 			d.input.SetValue("")
 			d.input.Placeholder = "Interval (e.g. 15m, hourly, daily)"
 		case schedulerModeAddInterval:
+			d.addInterval = val
 			d.mode = schedulerModeAddPrompt
 			d.input.SetValue("")
 			d.input.Placeholder = "Prompt to execute"
 		case schedulerModeAddPrompt:
 			job := &scheduler.Job{
 				Name:      d.addName,
-				Interval:  d.inputValue(),
+				Interval:  d.addInterval,
 				Prompt:    val,
 				Enabled:   true,
 				CreatedAt: time.Now(),
