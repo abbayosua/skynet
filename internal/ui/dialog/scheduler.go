@@ -248,13 +248,14 @@ func (d *SchedulerDialog) Draw(scr uv.Screen, area uv.Rectangle) *tea.Cursor {
 	width := max(0, min(defaultDialogMaxWidth, area.Dx()-t.Dialog.View.GetHorizontalBorderSize()))
 	height := max(0, min(defaultDialogHeight, area.Dy()-t.Dialog.View.GetVerticalBorderSize()))
 
-	innerWidth := width - t.Dialog.View.GetHorizontalFrameSize()
+	innerWidth := max(1, width-t.Dialog.View.GetHorizontalFrameSize())
 	heightOffset := t.Dialog.Title.GetVerticalFrameSize() + titleContentHeight +
 		t.Dialog.InputPrompt.GetVerticalFrameSize() + inputContentHeight +
 		t.Dialog.HelpView.GetVerticalFrameSize() +
 		t.Dialog.View.GetVerticalFrameSize()
 
-	d.list.SetSize(innerWidth, height-heightOffset)
+	listHeight := max(1, height-heightOffset)
+	d.list.SetSize(innerWidth, listHeight)
 	d.help.SetWidth(innerWidth)
 
 	rc := NewRenderContext(t, width)
