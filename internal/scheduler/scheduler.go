@@ -9,36 +9,34 @@ import (
 	"time"
 )
 
-type RunFunc func(ctx context.Context, prompt string) (string, error)
+type TickHandler func(jobName, prompt string)
 
 type Scheduler struct {
 	mu      sync.Mutex
 	store   *Store
-	runFn   RunFunc
+	handler TickHandler
 	cancels map[string]context.CancelFunc
 	running map[string]*atomic.Bool
 }
 
-func NewScheduler(store *Store, runFn RunFunc) *Scheduler {
+func NewScheduler(store *Store) *Scheduler {
 	return &Scheduler{
 		store:   store,
-		runFn:   runFn,
 		cancels: make(map[string]context.CancelFunc),
 		running: make(map[string]*atomic.Bool),
 	}
 }
 
+func (s *Scheduler) SetTickHandler(h TickHandler) {
+	s.handler = h
+}
+
 var started atomic.Bool
 
-func (s *Scheduler) Start(ctx context.Context) {
+func (s *Scheduler) Start() {
 	if !started.CompareAndSwap(false, true) {
 		return
 	}
-
-	go func() {
-		<-ctx.Done()
-		s.shutdown()
-	}()
 
 	for _, job := range s.store.List() {
 		if job.Enabled {
@@ -106,29 +104,6 @@ func (s *Scheduler) DeleteJob(id string) error {
 	return nil
 }
 
-func (s *Scheduler) RunJob(id string) {
-	job, ok := s.store.Get(id)
-	if !ok {
-		return
-	}
-
-	s.mu.Lock()
-	runFlag, exists := s.running[id]
-	if !exists {
-		runFlag = &atomic.Bool{}
-		s.running[id] = runFlag
-	}
-	s.mu.Unlock()
-
-	if !runFlag.CompareAndSwap(false, true) {
-		slog.Warn("scheduler: job already running, skipping manual run", "job", id)
-		return
-	}
-	defer runFlag.Store(false)
-
-	s.execute(job)
-}
-
 func (s *Scheduler) ListJobs() []*Job {
 	return s.store.List()
 }
@@ -152,9 +127,8 @@ func (s *Scheduler) startJob(job *Job) {
 	s.running[job.ID] = runFlag
 	s.mu.Unlock()
 
-	// Run immediately on start, then on schedule.
 	go func() {
-		s.executeLocked(job, runFlag)
+		s.tick(job, runFlag)
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -162,7 +136,7 @@ func (s *Scheduler) startJob(job *Job) {
 		for {
 			select {
 			case <-ticker.C:
-				s.executeLocked(job, runFlag)
+				s.tick(job, runFlag)
 			case <-ctx.Done():
 				return
 			}
@@ -180,53 +154,26 @@ func (s *Scheduler) stopJob(id string) {
 	s.mu.Unlock()
 }
 
-func (s *Scheduler) executeLocked(job *Job, runFlag *atomic.Bool) {
+func (s *Scheduler) tick(job *Job, runFlag *atomic.Bool) {
 	if !runFlag.CompareAndSwap(false, true) {
-		slog.Warn("scheduler: job still running, skipping tick", "job", job.ID, "name", job.Name)
+		slog.Warn("scheduler: previous run still in progress, skipping", "job", job.ID, "name", job.Name)
 		return
 	}
 	defer runFlag.Store(false)
 
-	s.execute(job)
-}
-
-func (s *Scheduler) execute(job *Job) {
-	if s.runFn == nil {
-		return
-	}
-
-	slog.Info("scheduler: executing job", "job", job.ID, "name", job.Name)
-
-	prompt := job.Prompt
-	if job.Continue {
-		prompt += "\n\n" + DefaultContinuePrompt
-	}
-
-	ctx := context.Background()
-	if job.TimeoutSec > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(job.TimeoutSec)*time.Second)
-		defer cancel()
-	}
+	slog.Info("scheduler: tick", "job", job.ID, "name", job.Name)
 
 	now := time.Now()
-	result, err := s.runFn(ctx, prompt)
-
 	job.LastRunAt = now
 	job.RunCount++
-	if err != nil {
-		job.LastResult = fmt.Sprintf("error: %s", err)
-	} else {
-		job.LastResult = fmt.Sprintf("ok (%d chars)", len(result))
-	}
+	job.LastResult = "queued"
 	s.store.Save(job)
-}
 
-func (s *Scheduler) shutdown() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, cancel := range s.cancels {
-		cancel()
-		delete(s.cancels, id)
+	if s.handler != nil {
+		prompt := job.Prompt
+		if job.Continue {
+			prompt += "\n\n" + DefaultContinuePrompt
+		}
+		s.handler(job.Name, prompt)
 	}
 }

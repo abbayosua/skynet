@@ -956,6 +956,14 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			ttl = DefaultStatusTTL
 		}
 		cmds = append(cmds, clearInfoMsgCmd(ttl))
+	case app.SchedulerTickMsg:
+		if m.com.Workspace.AgentIsBusy() {
+			break
+		}
+		if !m.hasSession() {
+			break
+		}
+		cmds = append(cmds, m.sendMessage(msg.Prompt))
 	case app.UpdateAvailableMsg:
 		text := fmt.Sprintf("Crush update available: v%s → v%s.", msg.CurrentVersion, msg.LatestVersion)
 		if msg.IsDevelopment {

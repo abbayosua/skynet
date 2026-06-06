@@ -238,28 +238,6 @@ var scheduleDeleteCmd = &cobra.Command{
 	},
 }
 
-var scheduleRunCmd = &cobra.Command{
-	Use:   "run <id>",
-	Short: "Run a scheduled job immediately",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		sched, err := newSchedulerFromConfig(cmd)
-		if err != nil {
-			return err
-		}
-
-		job, ok := sched.GetJob(args[0])
-		if !ok {
-			return fmt.Errorf("job %q not found", args[0])
-		}
-
-		fmt.Printf("Running job %s (%s)...\n", job.Name, job.ID)
-		sched.RunJob(args[0])
-		fmt.Println("Job started in background.")
-		return nil
-	},
-}
-
 func init() {
 	scheduleAddCmd.Flags().StringVarP(&scheduleAddName, "name", "n", "", "Job name (required)")
 	scheduleAddCmd.Flags().StringVarP(&scheduleAddInterval, "interval", "i", "", `Interval (required): "hourly", "daily", "30m", "6h"`)
@@ -290,7 +268,6 @@ func init() {
 		scheduleGetCmd,
 		scheduleUpdateCmd,
 		scheduleDeleteCmd,
-		scheduleRunCmd,
 	)
 }
 
@@ -299,5 +276,5 @@ func newSchedulerFromConfig(cmd *cobra.Command) (*scheduler.Scheduler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scheduler store: %w", err)
 	}
-	return scheduler.NewScheduler(store, nil), nil
+	return scheduler.NewScheduler(store), nil
 }

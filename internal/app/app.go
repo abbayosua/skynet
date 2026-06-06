@@ -32,6 +32,7 @@ import (
 	"github.com/abbayosua/skynet/internal/message"
 	"github.com/abbayosua/skynet/internal/permission"
 	"github.com/abbayosua/skynet/internal/pubsub"
+	"github.com/abbayosua/skynet/internal/scheduler"
 	"github.com/abbayosua/skynet/internal/session"
 	"github.com/abbayosua/skynet/internal/shell"
 	"github.com/abbayosua/skynet/internal/skills"
@@ -50,6 +51,12 @@ type UpdateAvailableMsg struct {
 	CurrentVersion string
 	LatestVersion  string
 	IsDevelopment  bool
+}
+
+// SchedulerTickMsg is sent when a scheduler job fires a tick.
+type SchedulerTickMsg struct {
+	Name   string
+	Prompt string
 }
 
 type App struct {
@@ -76,6 +83,7 @@ type App struct {
 	agentNotifications *pubsub.Broker[notify.Notification]
 
 	TelegramBot *telegram.Bot
+	Scheduler   *scheduler.Scheduler
 	tuiProgram  *tea.Program
 }
 
@@ -111,6 +119,17 @@ func New(ctx context.Context, conn *sql.DB, store *config.ConfigStore) (*App, er
 	}
 
 	app.setupEvents()
+
+	// Initialize scheduler engine.
+	schedStore, err := scheduler.NewStore(scheduler.DefaultDataDir())
+	if err != nil {
+		return nil, fmt.Errorf("scheduler store: %w", err)
+	}
+	app.Scheduler = scheduler.NewScheduler(schedStore)
+	app.Scheduler.SetTickHandler(func(name, prompt string) {
+		app.events.Publish(pubsub.CreatedEvent, SchedulerTickMsg{Name: name, Prompt: prompt})
+	})
+	app.Scheduler.Start()
 
 	// Check for updates in the background.
 	go app.checkForUpdates(ctx)
