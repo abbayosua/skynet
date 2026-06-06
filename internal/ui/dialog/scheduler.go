@@ -2,6 +2,7 @@ package dialog
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -64,7 +65,8 @@ func NewSchedulerDialog(com *common.Common, sessionID string) (*SchedulerDialog,
 	}
 
 	var err error
-	d.store, err = scheduler.NewStore(scheduler.DefaultDataDir())
+	schedDir := filepath.Join(com.Config().Options.DataDirectory, "scheduler")
+	d.store, err = scheduler.NewStore(schedDir)
 	if err != nil {
 		return nil, err
 	}

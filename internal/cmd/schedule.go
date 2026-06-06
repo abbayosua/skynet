@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/abbayosua/skynet/internal/config"
 	"github.com/abbayosua/skynet/internal/scheduler"
 	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/spf13/cobra"
@@ -272,9 +274,22 @@ func init() {
 }
 
 func newSchedulerFromConfig(cmd *cobra.Command) (*scheduler.Scheduler, error) {
-	store, err := scheduler.NewStore(scheduler.DefaultDataDir())
+	cwd, err := ResolveCwd(cmd)
+	if err != nil {
+		return nil, err
+	}
+	dataDir, _ := cmd.Flags().GetString("data-dir")
+	debug, _ := cmd.Flags().GetBool("debug")
+	store, err := config.Init(cwd, dataDir, debug)
+	if err != nil {
+		return nil, fmt.Errorf("config: %w", err)
+	}
+	cfg := store.Config()
+
+	schedDir := filepath.Join(cfg.Options.DataDirectory, "scheduler")
+	schedStore, err := scheduler.NewStore(schedDir)
 	if err != nil {
 		return nil, fmt.Errorf("scheduler store: %w", err)
 	}
-	return scheduler.NewScheduler(store), nil
+	return scheduler.NewScheduler(schedStore), nil
 }

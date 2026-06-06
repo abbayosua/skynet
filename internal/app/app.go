@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"os"
 	"strings"
 	"sync"
@@ -124,8 +125,8 @@ func New(ctx context.Context, conn *sql.DB, store *config.ConfigStore) (*App, er
 
 	app.setupEvents()
 
-	// Initialize scheduler engine.
-	schedStore, err := scheduler.NewStore(scheduler.DefaultDataDir())
+	// Initialize scheduler engine (per-project).
+	schedStore, err := scheduler.NewStore(filepath.Join(cfg.Options.DataDirectory, "scheduler"))
 	if err != nil {
 		return nil, fmt.Errorf("scheduler store: %w", err)
 	}
