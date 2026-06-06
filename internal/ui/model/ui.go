@@ -261,8 +261,9 @@ type UI struct {
 	// pills state
 	pillsExpanded      bool
 	focusedPillSection pillSection
-	promptQueue        int
-	pillsView          string
+	promptQueue            int
+	pendingSchedulerQueue  []string
+	pillsView              string
 
 	// Todo spinner
 	todoSpinner    spinner.Model
@@ -489,6 +490,13 @@ func (m *UI) loadMCPrompts() tea.Msg {
 // Update handles updates to the UI model.
 func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+
+	// Flush pending scheduler queue if agent is free.
+	if len(m.pendingSchedulerQueue) > 0 && m.hasSession() && !m.com.Workspace.AgentIsBusy() {
+		cmds = append(cmds, m.sendMessage(m.pendingSchedulerQueue[0]))
+		m.pendingSchedulerQueue = m.pendingSchedulerQueue[1:]
+	}
+
 	if m.hasSession() && m.isAgentBusy() {
 		queueSize := m.com.Workspace.AgentQueuedPrompts(m.session.ID)
 		if queueSize != m.promptQueue {
@@ -957,10 +965,12 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds = append(cmds, clearInfoMsgCmd(ttl))
 	case app.SchedulerTickMsg:
-		if m.com.Workspace.AgentIsBusy() {
+		if !m.hasSession() {
+			m.pendingSchedulerQueue = append(m.pendingSchedulerQueue, msg.Prompt)
 			break
 		}
-		if !m.hasSession() {
+		if m.com.Workspace.AgentIsBusy() {
+			m.pendingSchedulerQueue = append(m.pendingSchedulerQueue, msg.Prompt)
 			break
 		}
 		cmds = append(cmds, m.sendMessage(msg.Prompt))
