@@ -71,6 +71,7 @@ func NewSchedulerDialog(com *common.Common, sessionID string) (*SchedulerDialog,
 	d.jobs = d.store.List()
 
 	d.list = list.NewList()
+	d.list.RegisterRenderCallback(list.FocusedRenderCallback(d.list))
 	d.list.Focus()
 	d.list.SetSelected(0)
 	d.setItems()
@@ -314,12 +315,24 @@ func (d *SchedulerDialog) FullHelp() [][]key.Binding {
 
 type SchedulerItem struct {
 	*list.Versioned
-	job *scheduler.Job
+	job     *scheduler.Job
+	focused bool
+}
+
+func (i *SchedulerItem) SetFocused(focused bool) {
+	if i.focused != focused {
+		i.focused = focused
+		i.Bump()
+	}
 }
 
 func (i *SchedulerItem) Finished() bool { return true }
 
 func (i *SchedulerItem) Render(width int) string {
+	marker := "  "
+	if i.focused {
+		marker = "▸ "
+	}
 	status := "[active]"
 	if !i.job.Enabled {
 		status = "[disabled]"
@@ -328,13 +341,16 @@ func (i *SchedulerItem) Render(width int) string {
 	if i.job.Continue {
 		mode = " [continue]"
 	}
-	first := fmt.Sprintf("%s  %s  %s%s", i.job.Name, i.job.Interval, status, mode)
+	first := fmt.Sprintf("%s%s  %s  %s%s", marker, i.job.Name, i.job.Interval, status, mode)
 	second := i.job.Prompt
 	if len(second) > 50 {
 		second = second[:50] + "..."
 	}
 	if !i.job.LastRunAt.IsZero() {
 		second += fmt.Sprintf(" — %s", i.job.LastResult)
+	}
+	if i.focused {
+		return lipgloss.NewStyle().Bold(true).Render(first + "\n" + second)
 	}
 	return first + "\n" + second
 }
