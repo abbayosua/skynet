@@ -32,7 +32,7 @@ const (
 type SchedulerDialog struct {
 	com  *common.Common
 	help help.Model
-	list *list.FilterableList
+	list *list.List
 	mode schedulerMode
 
 	jobs       []*scheduler.Job
@@ -70,7 +70,7 @@ func NewSchedulerDialog(com *common.Common, sessionID string) (*SchedulerDialog,
 	}
 	d.jobs = d.store.List()
 
-	d.list = list.NewFilterableList()
+	d.list = list.NewList()
 	d.list.Focus()
 	d.list.SetSelected(0)
 	d.setItems()
@@ -232,7 +232,7 @@ func (d *SchedulerDialog) handleDeleteKey(msg tea.KeyPressMsg) Action {
 }
 
 func (d *SchedulerDialog) setItems() {
-	items := make([]list.FilterableItem, len(d.jobs))
+	items := make([]list.Item, len(d.jobs))
 	for i, j := range d.jobs {
 		items[i] = &SchedulerItem{job: j, Versioned: list.NewVersioned()}
 	}
@@ -319,8 +319,6 @@ type SchedulerItem struct {
 
 func (i *SchedulerItem) Finished() bool { return true }
 
-func (i *SchedulerItem) Filter() string { return i.job.Name }
-
 func (i *SchedulerItem) Render(width int) string {
 	status := "[active]"
 	if !i.job.Enabled {
@@ -340,3 +338,5 @@ func (i *SchedulerItem) Render(width int) string {
 	}
 	return first + "\n" + second
 }
+
+
