@@ -312,21 +312,10 @@ func (app *App) StartTelegramBot(token string) error {
 	// Start activity mirror goroutine (Agent activity → Telegram).
 	go app.mirrorActivityToTelegram(app.globalCtx, bot)
 
-	// Start forwarding goroutine (Telegram→TUI).
+	// Telegram→TUI forwarding is now handled in Subscribe().
+	// If TUI is already running, start forwarding here.
 	if app.tuiProgram != nil {
-		go func() {
-			for {
-				select {
-				case <-app.globalCtx.Done():
-					return
-				case msg, ok := <-bot.Incoming():
-					if !ok {
-						return
-					}
-					app.tuiProgram.Send(telegram.IncomingMessage{Text: msg})
-				}
-			}
-		}()
+		go app.forwardTelegramToTUI(bot)
 	}
 
 	slog.Info("Telegram bot started at runtime")
@@ -738,10 +727,12 @@ func (app *App) Subscribe(program *tea.Program) {
 
 	app.tuiProgram = program
 
-	events := app.events.Subscribe(tuiCtx)
+	// Start Telegram→TUI forwarding if bot is already running.
+	if app.TelegramBot != nil {
+		go app.forwardTelegramToTUI(app.TelegramBot)
+	}
 
-	// Telegram→TUI forwarding is now started dynamically in
-	// StartTelegramBot, not here (bot may not exist yet).
+	events := app.events.Subscribe(tuiCtx)
 
 	for {
 		select {
@@ -754,6 +745,24 @@ func (app *App) Subscribe(program *tea.Program) {
 				return
 			}
 			program.Send(ev.Payload)
+		}
+	}
+}
+
+// forwardTelegramToTUI forwards incoming Telegram messages to the TUI program.
+func (app *App) forwardTelegramToTUI(bot *telegram.Bot) {
+	for {
+		select {
+		case <-app.globalCtx.Done():
+			return
+		case msg, ok := <-bot.Incoming():
+			if !ok {
+				return
+			}
+			if app.tuiProgram == nil {
+				continue
+			}
+			app.tuiProgram.Send(telegram.IncomingMessage{Text: msg})
 		}
 	}
 }
