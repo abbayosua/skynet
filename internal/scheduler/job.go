@@ -73,6 +73,10 @@ func (j *Job) Validate() error {
 	return nil
 }
 
+func JobID(name string) string {
+	return jobID(name)
+}
+
 func jobID(name string) string {
 	var b []byte
 	for _, r := range strings.ToLower(name) {

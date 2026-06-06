@@ -3,6 +3,7 @@ package dialog
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -171,10 +172,17 @@ func (d *SchedulerDialog) handleAddKey(msg tea.KeyPressMsg) Action {
 			d.input.Placeholder = "Prompt to execute"
 		case schedulerModeAddPrompt:
 			job := &scheduler.Job{
-				Name:     d.addName,
-				Interval: d.inputValue(),
-				Prompt:   val,
-				Enabled:  true,
+				Name:      d.addName,
+				Interval:  d.inputValue(),
+				Prompt:    val,
+				Enabled:   true,
+				CreatedAt: time.Now(),
+			}
+			job.ID = scheduler.JobID(job.Name)
+			if _, err := scheduler.ParseInterval(job.Interval); err != nil {
+				return ActionCmd{Cmd: func() tea.Msg {
+					return util.InfoMsg{Type: util.InfoTypeError, Msg: fmt.Sprintf("Invalid interval %q: %s", job.Interval, err)}
+				}}
 			}
 			if err := d.store.Save(job); err != nil {
 				return ActionCmd{Cmd: func() tea.Msg {
