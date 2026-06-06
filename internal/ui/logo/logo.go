@@ -1,114 +1,68 @@
-// Package logo renders a SkyNet wordmark in a stylized way.
 package logo
 
 import (
 	"fmt"
 	"image/color"
-	"math/rand/v2"
 	"strings"
 
 	"charm.land/lipgloss/v2"
 	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/common-nighthawk/go-figure"
 )
-
-// letterform represents a letterform. It can be stretched horizontally by
-// a given amount via the boolean argument.
-type letterform func(bool) string
 
 const diag = `╱`
 
-// Opts are the options for rendering the Crush title art.
 type Opts struct {
-	FieldColor   color.Color // diagonal lines
-	TitleColorA  color.Color // left gradient ramp point
-	TitleColorB  color.Color // right gradient ramp point
-	CharmColor   color.Color // Charm™ text color
-	VersionColor color.Color // version text color
-	Width        int         // width of the rendered logo, used for truncation
-	Hyper        bool        // whether it is Crush or Hypercrush
-
-	// When true, stretch a random letterform on each render. Has no effect in
-	// compact mode. Mainly for testing. In production you will want to cache
-	// the stretched letterform to keep the logo from jittering on resize.
-	Unstable bool
+	FieldColor   color.Color
+	TitleColorA  color.Color
+	TitleColorB  color.Color
+	CharmColor   color.Color
+	VersionColor color.Color
+	Width        int
+	Hyper        bool
+	Unstable     bool
 }
 
-// Render renders the Crush logo. Set the argument to true to render the narrow
-// version, intended for use in a sidebar.
-//
-// The compact argument determines whether it renders compact for the sidebar
-// or wider for the main pane.
 func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 	fg := func(c color.Color, s string) string {
 		return lipgloss.NewStyle().Foreground(c).Render(s)
 	}
 
-	// Title.
-	const spacing = 1
-	var hyperLetterforms []letterform
+	name := "SKYNET"
 	if o.Hyper {
-		hyperLetterforms = []letterform{
-			LetterH,
-			LetterYAlt,
-			LetterP,
-			LetterE,
-			LetterR,
-		}
-	}
-	crushLetterforms := []letterform{
-		LetterSAlt,
-		LetterK,
-		LetterYAlt,
-		LetterN,
-		LetterE,
-		LetterT,
-	}
-	if o.Hyper && !compact {
-		crushLetterforms = append(hyperLetterforms, crushLetterforms...)
+		name = "HYPERCRUSH"
 	}
 
-	stretchIndex := -1 // -1 means no stretching.
-	if !compact && !o.Unstable {
-		// Always stretch the same letterform, which is picked once at random.
-		stretchIndex = cachedRandN(len(crushLetterforms))
-	} else if !compact && o.Unstable {
-		// Stretch a random letterform on every render.
-		stretchIndex = rand.IntN(len(crushLetterforms))
+	font := "big"
+	if compact {
+		font = "small"
 	}
-	crush := renderWord(spacing, stretchIndex, crushLetterforms...)
-	if o.Hyper && compact {
-		crush = renderWord(spacing, stretchIndex, hyperLetterforms...) + "\n" + crush
-	}
-	crushWidth := lipgloss.Width(crush)
+
+	art := figure.NewFigure(name, font, true).String()
+	artWidth := lipgloss.Width(strings.Split(art, "\n")[0])
+
 	b := new(strings.Builder)
-	for r := range strings.SplitSeq(crush, "\n") {
+	for r := range strings.SplitSeq(art, "\n") {
 		fmt.Fprintln(b, styles.ApplyForegroundGrad(base, r, o.TitleColorA, o.TitleColorB))
 	}
-	crush = b.String()
+	art = b.String()
 
-	// Version info.
 	metaRowGap := 1
-	maxVersionWidth := crushWidth - metaRowGap
-	version = ansi.Truncate(version, maxVersionWidth, "…") // truncate version if too long.
-	if o.Hyper && compact {
-		version += " "
-	}
-	gap := max(0, crushWidth-lipgloss.Width(version))
+	maxVersionWidth := artWidth - metaRowGap
+	version = ansi.Truncate(version, maxVersionWidth, "…")
+	gap := max(0, artWidth-lipgloss.Width(version))
 	metaRow := strings.Repeat(" ", gap) + fg(o.VersionColor, version)
 
-	// Join the meta row and big Crush title.
-	crush = strings.TrimSpace(metaRow + "\n" + crush)
+	art = strings.TrimSpace(metaRow + "\n" + art)
 
-	// Narrow version. If this is Hypercrush, this is also a stacked version.
 	if compact {
-		field := fg(o.FieldColor, strings.Repeat(diag, crushWidth))
-		return strings.Join([]string{field, field, crush, field, ""}, "\n")
+		field := fg(o.FieldColor, strings.Repeat(diag, artWidth))
+		return strings.Join([]string{field, field, art, field, ""}, "\n")
 	}
 
-	fieldHeight := lipgloss.Height(crush)
+	fieldHeight := lipgloss.Height(art)
 
-	// Left field.
 	const leftWidth = 6
 	leftFieldRow := fg(o.FieldColor, strings.Repeat(diag, leftWidth))
 	leftField := new(strings.Builder)
@@ -116,8 +70,7 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 		fmt.Fprintln(leftField, leftFieldRow)
 	}
 
-	// Right field.
-	rightWidth := max(15, o.Width-crushWidth-leftWidth-2) // 2 for the gap.
+	rightWidth := max(15, o.Width-artWidth-leftWidth-2)
 	const stepDownAt = 0
 	rightField := new(strings.Builder)
 	for i := range fieldHeight {
@@ -128,11 +81,9 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 		fmt.Fprint(rightField, fg(o.FieldColor, strings.Repeat(diag, width)), "\n")
 	}
 
-	// Return the wide version.
 	const hGap = " "
-	logo := lipgloss.JoinHorizontal(lipgloss.Top, leftField.String(), hGap, crush, hGap, rightField.String())
+	logo := lipgloss.JoinHorizontal(lipgloss.Top, leftField.String(), hGap, art, hGap, rightField.String())
 	if o.Width > 0 {
-		// Truncate the logo to the specified width.
 		lines := strings.Split(logo, "\n")
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, o.Width, "")
@@ -142,19 +93,16 @@ func Render(base lipgloss.Style, version string, compact bool, o Opts) string {
 	return logo
 }
 
-// SmallRender renders a smaller version of the Crush logo, suitable for
-// smaller windows or sidebar usage.
 func SmallRender(t *styles.Styles, width int, o Opts) string {
 	name := "SkyNet"
 	if o.Hyper {
 		name = "HYPERSKYNET"
 	}
 	title := styles.ApplyBoldForegroundGrad(t.Logo.GradCanvas, name, t.Logo.SmallGradFromColor, t.Logo.SmallGradToColor)
-	remainingWidth := width - lipgloss.Width(title) - 1 // 1 for the space after the name
+	remainingWidth := width - lipgloss.Width(title) - 1
 	if remainingWidth > 0 {
 		lines := strings.Repeat("╱", remainingWidth)
 		title = fmt.Sprintf("%s %s", title, t.Logo.SmallDiagonals.Render(lines))
 	}
 	return title
 }
-
