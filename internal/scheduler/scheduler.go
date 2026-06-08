@@ -12,18 +12,20 @@ import (
 type TickHandler func(job *Job, prompt string)
 
 type Scheduler struct {
-	mu      sync.Mutex
-	store   *Store
-	handler TickHandler
-	cancels map[string]context.CancelFunc
-	running map[string]*atomic.Bool
+	mu               sync.Mutex
+	store            *Store
+	handler          TickHandler
+	cancels          map[string]context.CancelFunc
+	running          map[string]*atomic.Bool
+	consecutiveFails map[string]int
 }
 
 func NewScheduler(store *Store) *Scheduler {
 	return &Scheduler{
-		store:   store,
-		cancels: make(map[string]context.CancelFunc),
-		running: make(map[string]*atomic.Bool),
+		store:            store,
+		cancels:          make(map[string]context.CancelFunc),
+		running:          make(map[string]*atomic.Bool),
+		consecutiveFails: make(map[string]int),
 	}
 }
 
@@ -125,6 +127,11 @@ func (s *Scheduler) UpdateJob(job *Job) error {
 func (s *Scheduler) DeleteJob(id string) error {
 	s.stopJob(id)
 
+	s.mu.Lock()
+	delete(s.running, id)
+	delete(s.consecutiveFails, id)
+	s.mu.Unlock()
+
 	if !s.store.Delete(id) {
 		return fmt.Errorf("job %q not found", id)
 	}
@@ -150,25 +157,62 @@ func (s *Scheduler) startJob(job *Job) {
 
 	s.mu.Lock()
 	s.cancels[job.ID] = cancel
-	runFlag := &atomic.Bool{}
-	s.running[job.ID] = runFlag
+	runFlag, exists := s.running[job.ID]
+	if !exists {
+		runFlag = &atomic.Bool{}
+		s.running[job.ID] = runFlag
+	}
 	s.mu.Unlock()
 
 	go func() {
-		s.tick(job, runFlag)
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("scheduler: job goroutine panicked, restarting", "job", job.ID, "name", job.Name, "panic", r)
+				s.stopJob(job.ID)
+				s.startJob(job)
+			}
+		}()
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
+		s.safeTick(job, runFlag)
+
 		for {
 			select {
 			case <-ticker.C:
-				s.tick(job, runFlag)
+				s.safeTick(job, runFlag)
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
+}
+
+func (s *Scheduler) safeTick(job *Job, runFlag *atomic.Bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.mu.Lock()
+			s.consecutiveFails[job.ID]++
+			fails := s.consecutiveFails[job.ID]
+			s.mu.Unlock()
+
+			slog.Error("scheduler: tick panicked", "job", job.ID, "name", job.Name, "consecutive_fails", fails, "panic", r)
+
+			if fails >= 3 {
+				slog.Error("scheduler: too many consecutive panics, disabling job", "job", job.ID, "name", job.Name)
+				job.Enabled = false
+				s.store.Save(job)
+				s.stopJob(job.ID)
+			}
+		}
+	}()
+	s.tick(job, runFlag)
+
+	// Reset consecutive failures on success.
+	s.mu.Lock()
+	delete(s.consecutiveFails, job.ID)
+	s.mu.Unlock()
 }
 
 func (s *Scheduler) stopJob(id string) {
@@ -177,7 +221,6 @@ func (s *Scheduler) stopJob(id string) {
 		cancel()
 		delete(s.cancels, id)
 	}
-	delete(s.running, id)
 	s.mu.Unlock()
 }
 
