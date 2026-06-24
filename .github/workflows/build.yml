@@ -24,11 +24,13 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    env:
+      CGO_ENABLED: 0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "~1.26"
           cache: true
-      - run: CGO_ENABLED=0 go build -o skynet-windows.exe .
+      - run: go build -o skynet-windows.exe .
       - run: go vet ./...
