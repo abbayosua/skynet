@@ -5,12 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 env:
   GONOSUMDB: "charm.land/*"
 
 jobs:
-  build:
+  ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,5 +19,16 @@ jobs:
         with:
           go-version: "~1.26"
           cache: true
-      - run: go build ./...
+      - run: CGO_ENABLED=0 go build -o skynet-linux .
+      - run: go vet ./...
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "~1.26"
+          cache: true
+      - run: CGO_ENABLED=0 go build -o skynet-windows.exe .
       - run: go vet ./...
