@@ -21,6 +21,10 @@ jobs:
           cache: true
       - run: CGO_ENABLED=0 go build -o skynet-linux .
       - run: go vet ./...
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skynet-linux
+          path: skynet-linux
 
   windows:
     runs-on: windows-latest
@@ -34,3 +38,7 @@ jobs:
           cache: true
       - run: go build -o skynet-windows.exe .
       - run: go vet ./...
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skynet-windows
+          path: skynet-windows.exe
