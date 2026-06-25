@@ -1,7 +1,7 @@
 # Skynet
 
 <p align="center">
-    <a href="https://stuff.charm.sh/skynet/charm-skynet.png"><img width="450" alt="Charm Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
+    <a href="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b"><img width="450" alt="Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
     <a href="https://github.com/abbayosua/skynet/releases"><img src="https://img.shields.io/github/release/abbayosua/skynet" alt="Latest Release"></a>
     <a href="https://github.com/abbayosua/skynet/actions"><img src="https://github.com/abbayosua/skynet/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
 </p>
@@ -19,7 +19,6 @@
 - **LSP-Enhanced:** Skynet uses LSPs for additional context, just like you do
 - **Extensible:** add capabilities via MCPs (`http`, `stdio`, and `sse`)
 - **Works Everywhere:** first-class support in every terminal on macOS, Linux, Windows (PowerShell and WSL), Android, FreeBSD, OpenBSD, and NetBSD
-- **Industrial Grade:** built on the Charm ecosystem, powering 25k+ applications, from leading open source projects to business-critical infrastructure
 
 ## Installation
 
@@ -27,16 +26,16 @@ Use a package manager:
 
 ```bash
 # Homebrew
-brew install charmbracelet/tap/skynet
+brew install abbayosua/tap/skynet
 
 # NPM
-npm install -g @charmland/skynet
+npm install -g @abbayosua/skynet
 
 # Arch Linux (btw)
 yay -S skynet-bin
 
 # Nix
-nix run github:numtide/nix-ai-tools#skynet
+nix run github:abbayosua/skynet#skynet
 
 # FreeBSD
 pkg install skynet
@@ -46,17 +45,17 @@ Windows users:
 
 ```bash
 # Winget
-winget install charmbracelet.skynet
+winget install abbayosua.skynet
 
 # Scoop
-scoop bucket add charm https://github.com/charmbracelet/scoop-bucket.git
+scoop bucket add abbayosua https://github.com/abbayosua/scoop-bucket.git
 scoop install skynet
 ```
 
 <details>
 <summary><strong>Nix (NUR)</strong></summary>
 
-Skynet is available via the official Charm [NUR](https://github.com/nix-community/NUR) in `nur.repos.charmbracelet.skynet`, which is the most up-to-date way to get Skynet in Nix.
+Skynet is available via the NUR in `nur.repos.abbayosua.skynet`, which is the most up-to-date way to get Skynet in Nix.
 
 You can also try out Skynet via the NUR with `nix-shell`:
 
@@ -66,7 +65,7 @@ nix-channel --add https://github.com/nix-community/NUR/archive/main.tar.gz nur
 nix-channel --update
 
 # Get Skynet in a Nix shell.
-nix-shell -p '(import <nur> { pkgs = import <nixpkgs> {}; }).repos.charmbracelet.skynet'
+nix-shell -p '(import <nur> { pkgs = import <nixpkgs> {}; }).repos.abbayosua.skynet'
 ```
 
 ### NixOS & Home Manager Module Usage via NUR
@@ -86,7 +85,7 @@ You can use these modules directly in your flake by importing them from NUR. Sin
       system = "x86_64-linux";
       modules = [
         nur.modules.nixos.default
-        nur.repos.charmbracelet.modules.skynet
+        nur.repos.abbayosua.modules.skynet
         {
           programs.skynet = {
             enable = true;
@@ -131,8 +130,8 @@ You can use these modules directly in your flake by importing them from NUR. Sin
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+curl -fsSL https://repo.skynet.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/skynet.gpg
+echo "deb [signed-by=/etc/apt/keyrings/skynet.gpg] https://repo.skynet.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/skynet.list
 sudo apt update && sudo apt install skynet
 ```
 
@@ -142,12 +141,12 @@ sudo apt update && sudo apt install skynet
 <summary><strong>Fedora/RHEL</strong></summary>
 
 ```bash
-echo '[charm]
-name=Charm
-baseurl=https://repo.charm.sh/yum/
+echo '[skynet]
+name=Skynet
+baseurl=https://repo.skynet.sh/yum/
 enabled=1
 gpgcheck=1
-gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
+gpgkey=https://repo.skynet.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/skynet.repo
 sudo yum install skynet
 ```
 
@@ -181,7 +180,7 @@ That said, you can also set environment variables for preferred providers.
 
 | Environment Variable        | Provider                                           |
 | --------------------------- | -------------------------------------------------- |
-| `HYPER_API_KEY`             | Charm Hyper                                        |
+| `HYPER_API_KEY`             | Hyper                                              |
 | `ANTHROPIC_API_KEY`         | Anthropic                                          |
 | `OPENAI_API_KEY`            | OpenAI                                             |
 | `VERCEL_API_KEY`            | Vercel AI Gateway                                  |
@@ -219,7 +218,7 @@ Skynet:
 
 ### By the Way
 
-Is there a provider you’d like to see in Skynet? Is there an existing model that needs an update?
+Is there a provider you'd like to see in Skynet? Is there an existing model that needs an update?
 
 Skynet's default model listing is managed in [Catwalk](https://github.com/charmbracelet/catwalk), a community-supported, open source repository of Skynet-compatible models, and you're welcome to contribute.
 
@@ -272,7 +271,7 @@ like you would. LSPs can be added manually like so:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "lsp": {
     "go": {
       "command": "gopls",
@@ -326,7 +325,7 @@ which do expand.
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "mcp": {
     "filesystem": {
       "type": "stdio",
@@ -370,11 +369,11 @@ Skynet has preliminary support for hooks. For details, see
 ### Ignoring Files
 
 Skynet respects `.gitignore` files by default, but you can also create a
-`.crushignore` file to specify additional files and directories that Skynet
+`.skynetignore` file to specify additional files and directories that Skynet
 should ignore. This is useful for excluding files that you want in version
 control but don't want Skynet to consider when providing context.
 
-The `.crushignore` file uses the same syntax as `.gitignore` and can be placed
+The `.skynetignore` file uses the same syntax as `.gitignore` and can be placed
 in the root of your project or in subdirectories.
 
 ### Allowing Tools
@@ -385,7 +384,7 @@ permissions. Use this with care.
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "permissions": {
     "allowed_tools": [
       "view",
@@ -409,7 +408,7 @@ completely hidden from the agent.
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disabled_tools": ["bash", "sourcegraph"]
   }
@@ -426,7 +425,7 @@ from the agent, including builtin skills and skills discovered from disk.
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disabled_skills": ["skynet-config"]
   }
@@ -442,7 +441,7 @@ activate on demand.
 
 The global paths we looks for skills are:
 
-* `$CRUSH_SKILLS_DIR`
+* `$SKYNET_SKILLS_DIR`
 * `$XDG_CONFIG_HOME/agents/skills` or `~/.config/agents/skills/`
 * `$XDG_CONFIG_HOME/skynet/skills` or `~/.config/skynet/skills/`
 * `~/.agents/skills/`
@@ -462,7 +461,7 @@ relative paths:
 
 ```jsonc
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "skills_paths": [
       "~/.config/skynet/skills", // Windows: "%LOCALAPPDATA%\\skynet\\skills",
@@ -498,7 +497,7 @@ focused _and_ your terminal supports reporting the focus state.
 
 ```jsonc
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disable_notifications": false, // default
   },
@@ -518,7 +517,7 @@ name and location with the `initialize_as` option:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "initialize_as": "AGENTS.md"
   }
@@ -526,7 +525,7 @@ name and location with the `initialize_as` option:
 ```
 
 This is useful if you prefer a different naming convention or want to
-place the file in a specific directory (e.g., `CRUSH.md` or
+place the file in a specific directory (e.g., `SKYNET.md` or
 `docs/LLMs.md`). Skynet will fill the file with project-specific context
 like build commands, code patterns, and conventions it discovered during
 initialization.
@@ -538,7 +537,7 @@ it creates. You can customize this behavior with the `attribution` option:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "attribution": {
       "trailer_style": "co-authored-by",
@@ -551,7 +550,7 @@ it creates. You can customize this behavior with the `attribution` option:
 - `trailer_style`: Controls the attribution trailer added to commit messages
   (default: `assisted-by`)
   - `assisted-by`: Adds `Assisted-by: Skynet:[ModelID]` as specified in [the convention](https://docs.kernel.org/process/coding-assistants.html#attribution)
-  - `co-authored-by`: Adds `Co-Authored-By: Skynet <skynet@charm.land>`
+  - `co-authored-by`: Adds `Co-Authored-By: Skynet <skynet@skynet.land>`
   - `none`: No attribution trailer
 - `generated_with`: When true (default), adds `💘 Generated with Skynet` line to
   commit messages and PR descriptions
@@ -570,12 +569,12 @@ Anthropic-compatible APIs.
 
 #### OpenAI-Compatible APIs
 
-Here’s an example configuration for Deepseek, which uses an OpenAI-compatible
+Here's an example configuration for Deepseek, which uses an OpenAI-compatible
 API. Don't forget to set `DEEPSEEK_API_KEY` in your environment.
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "providers": {
     "deepseek": {
       "type": "openai-compat",
@@ -604,7 +603,7 @@ Custom Anthropic-compatible providers follow this format:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "providers": {
     "custom-anthropic": {
       "type": "anthropic",
@@ -653,7 +652,7 @@ To add specific models to the configuration, configure as such:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "providers": {
     "vertexai": {
       "models": [
@@ -746,7 +745,7 @@ config:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "debug": true,
     "debug_lsp": true
@@ -757,10 +756,9 @@ config:
 ## Provider Auto-Updates
 
 By default, Skynet automatically checks for the latest and greatest list of
-providers and models from [Catwalk](https://github.com/charmbracelet/catwalk),
-the open source Skynet provider database. This means that when new providers and
-models are available, or when model metadata changes, Skynet automatically
-updates your local configuration.
+providers and models from Catwalk, the open source Skynet provider database. This means that when new
+providers and models are available, or when model metadata changes, Skynet
+automatically updates your local configuration.
 
 ### Disabling automatic provider updates
 
@@ -773,7 +771,7 @@ your `skynet.json` config:
 
 ```json
 {
-  "$schema": "https://charm.land/skynet.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disable_provider_auto_update": true
   }
@@ -801,7 +799,7 @@ skynet update-providers https://example.com/
 # Update providers from a local file.
 skynet update-providers /path/to/local-providers.json
 
-# Reset providers to the embedded version, embedded at skynet at build time.
+# Reset providers to the embedded version, embedded at build time.
 skynet update-providers embedded
 
 # For more info:
@@ -815,7 +813,7 @@ which maintainers rely on to inform development and support priorities. The
 metrics include solely usage metadata; prompts and responses are NEVER
 collected.
 
-Details on exactly what’s collected are in the source code ([here](https://github.com/abbayosua/skynet/tree/main/internal/event)
+Details on exactly what's collected are in the source code ([here](https://github.com/abbayosua/skynet/tree/main/internal/event)
 and [here](https://github.com/abbayosua/skynet/blob/main/internal/agent/event.go)).
 
 You can opt out of metrics collection at any time by setting the environment
@@ -857,16 +855,10 @@ See the [contributing guide](https://github.com/abbayosua/skynet?tab=contributin
 
 ## Whatcha think?
 
-We’d love to hear your thoughts on this project. Need help? We gotchu. You can find us on:
+We'd love to hear your thoughts on this project.
 
-- [Twitter](https://twitter.com/charmcli)
-- [Slack][slack]
-- [Discord][discord]
-- [The Fediverse](https://mastodon.social/@charmcli)
-- [Bluesky](https://bsky.app/profile/charm.land)
-
-[slack]: https://charm.land/slack
-[discord]: https://charm.land/discord
+[slack]: https://skynet.land/slack
+[discord]: https://skynet.land/discord
 
 ## License
 
@@ -874,9 +866,4 @@ We’d love to hear your thoughts on this project. Need help? We gotchu. You can
 
 ---
 
-Part of [Charm](https://charm.land).
-
-<a href="https://charm.land/"><img alt="The Charm logo" width="400" src="https://stuff.charm.sh/charm-banner-softy.jpg" /></a>
-
-<!--prettier-ignore-->
-Charm热爱开源 • Charm loves open source
+<a href="https://github.com/abbayosua/skynet"><img alt="Skynet" width="400" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a>

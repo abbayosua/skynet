@@ -1,7 +1,7 @@
 # Skynet
 
 <p align="center">
-    <a href="https://stuff.charm.sh/crush/charm-crush.png"><img width="450" alt="Charm Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
+    <a href="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b"><img width="450" alt="Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
     <a href="https://github.com/abbayosua/skynet/releases"><img src="https://img.shields.io/github/release/abbayosua/skynet" alt="Latest Release"></a>
     <a href="https://github.com/abbayosua/skynet/actions"><img src="https://github.com/abbayosua/skynet/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
 </p>
@@ -18,7 +18,6 @@
 - **LSP-Enhanced:** Skynet menggunakan LSP untuk konteks tambahan, sama seperti kamu
 - **Ekstensibel:** tambah kemampuan via MCP (`http`, `stdio`, dan `sse`)
 - **Berfungsi di Mana Saja:** dukung penuh di setiap terminal di macOS, Linux, Windows (PowerShell dan WSL), Android, FreeBSD, OpenBSD, dan NetBSD
-- **Kelas Industri:** dibangun di atas ekosistem Charm, yang menggerakkan 25.000+ aplikasi
 
 ## Instalasi
 
@@ -26,36 +25,36 @@ Gunakan package manager:
 
 ```bash
 # Homebrew
-brew install charmbracelet/tap/crush
+brew install abbayosua/tap/skynet
 
 # NPM
-npm install -g @charmland/crush
+npm install -g @abbayosua/skynet
 
 # Arch Linux (btw)
-yay -S crush-bin
+yay -S skynet-bin
 
 # Nix
-nix run github:numtide/nix-ai-tools#crush
+nix run github:abbayosua/skynet#skynet
 
 # FreeBSD
-pkg install crush
+pkg install skynet
 ```
 
 Pengguna Windows:
 
 ```bash
 # Winget
-winget install charmbracelet.crush
+winget install abbayosua.skynet
 
 # Scoop
-scoop bucket add charm https://github.com/charmbracelet/scoop-bucket.git
-scoop install crush
+scoop bucket add abbayosua https://github.com/abbayosua/scoop-bucket.git
+scoop install skynet
 ```
 
 <details>
 <summary><strong>Nix (NUR)</strong></summary>
 
-Skynet tersedia via NUR resmi Charm di `nur.repos.charmbracelet.crush`. Cara paling up-to-date untuk mendapatkan Skynet di Nix.
+Skynet tersedia via NUR di `nur.repos.abbayosua.skynet`. Cara paling up-to-date untuk mendapatkan Skynet di Nix.
 
 Kamu juga bisa coba Skynet via NUR dengan `nix-shell`:
 
@@ -65,7 +64,7 @@ nix-channel --add https://github.com/nix-community/NUR/archive/main.tar.gz nur
 nix-channel --update
 
 # Get Skynet in a Nix shell.
-nix-shell -p '(import <nur> { pkgs = import <nixpkgs> {}; }).repos.charmbracelet.crush'
+nix-shell -p '(import <nur> { pkgs = import <nixpkgs> {}; }).repos.abbayosua.skynet'
 ```
 
 </details>
@@ -75,9 +74,9 @@ nix-shell -p '(import <nur> { pkgs = import <nixpkgs> {}; }).repos.charmbracelet
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
-echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-sudo apt update && sudo apt install crush
+curl -fsSL https://repo.skynet.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/skynet.gpg
+echo "deb [signed-by=/etc/apt/keyrings/skynet.gpg] https://repo.skynet.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/skynet.list
+sudo apt update && sudo apt install skynet
 ```
 
 </details>
@@ -86,13 +85,13 @@ sudo apt update && sudo apt install crush
 <summary><strong>Fedora/RHEL</strong></summary>
 
 ```bash
-echo '[charm]
-name=Charm
-baseurl=https://repo.charm.sh/yum/
+echo '[skynet]
+name=Skynet
+baseurl=https://repo.skynet.sh/yum/
 enabled=1
 gpgcheck=1
-gpgkey=https://repo.charm.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/charm.repo
-sudo yum install crush
+gpgkey=https://repo.skynet.sh/yum/gpg.key' | sudo tee /etc/yum.repos.d/skynet.repo
+sudo yum install skynet
 ```
 
 </details>
@@ -126,7 +125,7 @@ Kamu juga bisa mengatur environment variable untuk provider yang didukung.
 
 | Environment Variable        | Provider                                           |
 | --------------------------- | -------------------------------------------------- |
-| `HYPER_API_KEY`             | Charm Hyper                                        |
+| `HYPER_API_KEY`             | Hyper                                              |
 | `ANTHROPIC_API_KEY`         | Anthropic                                          |
 | `OPENAI_API_KEY`            | OpenAI                                             |
 | `VERCEL_API_KEY`            | Vercel AI Gateway                                  |
@@ -179,9 +178,9 @@ Skynet berjalan dengan baik tanpa konfigurasi. Namun, jika kamu perlu atau ingin
 menyesuaikan Skynet, konfigurasi dapat ditambahkan baik lokal di proyek itu sendiri,
 atau global, dengan prioritas berikut:
 
-1. `.crush.json`
-2. `crush.json`
-3. `$HOME/.config/crush/crush.json`
+1. `.skynet.json`
+2. `skynet.json`
+3. `$HOME/.config/skynet/skynet.json`
 
 Konfigurasi disimpan sebagai objek JSON:
 
@@ -197,17 +196,17 @@ aplikasi, di satu lokasi tambahan:
 
 ```bash
 # Unix
-$HOME/.local/share/crush/crush.json
+$HOME/.local/share/skynet/skynet.json
 
 # Windows
-%LOCALAPPDATA%\crush\crush.json
+%LOCALAPPDATA%\skynet\skynet.json
 ```
 
 > [!TIP]
 > Kamu bisa mengganti lokasi config user dan data dengan mengatur:
 >
-> - `CRUSH_GLOBAL_CONFIG`
-> - `CRUSH_GLOBAL_DATA`
+> - `SKYNET_GLOBAL_CONFIG`
+> - `SKYNET_GLOBAL_DATA`
 
 ### LSP
 
@@ -216,7 +215,7 @@ sama seperti yang kamu lakukan. LSP dapat ditambahkan secara manual seperti ini:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "lsp": {
     "go": {
       "command": "gopls",
@@ -264,13 +263,13 @@ Provider `extra_body` adalah JSON passthrough yang tidak diekspansi; taruh nilai
 yang digerakkan env di `extra_headers` atau `api_key` / `base_url` provider,
 semuanya mendukung ekspansi.
 
-> **Catatan keamanan:** `crush.json` adalah kode tepercaya. `$(...)` di dalamnya
+> **Catatan keamanan:** `skynet.json` adalah kode tepercaya. `$(...)` di dalamnya
 > berjalan saat dimuat dengan hak istimewa shell kamu, sebelum UI muncul.
-> Jangan jalankan Skynet di direktori yang `crush.json`-nya belum kamu periksa.
+> Jangan jalankan Skynet di direktori yang `skynet.json`-nya belum kamu periksa.
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "mcp": {
     "filesystem": {
       "type": "stdio",
@@ -314,11 +313,11 @@ Skynet memiliki dukungan awal untuk hooks. Untuk detailnya, lihat
 ### Mengabaikan File
 
 Skynet menghormati file `.gitignore` secara default, tapi kamu juga bisa membuat
-file `.crushignore` untuk menentukan file dan direktori tambahan yang harus
+file `.skynetignore` untuk menentukan file dan direktori tambahan yang harus
 diabaikan Skynet. Ini berguna untuk mengecualikan file yang ingin ada di version
 control tapi tidak ingin dipertimbangkan Skynet saat memberikan konteks.
 
-File `.crushignore` menggunakan sintaks yang sama dengan `.gitignore` dan bisa
+File `.skynetignore` menggunakan sintaks yang sama dengan `.gitignore` dan bisa
 ditempatkan di root proyek atau di subdirektori.
 
 ### Mengizinkan Tools
@@ -329,7 +328,7 @@ Gunakan dengan hati-hati.
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "permissions": {
     "allowed_tools": [
       "view",
@@ -353,7 +352,7 @@ sepenuhnya disembunyikan dari agent.
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disabled_tools": ["bash", "sourcegraph"]
   }
@@ -370,7 +369,7 @@ tersembunyi dari agent, termasuk skill bawaan dan skill yang ditemukan dari disk
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disabled_skills": ["skynet-config"]
   }
@@ -388,27 +387,27 @@ Lokasi global yang kami cari untuk skill:
 
 * `$SKYNET_SKILLS_DIR`
 * `$XDG_CONFIG_HOME/agents/skills` atau `~/.config/agents/skills/`
-* `$XDG_CONFIG_HOME/crush/skills` atau `~/.config/crush/skills/`
+* `$XDG_CONFIG_HOME/skynet/skills` atau `~/.config/skynet/skills/`
 * `~/.agents/skills/`
 * `~/.claude/skills/`
 * Di Windows, kami _juga_ mencari di
   * `%LOCALAPPDATA%\agents\skills\` atau `%USERPROFILE%\AppData\Local\agents\skills\`
-  * `%LOCALAPPDATA%\crush\skills\` atau `%USERPROFILE%\AppData\Local\crush\skills\`
+  * `%LOCALAPPDATA%\skynet\skills\` atau `%USERPROFILE%\AppData\Local\skynet\skills\`
 * Path tambahan yang dikonfigurasi via `options.skills_paths`
 
 Selain itu, kami _juga_ memuat skill di proyek kamu dari path relatif berikut:
 
 * `.agents/skills`
-* `.crush/skills`
+* `.skynet/skills`
 * `.claude/skills`
 * `.cursor/skills`
 
 ```jsonc
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "skills_paths": [
-      "~/.config/crush/skills", // Windows: "%LOCALAPPDATA%\\crush\\skills",
+      "~/.config/skynet/skills", // Windows: "%LOCALAPPDATA%\\skynet\\skills",
       "./project-skills",
     ],
   },
@@ -419,16 +418,16 @@ Kamu bisa memulai dengan contoh skill dari [anthropics/skills](https://github.co
 
 ```bash
 # Unix
-mkdir -p ~/.config/crush/skills
-cd ~/.config/crush/skills
+mkdir -p ~/.config/skynet/skills
+cd ~/.config/skynet/skills
 git clone https://github.com/anthropics/skills.git _temp
 mv _temp/skills/* . && rm -rf _temp
 ```
 
 ```powershell
 # Windows (PowerShell)
-mkdir -Force "$env:LOCALAPPDATA\crush\skills"
-cd "$env:LOCALAPPDATA\crush\skills"
+mkdir -Force "$env:LOCALAPPDATA\skynet\skills"
+cd "$env:LOCALAPPDATA\skynet\skills"
 git clone https://github.com/anthropics/skills.git _temp
 mv _temp/skills/* . ; rm -r -force _temp
 ```
@@ -441,7 +440,7 @@ tidak dalam fokus _dan_ terminal mendukung pelaporan status fokus.
 
 ```jsonc
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disable_notifications": false, // default
   },
@@ -461,7 +460,7 @@ nama dan lokasinya dengan opsi `initialize_as`:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "initialize_as": "AGENTS.md"
   }
@@ -469,7 +468,7 @@ nama dan lokasinya dengan opsi `initialize_as`:
 ```
 
 Ini berguna jika kamu lebih suka konvensi penamaan berbeda atau ingin
-menempatkan file di direktori tertentu (misalnya, `CRUSH.md` atau
+menempatkan file di direktori tertentu (misalnya, `SKYNET.md` atau
 `docs/LLMs.md`). Skynet akan mengisi file dengan konteks spesifik proyek
 seperti perintah build, pola kode, dan konvensi yang ditemukan selama
 inisialisasi.
@@ -481,7 +480,7 @@ yang dibuatnya. Kamu bisa menyesuaikan perilaku ini dengan opsi `attribution`:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "attribution": {
       "trailer_style": "co-authored-by",
@@ -494,7 +493,7 @@ yang dibuatnya. Kamu bisa menyesuaikan perilaku ini dengan opsi `attribution`:
 - `trailer_style`: Mengontrol trailer atribusi yang ditambahkan ke pesan commit
   (default: `assisted-by`)
   - `assisted-by`: Menambahkan `Assisted-by: Skynet:[ModelID]` sesuai [konvensi](https://docs.kernel.org/process/coding-assistants.html#attribution)
-  - `co-authored-by`: Menambahkan `Co-Authored-By: Skynet <crush@charm.land>`
+  - `co-authored-by`: Menambahkan `Co-Authored-By: Skynet <skynet@skynet.land>`
   - `none`: Tanpa trailer atribusi
 - `generated_with`: Saat true (default), menambahkan baris `💘 Generated with Skynet` ke
   pesan commit dan deskripsi PR
@@ -518,7 +517,7 @@ OpenAI. Jangan lupa setel `DEEPSEEK_API_KEY` di environment kamu.
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "providers": {
     "deepseek": {
       "type": "openai-compat",
@@ -547,7 +546,7 @@ Provider kustom kompatibel Anthropic mengikuti format ini:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "providers": {
     "custom-anthropic": {
       "type": "anthropic",
@@ -596,7 +595,7 @@ Untuk menambahkan model spesifik ke konfigurasi, atur seperti berikut:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "providers": {
     "vertexai": {
       "models": [
@@ -669,7 +668,7 @@ Model lokal juga dapat dikonfigurasi via API kompatibel OpenAI. Berikut dua cont
 ## Logging
 
 Terkadang kamu perlu melihat log. Untungnya, Skynet mencatat berbagai
-hal. Log disimpan di `./.crush/logs/crush.log` relatif terhadap proyek.
+hal. Log disimpan di `./.skynet/logs/skynet.log` relatif terhadap proyek.
 
 CLI juga memiliki beberapa perintah bantuan untuk memudahkan penelusuran log terbaru:
 
@@ -689,7 +688,7 @@ konfigurasi:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "debug": true,
     "debug_lsp": true
@@ -700,8 +699,7 @@ konfigurasi:
 ## Pembaruan Provider Otomatis
 
 Secara default, Skynet secara otomatis memeriksa daftar terbaru
-provider dan model dari [Catwalk](https://github.com/charmbracelet/catwalk),
-database provider Skynet open source. Ini berarti saat provider dan model baru
+provider dan model dari Catwalk, database provider Skynet open source. Ini berarti saat provider dan model baru
 tersedia, atau saat metadata model berubah, Skynet secara otomatis
 memperbarui konfigurasi lokal kamu.
 
@@ -712,21 +710,21 @@ lingkungan air-gapped, fitur ini mungkin tidak diinginkan, dan dapat
 dinonaktifkan.
 
 Untuk menonaktifkan pembaruan provider otomatis, setel `disable_provider_auto_update` ke
-dalam konfigurasi `crush.json`:
+dalam konfigurasi `skynet.json`:
 
 ```json
 {
-  "$schema": "https://charm.land/crush.json",
+  "$schema": "https://skynet.land/skynet.json",
   "options": {
     "disable_provider_auto_update": true
   }
 }
 ```
 
-Atau setel environment variable `CRUSH_DISABLE_PROVIDER_AUTO_UPDATE`:
+Atau setel environment variable `SKYNET_DISABLE_PROVIDER_AUTO_UPDATE`:
 
 ```bash
-export CRUSH_DISABLE_PROVIDER_AUTO_UPDATE=1
+export SKYNET_DISABLE_PROVIDER_AUTO_UPDATE=1
 ```
 
 ### Memperbarui provider secara manual
@@ -798,16 +796,10 @@ Lihat [panduan kontribusi](https://github.com/abbayosua/skynet?tab=contributing-
 
 ## Ada masukan?
 
-Kami ingin mendengar pendapatmu tentang proyek ini. Butuh bantuan? Kami siap. Temukan kami di:
+Kami ingin mendengar pendapatmu tentang proyek ini.
 
-- [Twitter](https://twitter.com/charmcli)
-- [Slack][slack]
-- [Discord][discord]
-- [Fediverse](https://mastodon.social/@charmcli)
-- [Bluesky](https://bsky.app/profile/charm.land)
-
-[slack]: https://charm.land/slack
-[discord]: https://charm.land/discord
+[slack]: https://skynet.land/slack
+[discord]: https://skynet.land/discord
 
 ## Lisensi
 
@@ -815,9 +807,4 @@ Kami ingin mendengar pendapatmu tentang proyek ini. Butuh bantuan? Kami siap. Te
 
 ---
 
-Bagian dari [Charm](https://charm.land).
-
-<a href="https://charm.land/"><img alt="The Charm logo" width="400" src="https://stuff.charm.sh/charm-banner-softy.jpg" /></a>
-
-<!--prettier-ignore-->
-Charm mencintai open source • Charm loves open source
+<a href="https://github.com/abbayosua/skynet"><img alt="Skynet" width="400" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a>

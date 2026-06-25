@@ -15,7 +15,7 @@ forward.
 - Hooks are just shell commands
 - Hooks can be written in any language because they’re just executables: Bash, Python, Node, Rust, Haskell, whatever
 - Hooks are Claude Code-compatible
-- Skynet ships with a builtin `crush-hook` skill write, edit, and configure
+- Skynet ships with a builtin `skynet-hooks` skill to write, edit, and configure
   hooks; just tell Skynet how to configure Skynet
 - Skynet currently supports just one hook, `PreToolUse`, with plans to support
   the full gamut; please let us know which hooks you'd like to see next
@@ -44,9 +44,9 @@ disallow the use of Haskell (but we love you, Simon Peyton Jones).
 ### Config
 
 The first thing we need to do is hook up our hook. Let's add the following to
-our **project-level** `crush.json`. Relative paths like `./no-haskell.sh` work
+our **project-level** `skynet.json`. Relative paths like `./no-haskell.sh` work
 here because the project root is your working directory. If you're configuring
-a global hook (`~/.config/crush/crush.json`), use an absolute path instead.
+a global hook (`~/.config/skynet/skynet.json`), use an absolute path instead.
 
 ```jsonc
 {
@@ -735,20 +735,8 @@ See [Environment Variables](#environment-variables) above for the full list.
 
 ## Whatcha think?
 
-We'd love to hear your thoughts on this project. Need help? We gotchu. You can
-find us on:
-
-- [Twitter](https://twitter.com/charmcli)
-- [Slack](https://charm.land/slack)
-- [Discord](https://charm.land/discord)
-- [The Fediverse](https://mastodon.social/@charmcli)
-- [Bluesky](https://bsky.app/profile/charm.land)
+We'd love to hear your thoughts on this project.
 
 ---
 
-Part of [Charm](https://charm.land).
 
-<a href="https://charm.land/"><img alt="The Charm logo" width="400" src="https://stuff.charm.sh/charm-banner-softy.jpg" /></a>
-
-<!--prettier-ignore-->
-Charm热爱开源 • Charm loves open source

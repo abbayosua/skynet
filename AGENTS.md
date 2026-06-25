@@ -2,8 +2,8 @@
 
 ## Project Overview
 
-Skynet is a terminal-based AI coding assistant built in Go by
-[Charm](https://charm.land). It connects to LLMs and gives them tools to read,
+Skynet is a terminal-based AI coding assistant originally built in Go by
+[Charm](https://charm.land), now maintained as a community fork. It connects to LLMs and gives them tools to read,
 write, and execute code. It supports multiple providers (Anthropic, OpenAI,
 Gemini, Bedrock, Copilot, Hyper, MiniMax, Vercel, and more), integrates with
 LSPs for code intelligence, and supports extensibility via MCP servers and
@@ -20,7 +20,7 @@ internal/
   cmd/                             CLI commands (root, run, login, models, stats, sessions)
   config/
     config.go                      Config struct, context file paths, agent definitions
-    load.go                        crush.json loading and validation
+    load.go                        crush.json/skynet.json loading and validation
     provider.go                    Provider configuration and model resolution
   agent/
     agent.go                       SessionAgent: runs LLM conversations per session
