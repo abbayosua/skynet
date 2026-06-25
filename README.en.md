@@ -1,15 +1,10 @@
 # Skynet
 
-<p align="center">
-    <a href="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b"><img width="450" alt="Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
-    <a href="https://github.com/abbayosua/skynet/releases"><img src="https://img.shields.io/github/release/abbayosua/skynet" alt="Latest Release"></a>
-    <a href="https://github.com/abbayosua/skynet/actions"><img src="https://github.com/abbayosua/skynet/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
-</p>
+Your new coding bestie, now available in your favourite terminal.
+Your tools, your code, and your workflows, wired into your LLM of choice.
 
-<p align="center">Your new coding bestie, now available in your favourite terminal.<br />Your tools, your code, and your workflows, wired into your LLM of choice.</p>
-<p align="center">终端里的编程新搭档，<br />无缝接入你的工具、代码与工作流，全面兼容主流 LLM 模型。</p>
-
-<p align="center"><img width="800" alt="Skynet Demo" src="https://github.com/user-attachments/assets/58280caf-851b-470a-b6f7-d5c4ea8a1968" /></p>
+终端里的编程新搭档，
+无缝接入你的工具、代码与工作流，全面兼容主流 LLM 模型。
 
 ## Features
 
@@ -211,18 +206,10 @@ That said, you can also set environment variables for preferred providers.
 If you prefer subscription-based usage, here are some plans that work well in
 Skynet:
 
-- [Synthetic](https://synthetic.new/pricing)
-- [GLM Coding Plan](https://z.ai/subscribe)
-- [Kimi Code](https://www.kimi.com/membership/pricing)
-- [MiniMax Coding Plan](https://platform.minimax.io/subscribe/coding-plan)
-
-### By the Way
-
-Is there a provider you'd like to see in Skynet? Is there an existing model that needs an update?
-
-Skynet's default model listing is managed in [Catwalk](https://github.com/charmbracelet/catwalk), a community-supported, open source repository of Skynet-compatible models, and you're welcome to contribute.
-
-<a href="https://github.com/charmbracelet/catwalk"><img width="174" height="174" alt="Catwalk Badge" src="https://github.com/user-attachments/assets/95b49515-fe82-4409-b10d-5beb0873787d" /></a>
+- Synthetic
+- GLM Coding Plan
+- Kimi Code
+- MiniMax Coding Plan
 
 ## Configuration
 
@@ -434,7 +421,7 @@ from the agent, including builtin skills and skills discovered from disk.
 
 ### Agent Skills
 
-Skynet supports the [Agent Skills](https://agentskills.io) open standard for
+Skynet supports the Agent Skills open standard for
 extending agent capabilities with reusable skill packages. Skills are folders
 containing a `SKILL.md` file with instructions that Skynet can discover and
 activate on demand.
@@ -549,7 +536,7 @@ it creates. You can customize this behavior with the `attribution` option:
 
 - `trailer_style`: Controls the attribution trailer added to commit messages
   (default: `assisted-by`)
-  - `assisted-by`: Adds `Assisted-by: Skynet:[ModelID]` as specified in [the convention](https://docs.kernel.org/process/coding-assistants.html#attribution)
+  - `assisted-by`: Adds `Assisted-by: Skynet:[ModelID]`
   - `co-authored-by`: Adds `Co-Authored-By: Skynet <skynet@skynet.land>`
   - `none`: No attribution trailer
 - `generated_with`: When true (default), adds `💘 Generated with Skynet` line to
@@ -813,8 +800,7 @@ which maintainers rely on to inform development and support priorities. The
 metrics include solely usage metadata; prompts and responses are NEVER
 collected.
 
-Details on exactly what's collected are in the source code ([here](https://github.com/abbayosua/skynet/tree/main/internal/event)
-and [here](https://github.com/abbayosua/skynet/blob/main/internal/agent/event.go)).
+Details on exactly what's collected are in the source code.
 
 You can opt out of metrics collection at any time by setting the environment
 variable by setting the following in your environment:
@@ -833,7 +819,7 @@ Or by setting the following in your config:
 }
 ```
 
-Skynet also respects the [`DO_NOT_TRACK`](https://donottrack.sh/) convention
+Skynet also respects the `DO_NOT_TRACK` convention
 which can be enabled via `export DO_NOT_TRACK=1`.
 
 ## Q&A
@@ -866,4 +852,4 @@ We'd love to hear your thoughts on this project.
 
 ---
 
-<a href="https://github.com/abbayosua/skynet"><img alt="Skynet" width="400" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a>
+<a href="https://github.com/abbayosua/skynet">Skynet</a>

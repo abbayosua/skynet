@@ -1,14 +1,7 @@
 # Skynet
 
-<p align="center">
-    <a href="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b"><img width="450" alt="Skynet Logo" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a><br />
-    <a href="https://github.com/abbayosua/skynet/releases"><img src="https://img.shields.io/github/release/abbayosua/skynet" alt="Latest Release"></a>
-    <a href="https://github.com/abbayosua/skynet/actions"><img src="https://github.com/abbayosua/skynet/actions/workflows/build.yml/badge.svg" alt="Build Status"></a>
-</p>
-
-<p align="center">Teman coding baru kamu, kini tersedia di terminal favoritmu.<br />Tools, kode, dan workflow kamu, terhubung dengan LLM pilihanmu.</p>
-
-<p align="center"><img width="800" alt="Skynet Demo" src="https://github.com/user-attachments/assets/58280caf-851b-470a-b6f7-d5c4ea8a1968" /></p>
+Teman coding baru kamu, kini tersedia di terminal favoritmu.
+Tools, kode, dan workflow kamu, terhubung dengan LLM pilihanmu.
 
 ## Fitur
 
@@ -155,10 +148,10 @@ Kamu juga bisa mengatur environment variable untuk provider yang didukung.
 
 Jika kamu lebih suka penggunaan berbasis langganan, berikut beberapa paket yang kompatibel dengan Skynet:
 
-- [Synthetic](https://synthetic.new/pricing)
-- [GLM Coding Plan](https://z.ai/subscribe)
-- [Kimi Code](https://www.kimi.com/membership/pricing)
-- [MiniMax Coding Plan](https://platform.minimax.io/subscribe/coding-plan)
+- Synthetic
+- GLM Coding Plan
+- Kimi Code
+- MiniMax Coding Plan
 
 ## Konfigurasi
 
@@ -370,7 +363,7 @@ tersembunyi dari agent, termasuk skill bawaan dan skill yang ditemukan dari disk
 
 ### Agent Skills
 
-Skynet mendukung standar terbuka [Agent Skills](https://agentskills.io) untuk
+Skynet mendukung standar terbuka Agent Skills untuk
 memperluas kemampuan agent dengan paket skill yang dapat digunakan kembali. Skill
 adalah folder yang berisi file `SKILL.md` dengan instruksi yang dapat ditemukan
 dan diaktifkan Skynet sesuai kebutuhan.
@@ -484,7 +477,7 @@ yang dibuatnya. Kamu bisa menyesuaikan perilaku ini dengan opsi `attribution`:
 
 - `trailer_style`: Mengontrol trailer atribusi yang ditambahkan ke pesan commit
   (default: `assisted-by`)
-  - `assisted-by`: Menambahkan `Assisted-by: Skynet:[ModelID]` sesuai [konvensi](https://docs.kernel.org/process/coding-assistants.html#attribution)
+  - `assisted-by`: Menambahkan `Assisted-by: Skynet:[ModelID]`
   - `co-authored-by`: Menambahkan `Co-Authored-By: Skynet <skynet@skynet.land>`
   - `none`: Tanpa trailer atribusi
 - `generated_with`: Saat true (default), menambahkan baris `💘 Generated with Skynet` ke
@@ -747,7 +740,7 @@ yang diandalkan maintainer untuk menginformasikan pengembangan dan prioritas
 dukungan. Metrik hanya mencakup metadata penggunaan; prompt dan respons TIDAK
 PERNAH dikumpulkan.
 
-Detail tentang apa yang dikumpulkan ada di kode sumber ([di sini](https://github.com/abbayosua/skynet/tree/main/internal/event)).
+Detail tentang apa yang dikumpulkan ada di kode sumber.
 
 Kamu dapat memilih keluar dari pengumpulan metrik kapan saja dengan mengatur
 environment variable berikut:
@@ -766,8 +759,7 @@ Atau dengan mengatur berikut dalam konfigurasi:
 }
 ```
 
-Skynet juga menghormati konvensi [`DO_NOT_TRACK`](https://donottrack.sh/)
-yang dapat diaktifkan via `export DO_NOT_TRACK=1`.
+Skynet juga menghormati konvensi `DO_NOT_TRACK` yang dapat diaktifkan via `export DO_NOT_TRACK=1`.
 
 ## Tanya Jawab
 
@@ -799,4 +791,4 @@ Kami ingin mendengar pendapatmu tentang proyek ini.
 
 ---
 
-<a href="https://github.com/abbayosua/skynet"><img alt="Skynet" width="400" src="https://github.com/user-attachments/assets/cf8ca3ce-8b02-43f0-9d0f-5a331488da4b" /></a>
+<a href="https://github.com/abbayosua/skynet">Skynet</a>
