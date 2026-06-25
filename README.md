@@ -160,14 +160,6 @@ Jika kamu lebih suka penggunaan berbasis langganan, berikut beberapa paket yang 
 - [Kimi Code](https://www.kimi.com/membership/pricing)
 - [MiniMax Coding Plan](https://platform.minimax.io/subscribe/coding-plan)
 
-### Ngomong-ngomong
-
-Ada provider yang ingin kamu lihat di Skynet? Ada model yang perlu diperbarui?
-
-Daftar model bawaan Skynet dikelola di [Catwalk](https://github.com/charmbracelet/catwalk), repositori open source berbasis komunitas yang berisi model-model kompatibel dengan Skynet, dan kamu dipersilakan berkontribusi.
-
-<a href="https://github.com/charmbracelet/catwalk"><img width="174" height="174" alt="Catwalk Badge" src="https://github.com/user-attachments/assets/95b49515-fe82-4409-b10d-5beb0873787d" /></a>
-
 ## Konfigurasi
 
 > [!TIP]
