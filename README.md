@@ -14,7 +14,19 @@ Tools, kode, dan workflow kamu, terhubung dengan LLM pilihanmu.
 
 ## Instalasi
 
-Gunakan package manager:
+### One-liner (rekomendasi)
+
+```bash
+# Linux / macOS
+curl -fsSL https://github.com/abbayosua/skynet/releases/latest/download/install.sh | bash
+```
+
+```powershell
+# Windows (PowerShell sebagai Admin)
+irm https://github.com/abbayosua/skynet/releases/latest/download/install.ps1 | iex
+```
+
+### Package manager
 
 ```bash
 # Homebrew
