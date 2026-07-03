@@ -54,8 +54,11 @@ jobs:
       - run: tar -czf dist/skynet_${VERSION}_linux_amd64.tar.gz -C dist/linux skynet
       - run: cd dist/windows && zip -r ../skynet_${VERSION}_windows_amd64.zip skynet.exe
 
+      # Install scripts
+      - run: cp scripts/install.sh scripts/install.ps1 dist/
+
       # Checksums
-      - run: cd dist && sha256sum *.deb *.tar.gz *.zip > checksums.txt
+      - run: cd dist && sha256sum *.deb *.tar.gz *.zip *.sh *.ps1 > checksums.txt
 
       # GitHub Release
       - name: Create Release
