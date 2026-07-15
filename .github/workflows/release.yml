@@ -24,17 +24,27 @@ jobs:
           go-version: "~1.26"
           cache: true
 
-      # Linux build
+      # Linux amd64 build
       - run: |
           mkdir -p dist/linux
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/linux/skynet .
+
+      # macOS amd64 build
+      - run: |
+          mkdir -p dist/darwin-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/darwin-amd64/skynet .
+
+      # macOS arm64 build
+      - run: |
+          mkdir -p dist/darwin-arm64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/darwin-arm64/skynet .
 
       # Windows build
       - run: |
           mkdir -p dist/windows
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X github.com/abbayosua/skynet/internal/version.Version=$VERSION" -o dist/windows/skynet.exe .
 
-      # .deb package
+      # .deb package (linux amd64)
       - run: |
           mkdir -p dist/deb/usr/bin
           cp dist/linux/skynet dist/deb/usr/bin/
@@ -52,6 +62,8 @@ jobs:
 
       # Archives
       - run: tar -czf dist/skynet_${VERSION}_linux_amd64.tar.gz -C dist/linux skynet
+      - run: tar -czf dist/skynet_${VERSION}_darwin_amd64.tar.gz -C dist/darwin-amd64 skynet
+      - run: tar -czf dist/skynet_${VERSION}_darwin_arm64.tar.gz -C dist/darwin-arm64 skynet
       - run: cd dist/windows && zip -r ../skynet_${VERSION}_windows_amd64.zip skynet.exe
 
       # Install scripts
