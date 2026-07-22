@@ -1272,21 +1272,47 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 		msgs, err := c.messages.List(ctx, mainSessionID)
 		if err == nil && len(msgs) > 0 {
 			var parts []string
-			count := 0
 			for _, msg := range msgs {
 				content := msg.Content().Text
 				if content == "" {
 					continue
 				}
-				role := string(msg.Role)
-				parts = append(parts, fmt.Sprintf("[%s] %s", role, content))
-				count++
-				if count >= 10 {
+				parts = append(parts, fmt.Sprintf("[%s] %s", string(msg.Role), content))
+				if len(parts) >= 10 {
 					break
 				}
 			}
 			mainCtx = strings.Join(parts, "\n")
 		}
+	}
+
+	// Setup file logging.
+	logDir := filepath.Join(c.cfg.WorkingDir(), ".skynet", "autopilot", "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		slog.Warn("autopilot: cannot create log dir", "error", err)
+	}
+	logPath := filepath.Join(logDir, sess.ID+".log")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		slog.Warn("autopilot: cannot open log file", "error", err)
+	}
+	if logFile != nil {
+		defer logFile.Close()
+	}
+
+	logEvent := func(evType, detail string) {
+		if logFile == nil {
+			return
+		}
+		line := fmt.Sprintf(`{"time":"%s","session_id":"%s","type":"%s","detail":"%s"}`+"\n",
+			time.Now().Format(time.RFC3339), sess.ID, evType, strings.ReplaceAll(detail, `"`, `\"`))
+		logFile.WriteString(line)
+	}
+
+	writeOutput := func(format string, args ...any) {
+		line := fmt.Sprintf(format, args...)
+		fmt.Fprintln(output, line)
+		logEvent("output", line)
 	}
 
 	opts := SessionAgentCall{
@@ -1301,9 +1327,56 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 		NonInteractive:   true,
 	}
 
-	writeOutput := func(format string, args ...any) {
-		fmt.Fprintf(output, format+"\n", args...)
-	}
+	// Message streaming: subscribe to real-time message updates.
+	msgCh := c.messages.Subscribe(ctx)
+	seenParts := make(map[string]int) // messageID -> number of parts printed
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case ev, ok := <-msgCh:
+				if !ok {
+					return
+				}
+				msg := ev.Payload
+				if msg.SessionID != sess.ID {
+					continue
+				}
+				if msg.Role != message.Assistant && msg.Role != message.Tool {
+					continue
+				}
+
+				prevCount := seenParts[msg.ID]
+				for i := prevCount; i < len(msg.Parts); i++ {
+					part := msg.Parts[i]
+					switch p := part.(type) {
+					case message.ToolCall:
+						writeOutput("  🛠 %s(%s)", p.Name, truncateMsg(p.Input, 100))
+					case message.ToolResult:
+						content := truncateMsg(p.Content, 200)
+						if p.IsError {
+							writeOutput("  ❌ %s: %s", p.Name, content)
+						} else {
+							writeOutput("  📦 %s", content)
+						}
+					case message.TextContent:
+						t := strings.TrimSpace(p.Text)
+						if t != "" {
+							writeOutput("  💬 %s", truncateMsg(t, 200))
+						}
+					case message.ReasoningContent:
+						t := strings.TrimSpace(p.Thinking)
+						if t != "" {
+							writeOutput("  🤔 %s", truncateMsg(t, 200))
+						}
+					}
+				}
+				seenParts[msg.ID] = len(msg.Parts)
+			}
+		}
+	}()
 
 	// Watchdog: detect stuck state (5 min no progress).
 	watchdogCtx, watchdogCancel := context.WithCancel(ctx)
@@ -1320,6 +1393,7 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 			case <-ticker.C:
 				if time.Since(lastActivity) > 5*time.Minute {
 					writeOutput("  ⚠ No progress for 5 minutes. Checking in...")
+					logEvent("watchdog", "No progress for 5 minutes")
 					slog.Warn("AutoPilot watchdog triggered: no activity",
 						"session_id", sess.ID)
 				}
@@ -1328,8 +1402,9 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 	}()
 
 	writeOutput("── AutoPilot ──────────────────────────────────")
+	logEvent("start", "AutoPilot session started")
 	if mainCtx != "" {
-		writeOutput("  📖 Read %d main session messages", len(mainCtx))
+		writeOutput("  📖 Loaded context from main session")
 	}
 	writeOutput("  🔍 Analyzing codebase...")
 
@@ -1340,42 +1415,48 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 	}
 
 	iterations := 0
-	maxIterations := 50
 
 	for {
-		if iterations >= maxIterations {
-			writeOutput("  ⛔ Max iterations (%d) reached. Stopping.", maxIterations)
-			break
+		select {
+		case <-ctx.Done():
+			writeOutput("  ⛔ AutoPilot stopped (Ctrl+C)")
+			logEvent("stop", "user cancelled")
+			return ctx.Err()
+		default:
 		}
+
 		iterations++
 		lastActivity = time.Now()
+		logEvent("iteration", fmt.Sprintf("Starting iteration %d", iterations))
 
 		opts.Prompt = prompt
 		result, err := agent.Run(ctx, opts)
 		if err != nil {
 			lastActivity = time.Now()
+			logEvent("error", fmt.Sprintf("Agent error: %v", err))
 			if ctx.Err() != nil {
 				writeOutput("  ⛔ AutoPilot cancelled.")
 				return ctx.Err()
 			}
 			writeOutput("  ⚠ Error: %v", err)
-			// Try to recover with a simpler prompt.
 			prompt = "The previous operation encountered an error. Analyze what went wrong and try a different approach. Focus on making progress."
 			continue
 		}
 
 		response := strings.TrimSpace(result.Response.Content.Text())
-		writeOutput("  💬 %s", truncateMessage(response, 120))
+		logEvent("response", response)
 
 		// Check for completion markers.
 		if strings.Contains(response, "<autopilot>DONE</autopilot>") {
-			writeOutput("  ✅ Task completed. Moving to next analysis...")
+			writeOutput("  ✅ Task completed. Looking for next improvement...")
+			logEvent("phase", "task-complete, re-analyzing")
 			prompt = "What should I improve next? Analyze the codebase and identify the next most valuable improvement."
 			continue
 		}
 
 		if strings.Contains(response, "<autopilot>BLOCKED") {
-			writeOutput("  ⛔ Blocked. Moving to next task...")
+			writeOutput("  ⛔ Blocked on this task. Moving to next area...")
+			logEvent("phase", "blocked, switching task")
 			prompt = "The previous task was blocked. Analyze the codebase and find a different area to improve."
 			continue
 		}
@@ -1383,13 +1464,9 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 		// Continue working.
 		prompt = "Continue working on the improvement. Review what you've done and decide: are you done with this task? If yes, say <autopilot>DONE</autopilot>. If blocked, say <autopilot>BLOCKED: reason</autopilot>. Otherwise, keep working."
 	}
-
-	writeOutput("───────────────────────────────────────────────")
-	writeOutput("  🛸 AutoPilot finished after %d iterations.", iterations)
-	return nil
 }
 
-func truncateMessage(msg string, maxLen int) string {
+func truncateMsg(msg string, maxLen int) string {
 	if len(msg) <= maxLen {
 		return msg
 	}
