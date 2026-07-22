@@ -1415,6 +1415,7 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 	}
 
 	iterations := 0
+	iterationsPerSession := 0
 
 	for {
 		select {
@@ -1426,8 +1427,9 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 		}
 
 		iterations++
+		iterationsPerSession++
 		lastActivity = time.Now()
-		logEvent("iteration", fmt.Sprintf("Starting iteration %d", iterations))
+		logEvent("iteration", fmt.Sprintf("Iteration %d (session: %d)", iterations, iterationsPerSession))
 
 		opts.Prompt = prompt
 		result, err := agent.Run(ctx, opts)
@@ -1446,24 +1448,94 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 		response := strings.TrimSpace(result.Response.Content.Text())
 		logEvent("response", response)
 
-		// Check for completion markers.
-		if strings.Contains(response, "<autopilot>DONE</autopilot>") {
-			writeOutput("  ✅ Task completed. Looking for next improvement...")
-			logEvent("phase", "task-complete, re-analyzing")
-			prompt = "What should I improve next? Analyze the codebase and identify the next most valuable improvement."
+		// Emergency rotation: context window exhausted.
+		if result.Response.FinishReason == fantasy.FinishReasonLength {
+			writeOutput("  🔄 Context window exhausted. Rotating session...")
+			logEvent("rotation", "emergency rotate: context window full")
+
+			summary := buildSessionSummary(result, response)
+			newSess, err := c.sessions.Create(ctx, "AutoPilot (rotated)")
+			if err != nil {
+				writeOutput("  ⚠ Failed to create new session: %v", err)
+				prompt = "Continue working. The previous session ended due to context limits."
+				iterationsPerSession = 0
+				continue
+			}
+
+			oldID := opts.SessionID
+			opts.SessionID = newSess.ID
+			c.permissions.AutoApproveSession(newSess.ID)
+			iterationsPerSession = 0
+
+			writeOutput("  📋 Session rotated: %s → %s", truncateMsg(oldID, 12), truncateMsg(newSess.ID, 12))
+			logEvent("rotation", fmt.Sprintf("new_session=%s summary=%s", newSess.ID, summary))
+			prompt = "Continue from the previous session. Summary of progress so far:\n" + summary + "\n\nAnalyze the current state and decide what to do next."
 			continue
 		}
 
-		if strings.Contains(response, "<autopilot>BLOCKED") {
-			writeOutput("  ⛔ Blocked on this task. Moving to next area...")
-			logEvent("phase", "blocked, switching task")
-			prompt = "The previous task was blocked. Analyze the codebase and find a different area to improve."
+		// Natural break: task complete and session old enough to rotate.
+		taskDone := strings.Contains(response, "<autopilot>DONE</autopilot>") ||
+			strings.Contains(response, "<autopilot>BLOCKED")
+
+		if taskDone {
+			writeOutput("  ✅ Task completed.")
+			logEvent("phase", "task-complete")
+
+			if iterationsPerSession >= 25 {
+				writeOutput("  🔄 Session age %d iterations. Rotating to fresh context...", iterationsPerSession)
+				logEvent("rotation", fmt.Sprintf("proactive rotate at %d iterations", iterationsPerSession))
+
+				summary := buildSessionSummary(result, response)
+				newSess, err := c.sessions.Create(ctx, "AutoPilot (rotated)")
+				if err != nil {
+					writeOutput("  ⚠ Failed to create new session: %v", err)
+				} else {
+					opts.SessionID = newSess.ID
+					c.permissions.AutoApproveSession(newSess.ID)
+					iterationsPerSession = 0
+
+					writeOutput("  📋 Session rotated: fresh context with summary")
+					logEvent("rotation", fmt.Sprintf("new_session=%s summary=%s", newSess.ID, summary))
+					prompt = "Continue from the previous session. Summary of progress so far:\n" + summary + "\n\nAnalyze the codebase and identify the next most valuable improvement."
+					continue
+				}
+			}
+
+			prompt = "What should I improve next? Analyze the codebase and identify the next most valuable improvement."
 			continue
 		}
 
 		// Continue working.
 		prompt = "Continue working on the improvement. Review what you've done and decide: are you done with this task? If yes, say <autopilot>DONE</autopilot>. If blocked, say <autopilot>BLOCKED: reason</autopilot>. Otherwise, keep working."
 	}
+}
+
+// buildSessionSummary extracts key progress info from the current iteration.
+func buildSessionSummary(result *fantasy.AgentResult, response string) string {
+	var parts []string
+	parts = append(parts, "- Most recent action: "+truncateMsg(response, 200))
+
+	if result != nil {
+		for _, step := range result.Steps {
+			content := step.Response.Content
+			for _, call := range content.ToolCalls() {
+				parts = append(parts, fmt.Sprintf("- Tool: %s", call.ToolName))
+			}
+			for _, tr := range content.ToolResults() {
+				if text, ok := tr.Result.(fantasy.ToolResultOutputContentText); ok {
+					t := strings.TrimSpace(text.Text)
+					if t != "" {
+						parts = append(parts, fmt.Sprintf("- Result: %s", truncateMsg(t, 150)))
+					}
+				}
+			}
+		}
+	}
+
+	if len(parts) > 10 {
+		parts = parts[len(parts)-10:]
+	}
+	return strings.Join(parts, "\n")
 }
 
 func truncateMsg(msg string, maxLen int) string {
