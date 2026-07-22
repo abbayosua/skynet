@@ -1329,7 +1329,10 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 
 	// Message streaming: subscribe to real-time message updates.
 	msgCh := c.messages.Subscribe(ctx)
-	seenParts := make(map[string]int) // messageID -> number of parts printed
+	seenParts := make(map[string]int)              // messageID -> parts printed count
+	seenText := make(map[string]int)               // messageID -> text bytes printed
+	seenThinking := make(map[string]int)            // messageID -> thinking bytes printed
+	seenToolInput := make(map[string]bool)          // toolCallID -> input already printed
 
 	go func() {
 		for {
@@ -1348,12 +1351,12 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 					continue
 				}
 
+				// 1. Print new parts (tool calls, tool results).
 				prevCount := seenParts[msg.ID]
 				for i := prevCount; i < len(msg.Parts); i++ {
-					part := msg.Parts[i]
-					switch p := part.(type) {
+					switch p := msg.Parts[i].(type) {
 					case message.ToolCall:
-						writeOutput("  🛠 %s(%s)", p.Name, truncateMsg(p.Input, 100))
+						seenToolInput[p.ID] = false
 					case message.ToolResult:
 						content := truncateMsg(p.Content, 200)
 						if p.IsError {
@@ -1366,10 +1369,41 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 						if t != "" {
 							writeOutput("  💬 %s", truncateMsg(t, 200))
 						}
+						seenText[msg.ID] = len(p.Text)
 					case message.ReasoningContent:
 						t := strings.TrimSpace(p.Thinking)
 						if t != "" {
 							writeOutput("  🤔 %s", truncateMsg(t, 200))
+						}
+						seenThinking[msg.ID] = len(p.Thinking)
+					}
+				}
+
+				// 2. Update existing parts (streaming text, reasoning, tool input).
+				for i := 0; i < len(msg.Parts); i++ {
+					switch p := msg.Parts[i].(type) {
+					case message.TextContent:
+						if len(p.Text) > seenText[msg.ID] {
+							newText := p.Text[seenText[msg.ID]:]
+							seenText[msg.ID] = len(p.Text)
+							t := strings.TrimSpace(newText)
+							if t != "" {
+								writeOutput("  💬 %s", truncateMsg(t, 200))
+							}
+						}
+					case message.ReasoningContent:
+						if len(p.Thinking) > seenThinking[msg.ID] {
+							newThink := p.Thinking[seenThinking[msg.ID]:]
+							seenThinking[msg.ID] = len(p.Thinking)
+							t := strings.TrimSpace(newThink)
+							if t != "" {
+								writeOutput("  🤔 %s", truncateMsg(t, 200))
+							}
+						}
+					case message.ToolCall:
+						if !seenToolInput[p.ID] && p.Input != "" {
+							seenToolInput[p.ID] = true
+							writeOutput("  🛠 %s(%s)", p.Name, truncateMsg(p.Input, 200))
 						}
 					}
 				}
