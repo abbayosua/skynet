@@ -86,6 +86,7 @@ type Coordinator interface {
 	Summarize(context.Context, string) error
 	Model() Model
 	UpdateModels(ctx context.Context) error
+	RunAutoPilot(ctx context.Context, output io.Writer, mainSessionID string) error
 }
 
 type coordinator struct {
@@ -1229,6 +1230,170 @@ func (c *coordinator) runBackgroundTask(ctx context.Context, userPrompt string) 
 	}
 
 	return result.Response.Content.Text(), nil
+}
+
+// RunAutoPilot starts the autonomous coding mode.
+func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSessionID string) error {
+	agentCfg, ok := c.cfg.Config().Agents[config.AgentCoder]
+	if !ok {
+		return errors.New("autopilot: coder agent not configured")
+	}
+
+	p, err := autopilotPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir()))
+	if err != nil {
+		return fmt.Errorf("autopilot: build prompt: %w", err)
+	}
+
+	agent, err := c.buildAgent(ctx, p, agentCfg, true)
+	if err != nil {
+		return fmt.Errorf("autopilot: build agent: %w", err)
+	}
+
+	sess, err := c.sessions.Create(ctx, "AutoPilot")
+	if err != nil {
+		return fmt.Errorf("autopilot: create session: %w", err)
+	}
+	c.permissions.AutoApproveSession(sess.ID)
+
+	model := agent.Model()
+	maxTokens := model.CatwalkCfg.DefaultMaxTokens
+	if model.ModelCfg.MaxTokens != 0 {
+		maxTokens = model.ModelCfg.MaxTokens
+	}
+
+	providerCfg, ok := c.cfg.Config().Providers.Get(model.ModelCfg.Provider)
+	if !ok {
+		return errors.New("autopilot: model provider not configured")
+	}
+
+	// Read main session context for initial analysis.
+	var mainCtx string
+	if mainSessionID != "" {
+		msgs, err := c.messages.List(ctx, mainSessionID)
+		if err == nil && len(msgs) > 0 {
+			var parts []string
+			count := 0
+			for _, msg := range msgs {
+				content := msg.Content().Text
+				if content == "" {
+					continue
+				}
+				role := string(msg.Role)
+				parts = append(parts, fmt.Sprintf("[%s] %s", role, content))
+				count++
+				if count >= 10 {
+					break
+				}
+			}
+			mainCtx = strings.Join(parts, "\n")
+		}
+	}
+
+	opts := SessionAgentCall{
+		SessionID:        sess.ID,
+		MaxOutputTokens:  maxTokens,
+		ProviderOptions:  getProviderOptions(model, providerCfg),
+		Temperature:      model.ModelCfg.Temperature,
+		TopP:             model.ModelCfg.TopP,
+		TopK:             model.ModelCfg.TopK,
+		FrequencyPenalty: model.ModelCfg.FrequencyPenalty,
+		PresencePenalty:  model.ModelCfg.PresencePenalty,
+		NonInteractive:   true,
+	}
+
+	writeOutput := func(format string, args ...any) {
+		fmt.Fprintf(output, format+"\n", args...)
+	}
+
+	// Watchdog: detect stuck state (5 min no progress).
+	watchdogCtx, watchdogCancel := context.WithCancel(ctx)
+	defer watchdogCancel()
+	lastActivity := time.Now()
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchdogCtx.Done():
+				return
+			case <-ticker.C:
+				if time.Since(lastActivity) > 5*time.Minute {
+					writeOutput("  ⚠ No progress for 5 minutes. Checking in...")
+					slog.Warn("AutoPilot watchdog triggered: no activity",
+						"session_id", sess.ID)
+				}
+			}
+		}
+	}()
+
+	writeOutput("── AutoPilot ──────────────────────────────────")
+	if mainCtx != "" {
+		writeOutput("  📖 Read %d main session messages", len(mainCtx))
+	}
+	writeOutput("  🔍 Analyzing codebase...")
+
+	// Initial analysis prompt.
+	prompt := "Analyze the current codebase state. Read git log, check git status, review recent changes. Identify what needs improvement. Then create a plan and execute it."
+	if mainCtx != "" {
+		prompt += "\n\nRecent conversation context from the main session:\n" + mainCtx
+	}
+
+	iterations := 0
+	maxIterations := 50
+
+	for {
+		if iterations >= maxIterations {
+			writeOutput("  ⛔ Max iterations (%d) reached. Stopping.", maxIterations)
+			break
+		}
+		iterations++
+		lastActivity = time.Now()
+
+		opts.Prompt = prompt
+		result, err := agent.Run(ctx, opts)
+		if err != nil {
+			lastActivity = time.Now()
+			if ctx.Err() != nil {
+				writeOutput("  ⛔ AutoPilot cancelled.")
+				return ctx.Err()
+			}
+			writeOutput("  ⚠ Error: %v", err)
+			// Try to recover with a simpler prompt.
+			prompt = "The previous operation encountered an error. Analyze what went wrong and try a different approach. Focus on making progress."
+			continue
+		}
+
+		response := strings.TrimSpace(result.Response.Content.Text())
+		writeOutput("  💬 %s", truncateMessage(response, 120))
+
+		// Check for completion markers.
+		if strings.Contains(response, "<autopilot>DONE</autopilot>") {
+			writeOutput("  ✅ Task completed. Moving to next analysis...")
+			prompt = "What should I improve next? Analyze the codebase and identify the next most valuable improvement."
+			continue
+		}
+
+		if strings.Contains(response, "<autopilot>BLOCKED") {
+			writeOutput("  ⛔ Blocked. Moving to next task...")
+			prompt = "The previous task was blocked. Analyze the codebase and find a different area to improve."
+			continue
+		}
+
+		// Continue working.
+		prompt = "Continue working on the improvement. Review what you've done and decide: are you done with this task? If yes, say <autopilot>DONE</autopilot>. If blocked, say <autopilot>BLOCKED: reason</autopilot>. Otherwise, keep working."
+	}
+
+	writeOutput("───────────────────────────────────────────────")
+	writeOutput("  🛸 AutoPilot finished after %d iterations.", iterations)
+	return nil
+}
+
+func truncateMessage(msg string, maxLen int) string {
+	if len(msg) <= maxLen {
+		return msg
+	}
+	return msg[:maxLen] + "..."
 }
 
 // backgroundAgentManager is the shared background agent manager used by all tools.

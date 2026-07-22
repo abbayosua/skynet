@@ -72,6 +72,7 @@ func init() {
 		statsCmd,
 		sessionCmd,
 		scheduleCmd,
+		autopilotCmd,
 	)
 }
 

@@ -17,6 +17,9 @@ var taskPromptTmpl []byte
 //go:embed templates/initialize.md.tpl
 var initializePromptTmpl []byte
 
+//go:embed templates/autopilot.md.tpl
+var autopilotPromptTmpl []byte
+
 func coderPrompt(opts ...prompt.Option) (*prompt.Prompt, error) {
 	systemPrompt, err := prompt.NewPrompt("coder", string(coderPromptTmpl), opts...)
 	if err != nil {
@@ -39,4 +42,12 @@ func InitializePrompt(cfg *config.ConfigStore) (string, error) {
 		return "", err
 	}
 	return systemPrompt.Build(context.Background(), "", "", cfg)
+}
+
+func autopilotPrompt(opts ...prompt.Option) (*prompt.Prompt, error) {
+	systemPrompt, err := prompt.NewPrompt("autopilot", string(autopilotPromptTmpl), opts...)
+	if err != nil {
+		return nil, err
+	}
+	return systemPrompt, nil
 }
