@@ -104,6 +104,10 @@ type SessionAgent interface {
 	// The prompt will be processed on the next Run() cycle. Used by
 	// background agent completion notifications to trigger the main agent.
 	EnqueuePrompt(sessionID, prompt string)
+	// SetAnswerShort toggles the "answer short" directive at runtime.
+	SetAnswerShort(enabled bool)
+	// AnswerShort reports whether the "answer short" directive is active.
+	AnswerShort() bool
 }
 
 type Model struct {
@@ -126,7 +130,7 @@ type sessionAgent struct {
 	disableAutoSummarize bool
 	isYolo               bool
 	notify               pubsub.Publisher[notify.Notification]
-	answerShort          bool
+	answerShort          *csync.Value[bool]
 
 	messageQueue   *csync.Map[string, []SessionAgentCall]
 	activeRequests *csync.Map[string, context.CancelFunc]
@@ -175,7 +179,7 @@ func NewSessionAgent(
 		messageQueue:   csync.NewMap[string, []SessionAgentCall](),
 		activeRequests: csync.NewMap[string, context.CancelFunc](),
 		ralphLoop:      newRalphLoopState(opts.RalphLoop),
-		answerShort:    opts.AnswerShort,
+		answerShort:    csync.NewValue(opts.AnswerShort),
 	}
 }
 
@@ -200,7 +204,7 @@ func newRalphLoopState(cfg *config.RalphLoop) *ralphLoopState {
 func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy.AgentResult, error) {
 	// Append the "answer short" directive to every prompt sent to the
 	// model when enabled via options.answer_short.
-	if a.answerShort && call.Prompt != "" {
+	if a.answerShort.Get() && call.Prompt != "" {
 		call.Prompt = strings.TrimSpace(call.Prompt) + "\n\n- Jawab singkat, jangan perlu banyak mikir"
 	}
 	if call.Prompt == "" && !message.ContainsTextAttachment(call.Attachments) {
@@ -1348,6 +1352,14 @@ func (a *sessionAgent) EnqueuePrompt(sessionID, prompt string) {
 	existing = append(existing, SessionAgentCall{Prompt: prompt, NonInteractive: true})
 	a.messageQueue.Set(sessionID, existing)
 	slog.Debug("Enqueued prompt for background completion", "session_id", sessionID)
+}
+
+func (a *sessionAgent) SetAnswerShort(enabled bool) {
+	a.answerShort.Set(enabled)
+}
+
+func (a *sessionAgent) AnswerShort() bool {
+	return a.answerShort.Get()
 }
 
 func (a *sessionAgent) CancelAll() {

@@ -226,6 +226,11 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 		cleanPrompt = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(prompt), "/ralph-loop"))
 	}
 
+	// Handle /answer-short command: toggle the brief-answer directive.
+	if strings.HasPrefix(strings.TrimSpace(prompt), "/answer-short") {
+		return c.handleAnswerShortCommand(ctx, prompt)
+	}
+
 	run := func() (*fantasy.AgentResult, error) {
 		return c.currentAgent.Run(ctx, SessionAgentCall{
 			SessionID:        sessionID,
@@ -252,6 +257,48 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 	}
 
 	return result, originalErr
+}
+
+// handleAnswerShortCommand toggles the answer_short directive via the
+// /answer-short slash command. Returns an immediate text response without
+// calling the LLM.
+func (c *coordinator) handleAnswerShortCommand(ctx context.Context, prompt string) (*fantasy.AgentResult, error) {
+	arg := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(prompt), "/answer-short"))
+	arg = strings.ToLower(strings.TrimSpace(arg))
+
+	current := c.currentAgent.AnswerShort()
+	var enabled bool
+	switch arg {
+	case "on", "enable", "true", "1":
+		enabled = true
+	case "off", "disable", "false", "0":
+		enabled = false
+	default:
+		enabled = !current
+	}
+
+	c.currentAgent.SetAnswerShort(enabled)
+	if err := c.cfg.SetAnswerShort(config.ScopeWorkspace, enabled); err != nil {
+		slog.Warn("Failed to persist answer_short setting", "error", err)
+	}
+
+	status := "OFF"
+	if enabled {
+		status = "ON"
+	}
+	msg := fmt.Sprintf("Answer short mode is now **%s** — prompts will be appended with the brief-answer directive.", status)
+	if enabled {
+		msg += "\n\nSetiap prompt akan ditambahkan: *Jawab singkat, jangan perlu banyak mikir*"
+	} else {
+		msg += "\n\nMode normal tanpa direktif jawab singkat."
+	}
+	return &fantasy.AgentResult{
+		Response: fantasy.Response{
+			Content: fantasy.ResponseContent{
+				fantasy.TextContent{Text: msg},
+			},
+		},
+	}, nil
 }
 
 func getProviderOptions(model Model, providerCfg config.ProviderConfig) fantasy.ProviderOptions {

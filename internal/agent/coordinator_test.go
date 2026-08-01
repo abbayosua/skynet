@@ -39,6 +39,8 @@ func (m *mockSessionAgent) QueuedPrompts(sessionID string) int          { return
 func (m *mockSessionAgent) QueuedPromptsList(sessionID string) []string { return nil }
 func (m *mockSessionAgent) ClearQueue(sessionID string)                 {}
 func (m *mockSessionAgent) EnqueuePrompt(sessionID, prompt string)      {}
+func (m *mockSessionAgent) SetAnswerShort(enabled bool)                 {}
+func (m *mockSessionAgent) AnswerShort() bool                           { return false }
 func (m *mockSessionAgent) Summarize(context.Context, string, fantasy.ProviderOptions) error {
 	return nil
 }

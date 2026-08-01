@@ -236,6 +236,15 @@ func (s *ConfigStore) SetTransparentBackground(scope Scope, enabled bool) error 
 	return s.SetConfigField(scope, "options.tui.transparent", enabled)
 }
 
+// SetAnswerShort sets the answer_short option and persists it.
+func (s *ConfigStore) SetAnswerShort(scope Scope, enabled bool) error {
+	if s.config.Options == nil {
+		s.config.Options = &Options{}
+	}
+	s.config.Options.AnswerShort = enabled
+	return s.SetConfigField(scope, "options.answer_short", enabled)
+}
+
 // SetProviderAPIKey sets the API key for a provider and persists it.
 func (s *ConfigStore) SetProviderAPIKey(scope Scope, providerID string, apiKey any) error {
 	var providerConfig ProviderConfig
