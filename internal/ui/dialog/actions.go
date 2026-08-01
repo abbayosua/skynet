@@ -54,6 +54,7 @@ type (
 	ActionToggleNotifications         struct{}
 	ActionToggleTransparentBackground struct{}
 	ActionToggleRalphLoop             struct{}
+	ActionToggleAnswerShort           struct{}
 	ActionToggleTaskPlanner           struct{}
 	ActionConnectTelegram             struct{ Token string }
 	ActionDisconnectTelegram          struct{}

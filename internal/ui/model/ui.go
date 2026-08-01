@@ -1466,6 +1466,26 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			}
 			return util.NewInfoMsg("Ralph Loop " + status)
 		})
+	case dialog.ActionToggleAnswerShort:
+		m.dialog.CloseDialog(dialog.CommandsID)
+		cmds = append(cmds, func() tea.Msg {
+			cfg := m.com.Config()
+			if cfg == nil {
+				return util.ReportError(errors.New("configuration not found"))()
+			}
+
+			isEnabled := cfg.Options != nil && cfg.Options.AnswerShort
+			newValue := !isEnabled
+			if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.answer_short", newValue); err != nil {
+				return util.ReportError(err)()
+			}
+
+			status := "disabled"
+			if newValue {
+				status = "enabled"
+			}
+			return util.NewInfoMsg("Answer Short " + status)
+		})
 	case dialog.ActionToggleTaskPlanner:
 		m.dialog.CloseDialog(dialog.CommandsID)
 		cmds = append(cmds, func() tea.Msg {

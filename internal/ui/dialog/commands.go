@@ -518,6 +518,13 @@ func (c *Commands) defaultCommands() []*CommandItem {
 	}
 	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_ralph_loop", ralphLoopLabel, "", ActionToggleRalphLoop{}))
 
+	// Add Answer Short toggle.
+	answerShortLabel := "Enable Answer Short"
+	if cfg != nil && cfg.Options != nil && cfg.Options.AnswerShort {
+		answerShortLabel = "Disable Answer Short"
+	}
+	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_answer_short", answerShortLabel, "", ActionToggleAnswerShort{}))
+
 	// Add Task Planner toggle.
 	taskPlannerLabel := "Disable Task Planner"
 	isTaskPlannerEnabled := cfg != nil && cfg.Options != nil && cfg.Options.TaskPlanner != nil && cfg.Options.TaskPlanner.Enabled

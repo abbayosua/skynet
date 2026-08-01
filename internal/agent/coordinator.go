@@ -214,6 +214,9 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 	// Rebuild system prompt with current config so Task Planner toggle
 	// (and other dynamic options) take effect immediately.
 	if cfg != nil && c.currentAgent != nil {
+		// Keep the answer_short flag in sync with the config file so
+		// toggles from the UI (command palette) apply without restart.
+		c.currentAgent.SetAnswerShort(cfg.Options != nil && cfg.Options.AnswerShort)
 		if p, err := coderPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir())); err == nil {
 			if systemPrompt, err := p.Build(ctx, model.Model.Provider(), model.Model.Model(), c.cfg); err == nil {
 				c.currentAgent.SetSystemPrompt(systemPrompt)
