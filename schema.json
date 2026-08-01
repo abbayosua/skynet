@@ -22,8 +22,29 @@
         },
         "generated_with": {
           "type": "boolean",
-          "description": "Add Generated with Skynet line to commit messages and issues and PRs",
+          "description": "Add Generated with Crush line to commit messages and issues and PRs",
           "default": true
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BackgroundAgent": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable background agent execution",
+          "default": true
+        },
+        "max_concurrent": {
+          "type": "integer",
+          "description": "Maximum number of concurrently running background agents",
+          "default": 5
+        },
+        "default_timeout_seconds": {
+          "type": "integer",
+          "description": "Default timeout in seconds for each background agent",
+          "default": 600
         }
       },
       "additionalProperties": false,
@@ -431,6 +452,11 @@
           "description": "Disable automatic conversation summarization",
           "default": false
         },
+        "answer_short": {
+          "type": "boolean",
+          "description": "Append a directive to every prompt asking the model to answer briefly without overthinking",
+          "default": false
+        },
         "data_directory": {
           "type": "string",
           "description": "Directory for storing application data. Relative paths are resolved against the working directory; absolute paths are used as-is.",
@@ -504,6 +530,30 @@
           },
           "type": "array",
           "description": "List of skill names to disable and hide from the agent"
+        },
+        "ralph_loop": {
+          "$ref": "#/$defs/RalphLoop",
+          "description": "Auto-continuation loop settings"
+        },
+        "telegram": {
+          "$ref": "#/$defs/Telegram",
+          "description": "Telegram mirror bot settings"
+        },
+        "team_mode": {
+          "$ref": "#/$defs/TeamMode",
+          "description": "Team mode for multi-agent coordination"
+        },
+        "task_planner": {
+          "$ref": "#/$defs/TaskPlanner",
+          "description": "Task planner with todo enforcement"
+        },
+        "background_agent": {
+          "$ref": "#/$defs/BackgroundAgent",
+          "description": "Background agent execution settings"
+        },
+        "token_efficiency": {
+          "$ref": "#/$defs/TokenEfficiency",
+          "description": "Token efficiency and caching settings"
         }
       },
       "additionalProperties": false,
@@ -608,6 +658,22 @@
           },
           "type": "array",
           "description": "List of models available from this provider"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "RalphLoop": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable automatic task continuation until completion",
+          "default": true
+        },
+        "max_iterations": {
+          "type": "integer",
+          "description": "Maximum number of auto-continuation iterations",
+          "default": 100
         }
       },
       "additionalProperties": false,
@@ -720,6 +786,47 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "TaskPlanner": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable task planner with todo enforcement",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "TeamMode": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable team mode for multi-agent coordination",
+          "default": true
+        },
+        "max_parallel_members": {
+          "type": "integer",
+          "description": "Maximum number of team members running in parallel",
+          "default": 4
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Telegram": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Telegram mirror"
+        },
+        "bot_token": {
+          "type": "string",
+          "description": "Telegram bot token"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Token": {
       "properties": {
         "access_token": {
@@ -743,6 +850,47 @@
         "expires_in",
         "expires_at"
       ]
+    },
+    "TokenEfficiency": {
+      "properties": {
+        "compress_threshold": {
+          "type": "integer",
+          "description": "Token count threshold for automatic context compression",
+          "default": 100000
+        },
+        "cache_enabled": {
+          "type": "boolean",
+          "description": "Enable caching of deterministic tool outputs",
+          "default": true
+        },
+        "cache_max_entries": {
+          "type": "integer",
+          "description": "Maximum number of cached tool outputs",
+          "default": 100
+        },
+        "cache_ttl_seconds": {
+          "type": "integer",
+          "description": "Time-to-live in seconds for cached tool outputs",
+          "default": 60
+        },
+        "truncate_outputs": {
+          "type": "boolean",
+          "description": "Enable smart truncation of large tool outputs",
+          "default": true
+        },
+        "max_output_length": {
+          "type": "integer",
+          "description": "Maximum characters per tool output before truncation",
+          "default": 10000
+        },
+        "budget_per_turn": {
+          "type": "integer",
+          "description": "Target maximum tokens per agent turn",
+          "default": 100000
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "ToolGrep": {
       "properties": {

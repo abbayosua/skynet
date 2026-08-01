@@ -463,6 +463,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *promptpkg.Prompt, 
 		Tools:                nil,
 		Notify:               c.notify,
 		RalphLoop:            c.cfg.Config().Options.RalphLoop,
+		AnswerShort:          c.cfg.Config().Options.AnswerShort,
 	})
 
 	c.readyWg.Go(func() error {

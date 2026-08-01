@@ -126,6 +126,7 @@ type sessionAgent struct {
 	disableAutoSummarize bool
 	isYolo               bool
 	notify               pubsub.Publisher[notify.Notification]
+	answerShort          bool
 
 	messageQueue   *csync.Map[string, []SessionAgentCall]
 	activeRequests *csync.Map[string, context.CancelFunc]
@@ -153,6 +154,7 @@ type SessionAgentOptions struct {
 	Tools                []fantasy.AgentTool
 	Notify               pubsub.Publisher[notify.Notification]
 	RalphLoop            *config.RalphLoop
+	AnswerShort          bool
 }
 
 func NewSessionAgent(
@@ -173,6 +175,7 @@ func NewSessionAgent(
 		messageQueue:   csync.NewMap[string, []SessionAgentCall](),
 		activeRequests: csync.NewMap[string, context.CancelFunc](),
 		ralphLoop:      newRalphLoopState(opts.RalphLoop),
+		answerShort:    opts.AnswerShort,
 	}
 }
 
@@ -195,6 +198,11 @@ func newRalphLoopState(cfg *config.RalphLoop) *ralphLoopState {
 }
 
 func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy.AgentResult, error) {
+	// Append the "answer short" directive to every prompt sent to the
+	// model when enabled via options.answer_short.
+	if a.answerShort && call.Prompt != "" {
+		call.Prompt = strings.TrimSpace(call.Prompt) + "\n\n- Jawab singkat, jangan perlu banyak mikir"
+	}
 	if call.Prompt == "" && !message.ContainsTextAttachment(call.Attachments) {
 		return nil, ErrEmptyPrompt
 	}
