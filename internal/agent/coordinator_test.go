@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"charm.land/catwalk/pkg/catwalk"
@@ -420,4 +421,43 @@ func TestGetProviderOptionsReasoningEffort(t *testing.T) {
 			assert.Equal(t, anthropic.Effort("max"), *parsed.Effort)
 		})
 	}
+}
+
+func TestOpenCodeSessionID(t *testing.T) {
+	first := openCodeSessionID()
+	second := openCodeSessionID()
+
+	assert.NotEqual(t, first, second, "session ids should be unique per call")
+	for _, id := range []string{first, second} {
+		require.True(t, strings.HasPrefix(id, "ses_"), "id %q should start with ses_", id)
+		assert.Len(t, id, 30, "id %q should be 30 characters", id)
+		for _, r := range id[4:] {
+			valid := r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z'
+			assert.True(t, valid, "id %q contains non-base62 character %q", id, r)
+		}
+	}
+}
+
+func TestProviderHeadersOpencodeSession(t *testing.T) {
+	for _, providerID := range []string{string(catwalk.InferenceProviderOpenCodeGo), string(catwalk.InferenceProviderOpenCodeZen)} {
+		providerCfg := config.ProviderConfig{ID: providerID, Type: catwalk.Type("openai-compat")}
+		headers := providerHeaders(providerCfg, false)
+		assert.Regexp(t, `^ses_[0-9A-Za-z]{26}$`, headers["x-opencode-session"],
+			"provider %q should get a generated session id", providerID)
+	}
+
+	other := providerHeaders(config.ProviderConfig{ID: "openai", Type: catwalk.Type("openai")}, false)
+	_, ok := other["x-opencode-session"]
+	assert.False(t, ok, "non-opencode providers should not get a session id")
+}
+
+func TestProviderHeadersUserExtraHeadersPreserved(t *testing.T) {
+	providerCfg := config.ProviderConfig{
+		ID:           string(catwalk.InferenceProviderOpenCodeGo),
+		Type:         catwalk.Type("openai-compat"),
+		ExtraHeaders: map[string]string{"X-Custom": "value"},
+	}
+	headers := providerHeaders(providerCfg, false)
+	assert.Equal(t, "value", headers["X-Custom"], "user extra headers should be preserved")
+	assert.Contains(t, headers, "x-opencode-session")
 }

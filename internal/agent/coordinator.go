@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -961,20 +962,52 @@ func (c *coordinator) isAnthropicThinking(model config.SelectedModel) bool {
 	return err == nil && opts.Thinking != nil
 }
 
-func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model config.SelectedModel, isSubAgent bool) (fantasy.Provider, error) {
+// openCodeSessionID returns a session identifier for opencode.ai providers.
+// It mirrors the format used by the opencode CLI (ses_ followed by 26
+// base62 characters). Requests to opencode.ai are routed to the upstream
+// serving the selected model based on this session id; without it some
+// models (e.g. deepseek-v4-flash on opencode-go) are reported as
+// unavailable.
+func openCodeSessionID() string {
+	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	b := make([]byte, 26)
+	for i := range b {
+		b[i] = chars[rand.IntN(len(chars))]
+	}
+	return "ses_" + string(b)
+}
+
+// providerHeaders returns the HTTP headers to send with requests to the
+// given provider, merging user-configured extra headers with provider
+// specific defaults.
+func providerHeaders(providerCfg config.ProviderConfig, anthropicThinking bool) map[string]string {
 	headers := maps.Clone(providerCfg.ExtraHeaders)
 	if headers == nil {
 		headers = make(map[string]string)
 	}
 
 	// handle special headers for anthropic
-	if providerCfg.Type == anthropic.Name && c.isAnthropicThinking(model) {
+	if providerCfg.Type == anthropic.Name && anthropicThinking {
 		if v, ok := headers["anthropic-beta"]; ok {
 			headers["anthropic-beta"] = v + ",interleaved-thinking-2025-05-14"
 		} else {
 			headers["anthropic-beta"] = "interleaved-thinking-2025-05-14"
 		}
 	}
+
+	// opencode.ai routes requests to the upstream serving the selected
+	// model based on the x-opencode-session header, so generate a fresh
+	// session id per conversation the same way the opencode CLI does.
+	switch providerCfg.ID {
+	case string(catwalk.InferenceProviderOpenCodeGo), string(catwalk.InferenceProviderOpenCodeZen):
+		headers["x-opencode-session"] = openCodeSessionID()
+	}
+
+	return headers
+}
+
+func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model config.SelectedModel, isSubAgent bool) (fantasy.Provider, error) {
+	headers := providerHeaders(providerCfg, c.isAnthropicThinking(model))
 
 	apiKey, _ := c.cfg.Resolve(providerCfg.APIKey)
 	baseURL, _ := c.cfg.Resolve(providerCfg.BaseURL)
@@ -1380,10 +1413,10 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 
 	// Message streaming: subscribe to real-time message updates.
 	msgCh := c.messages.Subscribe(ctx)
-	seenParts := make(map[string]int)              // messageID -> parts printed count
-	seenText := make(map[string]int)               // messageID -> text bytes printed
-	seenThinking := make(map[string]int)            // messageID -> thinking bytes printed
-	seenToolInput := make(map[string]bool)          // toolCallID -> input already printed
+	seenParts := make(map[string]int)      // messageID -> parts printed count
+	seenText := make(map[string]int)       // messageID -> text bytes printed
+	seenThinking := make(map[string]int)   // messageID -> thinking bytes printed
+	seenToolInput := make(map[string]bool) // toolCallID -> input already printed
 
 	go func() {
 		for {
@@ -1802,4 +1835,3 @@ func logDiscoveryStats(
 		"active_names", activeNames,
 	)
 }
-
