@@ -51,3 +51,40 @@ func TestLoadAll_MixedSources(t *testing.T) {
 	require.Len(t, cmds, 1)
 	require.Equal(t, "user:cmd", cmds[0].ID)
 }
+
+func TestSaveCommand(t *testing.T) {
+	t.Run("creates file and is loadable", func(t *testing.T) {
+		name := "review-commit"
+		content := "Tolong review perubahan barusan yang di commit seperti seorang senior dev"
+
+		// SaveCommand writes to the real user commands dir; use HOME to isolate.
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("XDG_CONFIG_HOME", "")
+
+		path, err := SaveCommand(name, content)
+		require.NoError(t, err)
+		require.FileExists(t, path)
+		require.Equal(t, name+".md", filepath.Base(path))
+
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.Equal(t, content, string(data))
+	})
+
+	t.Run("strips .md suffix", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("XDG_CONFIG_HOME", "")
+
+		path, err := SaveCommand("check.md", "hello")
+		require.NoError(t, err)
+		require.Equal(t, "check.md", filepath.Base(path))
+	})
+
+	t.Run("rejects empty name", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("XDG_CONFIG_HOME", "")
+
+		_, err := SaveCommand("   ", "hello")
+		require.Error(t, err)
+	})
+}

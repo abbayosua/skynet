@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -56,6 +57,33 @@ type commandSource struct {
 // XDG config directory, home directory, and project directory.
 func LoadCustomCommands(cfg *config.Config) ([]CustomCommand, error) {
 	return loadAll(buildCommandSources(cfg))
+}
+
+// UserCommandsDir returns the directory where user commands are stored.
+func UserCommandsDir() string {
+	return filepath.Join(home.Config(), "skynet", "commands")
+}
+
+// SaveCommand writes a custom command to the user commands directory as a
+// markdown file. The name is used as the file name; content becomes the
+// command body. Returns the full path of the saved file.
+func SaveCommand(name, content string) (string, error) {
+	name = strings.TrimSpace(name)
+	name = strings.TrimSuffix(name, ".md")
+	if name == "" {
+		return "", fmt.Errorf("command name cannot be empty")
+	}
+
+	dir := UserCommandsDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create commands directory: %w", err)
+	}
+
+	path := filepath.Join(dir, name+".md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("failed to save command: %w", err)
+	}
+	return path, nil
 }
 
 // LoadMCPPrompts loads custom commands from available MCP servers.

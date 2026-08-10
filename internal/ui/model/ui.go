@@ -653,6 +653,11 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			commands.SetCustomCommands(m.customCommands)
 		}
 
+	case savedCommandMsg:
+		m.customCommands = nil
+		cmds = append(cmds, m.loadCustomCommands())
+		cmds = append(cmds, util.CmdHandler(util.NewInfoMsg("Saved command: user:"+msg.Name)))
+
 	case mcpStateChangedMsg:
 		m.mcpStates = msg.states
 	case mcpPromptsLoadedMsg:
@@ -1697,8 +1702,7 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		))
 
 	case dialog.ActionRunCustomCommand:
-		if len(msg.Arguments) > 0 && msg.Args == nil {
-			m.dialog.CloseFrontDialog()
+		if len(msg.Arguments) > 0 && msg.Args == nil {			m.dialog.CloseFrontDialog()
 			argsDialog := dialog.NewArguments(
 				m.com,
 				"Custom Command Arguments",
@@ -1715,6 +1719,10 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		}
 		cmds = append(cmds, m.sendMessage(content))
 		m.dialog.CloseFrontDialog()
+	case dialog.ActionSaveCommand:
+		m.dialog.CloseFrontDialog()
+		content := m.textarea.Value()
+		cmds = append(cmds, m.saveCommand(msg.Name, content))
 	case dialog.ActionRunMCPPrompt:
 		if len(msg.Arguments) > 0 && msg.Args == nil {
 			m.dialog.CloseFrontDialog()
@@ -3423,6 +3431,10 @@ func (m *UI) openDialog(id string) tea.Cmd {
 		if cmd := m.openSchedulerDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	case dialog.SaveCommandID:
+		if cmd := m.openSaveCommandDialog(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	default:
 		// Unknown dialog
 		break
@@ -3471,6 +3483,38 @@ func (m *UI) openSchedulerDialog() tea.Cmd {
 	}
 	m.dialog.OpenDialog(dia)
 	return nil
+}
+
+// openSaveCommandDialog opens the save command dialog.
+func (m *UI) openSaveCommandDialog() tea.Cmd {
+	if m.dialog.ContainsDialog(dialog.SaveCommandID) {
+		m.dialog.BringToFront(dialog.SaveCommandID)
+		return nil
+	}
+
+	dia, cmd := dialog.NewSaveCommand(m.com)
+	m.dialog.OpenDialog(dia)
+	return cmd
+}
+
+// saveCommand writes the given content as a custom command and refreshes the
+// command palette.
+func (m *UI) saveCommand(name, content string) tea.Cmd {
+	return func() tea.Msg {
+		content = strings.TrimSpace(content)
+		if content == "" {
+			return util.NewInfoMsg("Nothing to save - input is empty")
+		}
+		if _, err := commands.SaveCommand(name, content); err != nil {
+			return util.ReportError(err)()
+		}
+		return savedCommandMsg{Name: name}
+	}
+}
+
+// savedCommandMsg is sent after a command is saved to disk.
+type savedCommandMsg struct {
+	Name string
 }
 
 // openModelsDialog opens the models dialog.

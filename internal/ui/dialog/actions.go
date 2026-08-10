@@ -55,6 +55,11 @@ type (
 	ActionToggleTransparentBackground struct{}
 	ActionToggleRalphLoop             struct{}
 	ActionToggleAnswerShort           struct{}
+	// ActionSaveCommand is sent when the user confirms saving the current
+	// input as a custom command.
+	ActionSaveCommand struct {
+		Name string
+	}
 	ActionToggleTaskPlanner           struct{}
 	ActionConnectTelegram             struct{ Token string }
 	ActionDisconnectTelegram          struct{}
