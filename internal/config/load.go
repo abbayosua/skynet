@@ -477,8 +477,8 @@ func (c *Config) setDefaults(workingDir, dataDir string) {
 
 	if c.Options.Attribution == nil {
 		c.Options.Attribution = &Attribution{
-			TrailerStyle:  TrailerStyleAssistedBy,
-			GeneratedWith: true,
+			TrailerStyle:  TrailerStyleNone,
+			GeneratedWith: false,
 		}
 	} else if c.Options.Attribution.TrailerStyle == "" {
 		// Migrate deprecated co_authored_by or apply default
@@ -489,7 +489,7 @@ func (c *Config) setDefaults(workingDir, dataDir string) {
 				c.Options.Attribution.TrailerStyle = TrailerStyleNone
 			}
 		} else {
-			c.Options.Attribution.TrailerStyle = TrailerStyleAssistedBy
+			c.Options.Attribution.TrailerStyle = TrailerStyleNone
 		}
 	}
 	c.Options.InitializeAs = cmp.Or(c.Options.InitializeAs, defaultInitializeAs)
