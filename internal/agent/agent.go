@@ -691,12 +691,18 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 	cancel()
 
 	// Send notification that agent has finished its turn (skip for
-	// nested/non-interactive sessions).
+	// nested/non-interactive sessions). Carry a preview of the final
+	// answer so the UI can surface it in the notification.
 	if !call.NonInteractive && a.notify != nil {
+		var answer string
+		if currentAssistant != nil {
+			answer = currentAssistant.Content().Text
+		}
 		a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
 			SessionID:    call.SessionID,
 			SessionTitle: currentSession.Title,
 			Type:         notify.TypeAgentFinished,
+			Activity:     answer,
 		})
 	}
 

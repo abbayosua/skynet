@@ -57,6 +57,7 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/ultraviolet/layout"
 	"github.com/charmbracelet/ultraviolet/screen"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/editor"
 	xstrings "github.com/charmbracelet/x/exp/strings"
 )
@@ -3663,9 +3664,13 @@ func (m *UI) handleAgentNotification(n notify.Notification) tea.Cmd {
 	switch n.Type {
 	case notify.TypeAgentFinished:
 		var cmds []tea.Cmd
+		message := fmt.Sprintf("Session \"%s\" is done", n.SessionTitle)
+		if preview := strings.TrimSpace(n.Activity); preview != "" {
+			message += ": " + ansi.Truncate(preview, 120, "…")
+		}
 		cmds = append(cmds, m.sendNotification(notification.Notification{
-			Title:   "SkyNet is waiting...",
-			Message: fmt.Sprintf("Agent's turn completed in \"%s\"", n.SessionTitle),
+			Title:   "SkyNet finished",
+			Message: message,
 		}))
 		if m.com.IsHyper() {
 			cmds = append(cmds, m.fetchHyperCredits())
