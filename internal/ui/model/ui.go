@@ -448,7 +448,13 @@ func (m *UI) shouldSendNotification() bool {
 	if cfg != nil && cfg.Options != nil && cfg.Options.DisableNotifications {
 		return false
 	}
-	return m.caps.ReportFocusEvents && !m.notifyWindowFocused
+	// If the terminal reports focus events, only notify when the window
+	// is blurred. Terminals without focus reporting (macOS Terminal.app,
+	// SSH) can't know the focus state, so notify regardless.
+	if m.caps.ReportFocusEvents {
+		return !m.notifyWindowFocused
+	}
+	return true
 }
 
 // setState changes the UI state and focus.
@@ -514,9 +520,11 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds = append(cmds, common.QueryCmd(uv.Environ(msg)))
 	case tea.ModeReportMsg:
-		if m.caps.ReportFocusEvents {
-			m.notifyBackend = notification.NewNativeBackend(notification.Icon)
-		}
+		// Native notifications are always enabled. Focus events (when
+		// supported) are used only to avoid notifying while the window
+		// is focused; terminals without focus reporting (e.g. macOS
+		// Terminal.app, SSH sessions) still get notifications.
+		m.notifyBackend = notification.NewNativeBackend(notification.Icon)
 	case tea.FocusMsg:
 		m.notifyWindowFocused = true
 	case tea.BlurMsg:
