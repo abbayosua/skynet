@@ -108,6 +108,11 @@ type SessionAgent interface {
 	SetAnswerShort(enabled bool)
 	// AnswerShort reports whether the "answer short" directive is active.
 	AnswerShort() bool
+	// SetAnswerShortPrompt updates the directive text appended to prompts
+	// when answer_short is enabled.
+	SetAnswerShortPrompt(prompt string)
+	// AnswerShortPrompt returns the current directive text.
+	AnswerShortPrompt() string
 }
 
 type Model struct {
@@ -131,6 +136,7 @@ type sessionAgent struct {
 	isYolo               bool
 	notify               pubsub.Publisher[notify.Notification]
 	answerShort          *csync.Value[bool]
+	answerShortPrompt    *csync.Value[string]
 
 	messageQueue   *csync.Map[string, []SessionAgentCall]
 	activeRequests *csync.Map[string, context.CancelFunc]
@@ -159,6 +165,7 @@ type SessionAgentOptions struct {
 	Notify               pubsub.Publisher[notify.Notification]
 	RalphLoop            *config.RalphLoop
 	AnswerShort          bool
+	AnswerShortPrompt    string
 }
 
 func NewSessionAgent(
@@ -180,6 +187,7 @@ func NewSessionAgent(
 		activeRequests: csync.NewMap[string, context.CancelFunc](),
 		ralphLoop:      newRalphLoopState(opts.RalphLoop),
 		answerShort:    csync.NewValue(opts.AnswerShort),
+		answerShortPrompt: csync.NewValue(opts.AnswerShortPrompt),
 	}
 }
 
@@ -203,9 +211,14 @@ func newRalphLoopState(cfg *config.RalphLoop) *ralphLoopState {
 
 func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy.AgentResult, error) {
 	// Append the "answer short" directive to every prompt sent to the
-	// model when enabled via options.answer_short.
+	// model when enabled via options.answer_short. The directive text is
+	// configurable via options.answer_short_prompt.
 	if a.answerShort.Get() && call.Prompt != "" {
-		call.Prompt = strings.TrimSpace(call.Prompt) + "\n\n- Jawab singkat, jangan perlu banyak mikir"
+		directive := strings.TrimSpace(a.answerShortPrompt.Get())
+		if directive == "" {
+			directive = config.DefaultAnswerShortPrompt()
+		}
+		call.Prompt = strings.TrimSpace(call.Prompt) + "\n\n- " + directive
 	}
 	if call.Prompt == "" && !message.ContainsTextAttachment(call.Attachments) {
 		return nil, ErrEmptyPrompt
@@ -1366,6 +1379,14 @@ func (a *sessionAgent) SetAnswerShort(enabled bool) {
 
 func (a *sessionAgent) AnswerShort() bool {
 	return a.answerShort.Get()
+}
+
+func (a *sessionAgent) SetAnswerShortPrompt(prompt string) {
+	a.answerShortPrompt.Set(prompt)
+}
+
+func (a *sessionAgent) AnswerShortPrompt() string {
+	return a.answerShortPrompt.Get()
 }
 
 func (a *sessionAgent) CancelAll() {

@@ -457,6 +457,14 @@
           "description": "Append a directive to every prompt asking the model to answer briefly without overthinking",
           "default": false
         },
+        "answer_short_prompt": {
+          "type": "string",
+          "description": "The directive appended to every prompt when answer_short is enabled",
+          "examples": [
+            "Jawab singkat",
+            "Answer briefly"
+          ]
+        },
         "data_directory": {
           "type": "string",
           "description": "Directory for storing application data. Relative paths are resolved against the working directory; absolute paths are used as-is.",

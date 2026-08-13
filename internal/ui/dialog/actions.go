@@ -60,6 +60,11 @@ type (
 	ActionSaveCommand struct {
 		Name string
 	}
+	// ActionEditAnswerShortPrompt is sent when the user confirms the new
+	// answer short directive text.
+	ActionEditAnswerShortPrompt struct {
+		Prompt string
+	}
 	ActionToggleTaskPlanner           struct{}
 	ActionConnectTelegram             struct{ Token string }
 	ActionDisconnectTelegram          struct{}

@@ -218,6 +218,9 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 		// Keep the answer_short flag in sync with the config file so
 		// toggles from the UI (command palette) apply without restart.
 		c.currentAgent.SetAnswerShort(cfg.Options != nil && cfg.Options.AnswerShort)
+		if cfg.Options != nil {
+			c.currentAgent.SetAnswerShortPrompt(cfg.Options.AnswerShortPrompt)
+		}
 		if p, err := coderPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir())); err == nil {
 			if systemPrompt, err := p.Build(ctx, model.Model.Provider(), model.Model.Model(), c.cfg); err == nil {
 				c.currentAgent.SetSystemPrompt(systemPrompt)
@@ -515,6 +518,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *promptpkg.Prompt, 
 		Notify:               c.notify,
 		RalphLoop:            c.cfg.Config().Options.RalphLoop,
 		AnswerShort:          c.cfg.Config().Options.AnswerShort,
+		AnswerShortPrompt:    c.cfg.Config().Options.AnswerShortPrompt,
 	})
 
 	c.readyWg.Go(func() error {

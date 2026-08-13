@@ -492,6 +492,9 @@ func (c *Config) setDefaults(workingDir, dataDir string) {
 			c.Options.Attribution.TrailerStyle = TrailerStyleNone
 		}
 	}
+	if c.Options.AnswerShortPrompt == "" {
+		c.Options.AnswerShortPrompt = defaultAnswerShortPrompt
+	}
 	c.Options.InitializeAs = cmp.Or(c.Options.InitializeAs, defaultInitializeAs)
 }
 

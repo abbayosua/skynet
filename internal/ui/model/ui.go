@@ -1732,6 +1732,18 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		m.dialog.CloseFrontDialog()
 		content := m.textarea.Value()
 		cmds = append(cmds, m.saveCommand(msg.Name, content))
+	case dialog.ActionEditAnswerShortPrompt:
+		m.dialog.CloseFrontDialog()
+		cmds = append(cmds, func() tea.Msg {
+			cfg := m.com.Config()
+			if cfg == nil {
+				return util.ReportError(errors.New("configuration not found"))()
+			}
+			if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.answer_short_prompt", msg.Prompt); err != nil {
+				return util.ReportError(err)()
+			}
+			return util.NewInfoMsg("Answer Short prompt updated")
+		})
 	case dialog.ActionRunMCPPrompt:
 		if len(msg.Arguments) > 0 && msg.Args == nil {
 			m.dialog.CloseFrontDialog()
@@ -3444,6 +3456,10 @@ func (m *UI) openDialog(id string) tea.Cmd {
 		if cmd := m.openSaveCommandDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	case dialog.EditAnswerShortPromptID:
+		if cmd := m.openEditAnswerShortPromptDialog(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	default:
 		// Unknown dialog
 		break
@@ -3502,6 +3518,24 @@ func (m *UI) openSaveCommandDialog() tea.Cmd {
 	}
 
 	dia, cmd := dialog.NewSaveCommand(m.com)
+	m.dialog.OpenDialog(dia)
+	return cmd
+}
+
+// openEditAnswerShortPromptDialog opens the answer short prompt editor,
+// pre-filled with the current directive from config.
+func (m *UI) openEditAnswerShortPromptDialog() tea.Cmd {
+	if m.dialog.ContainsDialog(dialog.EditAnswerShortPromptID) {
+		m.dialog.BringToFront(dialog.EditAnswerShortPromptID)
+		return nil
+	}
+
+	current := config.DefaultAnswerShortPrompt()
+	if cfg := m.com.Config(); cfg != nil && cfg.Options != nil && cfg.Options.AnswerShortPrompt != "" {
+		current = cfg.Options.AnswerShortPrompt
+	}
+
+	dia, cmd := dialog.NewEditAnswerShortPrompt(m.com, current)
 	m.dialog.OpenDialog(dia)
 	return cmd
 }

@@ -91,3 +91,28 @@ func TestAttributionMigration(t *testing.T) {
 		})
 	}
 }
+
+func TestAnswerShortPromptDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := loadFromBytes([][]byte{[]byte(`{"options": {}}`)})
+	require.NoError(t, err)
+	cfg.setDefaults(t.TempDir(), "")
+
+	require.Equal(t, defaultAnswerShortPrompt, cfg.Options.AnswerShortPrompt)
+	require.Equal(t, "Jawab singkat, jangan perlu banyak mikir", cfg.Options.AnswerShortPrompt)
+}
+
+func TestAnswerShortPromptPreserved(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := loadFromBytes([][]byte{[]byte(`{
+		"options": {
+			"answer_short_prompt": "Answer in one short sentence"
+		}
+	}`)})
+	require.NoError(t, err)
+	cfg.setDefaults(t.TempDir(), "")
+
+	require.Equal(t, "Answer in one short sentence", cfg.Options.AnswerShortPrompt)
+}

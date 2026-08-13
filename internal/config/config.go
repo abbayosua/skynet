@@ -23,7 +23,16 @@ const (
 	appName              = "skynet"
 	defaultDataDirectory = ".skynet"
 	defaultInitializeAs  = "AGENTS.md"
+	// defaultAnswerShortPrompt is the directive appended to prompts when
+	// options.answer_short is enabled and no custom prompt is configured.
+	defaultAnswerShortPrompt = "Jawab singkat, jangan perlu banyak mikir"
 )
+
+// DefaultAnswerShortPrompt returns the default directive text used when
+// options.answer_short_prompt is unset.
+func DefaultAnswerShortPrompt() string {
+	return defaultAnswerShortPrompt
+}
 
 var defaultContextPaths = []string{
 	".github/copilot-instructions.md",
@@ -273,6 +282,7 @@ type Options struct {
 	DebugLSP             bool        `json:"debug_lsp,omitempty" jsonschema:"description=Enable debug logging for LSP servers,default=false"`
 	DisableAutoSummarize bool        `json:"disable_auto_summarize,omitempty" jsonschema:"description=Disable automatic conversation summarization,default=false"`
 	AnswerShort          bool        `json:"answer_short,omitempty" jsonschema:"description=Append a directive to every prompt asking the model to answer briefly without overthinking,default=false"`
+	AnswerShortPrompt    string      `json:"answer_short_prompt,omitempty" jsonschema:"description=The directive appended to every prompt when answer_short is enabled,example=Jawab singkat, jangan perlu banyak mikir,example=Answer briefly"`
 	// DataDirectory is where Crush keeps per-project state such as
 	// the SQLite database and workspace overrides. Relative paths are
 	// resolved against the working directory; absolute paths are used

@@ -524,6 +524,7 @@ func (c *Commands) defaultCommands() []*CommandItem {
 		answerShortLabel = "Disable Answer Short"
 	}
 	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_answer_short", answerShortLabel, "", ActionToggleAnswerShort{}))
+	commands = append(commands, NewCommandItem(c.com.Styles, "edit_answer_short_prompt", "Edit Answer Short Prompt", "", ActionOpenDialog{DialogID: EditAnswerShortPromptID}))
 
 	// Add Task Planner toggle.
 	taskPlannerLabel := "Disable Task Planner"

@@ -245,6 +245,15 @@ func (s *ConfigStore) SetAnswerShort(scope Scope, enabled bool) error {
 	return s.SetConfigField(scope, "options.answer_short", enabled)
 }
 
+// SetAnswerShortPrompt sets the answer_short prompt text and persists it.
+func (s *ConfigStore) SetAnswerShortPrompt(scope Scope, prompt string) error {
+	if s.config.Options == nil {
+		s.config.Options = &Options{}
+	}
+	s.config.Options.AnswerShortPrompt = prompt
+	return s.SetConfigField(scope, "options.answer_short_prompt", prompt)
+}
+
 // SetProviderAPIKey sets the API key for a provider and persists it.
 func (s *ConfigStore) SetProviderAPIKey(scope Scope, providerID string, apiKey any) error {
 	var providerConfig ProviderConfig
