@@ -10,7 +10,9 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"math"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -259,11 +261,146 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 
 	if c.isUnauthorized(originalErr) {
 		if err := c.retryAfterUnauthorized(ctx, providerCfg); err == nil {
-			return run()
+			result, originalErr = run()
+			logTurnSkillUsage(sessionID, prompt, c.activeSkills, c.skillTracker, beforeLoaded)
+			if originalErr == nil {
+				return result, nil
+			}
+		}
+	}
+
+	// Auto-retry transient provider errors (including "Endpoint is
+	// unavailable" / "Model is unavailable") up to 30 times with
+	// exponential back-off. Fantasy already retries 5xx/429 internally
+	// (2 attempts), this outer loop extends it to 30.
+	const maxAutoRetries = 30
+	for attempt := 1; attempt <= maxAutoRetries; attempt++ {
+		if !shouldAutoRetry(originalErr) {
+			break
+		}
+		if ctx.Err() != nil {
+			return result, ctx.Err()
+		}
+		delay := autoRetryDelay(originalErr, attempt)
+		slog.Warn("Auto retrying provider error",
+			"attempt", attempt,
+			"max_retries", maxAutoRetries,
+			"delay", delay,
+			"error", originalErr,
+		)
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return result, ctx.Err()
+		}
+		result, originalErr = run()
+		logTurnSkillUsage(sessionID, prompt, c.activeSkills, c.skillTracker, beforeLoaded)
+		if originalErr == nil {
+			return result, nil
+		}
+		if c.isUnauthorized(originalErr) {
+			if err := c.retryAfterUnauthorized(ctx, providerCfg); err == nil {
+				result, originalErr = run()
+				logTurnSkillUsage(sessionID, prompt, c.activeSkills, c.skillTracker, beforeLoaded)
+				if originalErr == nil {
+					return result, nil
+				}
+			}
 		}
 	}
 
 	return result, originalErr
+}
+
+// shouldAutoRetry reports whether err is a transient provider error that
+// should be retried automatically. It covers IsRetryable (5xx/429/408/409,
+// net errors) plus opencode-specific "Endpoint is unavailable" /
+// "Model is unavailable" which arrive as 400/404 but are transient.
+func shouldAutoRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var providerErr *fantasy.ProviderError
+	if errors.As(err, &providerErr) {
+		if providerErr.IsRetryable() {
+			return true
+		}
+		msgLower := strings.ToLower(providerErr.Message)
+		if strings.Contains(msgLower, "endpoint is unavailable") ||
+			strings.Contains(msgLower, "model is unavailable") {
+			return true
+		}
+	}
+	var retryErr *fantasy.RetryError
+	if errors.As(err, &retryErr) && len(retryErr.Errors) > 0 {
+		return shouldAutoRetry(retryErr.Errors[len(retryErr.Errors)-1])
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "endpoint is unavailable") ||
+		strings.Contains(strings.ToLower(err.Error()), "model is unavailable") {
+		return true
+	}
+	return false
+}
+
+func autoRetryDelay(err error, attempt int) time.Duration {
+	// Respect Retry-After headers when present.
+	var providerErr *fantasy.ProviderError
+	if errors.As(err, &providerErr) && providerErr.ResponseHeaders != nil {
+		if v, ok := lookupHeader(providerErr.ResponseHeaders, "retry-after-ms"); ok {
+			if ms, err := parseFloatMs(v); err == nil && ms > 0 && ms < 60000 {
+				return time.Duration(ms) * time.Millisecond
+			}
+		}
+		if v, ok := lookupHeader(providerErr.ResponseHeaders, "retry-after"); ok {
+			if d, err := parseRetryAfterHeader(v); err == nil && d > 0 && d < 60*time.Second {
+				return d
+			}
+		}
+	}
+	delay := time.Duration(float64(2*time.Second) * math.Pow(1.5, float64(attempt-1)))
+	if delay > 30*time.Second {
+		delay = 30 * time.Second
+	}
+	return delay
+}
+
+func lookupHeader(headers map[string]string, key string) (string, bool) {
+	for k, v := range headers {
+		if strings.EqualFold(k, key) {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func parseFloatMs(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(strings.TrimSpace(s), "%f", &f)
+	return f, err
+}
+
+func parseRetryAfterSeconds(s string) (float64, error) {
+	var f float64
+	_, err := fmt.Sscanf(strings.TrimSpace(s), "%f", &f)
+	return f, err
+}
+
+func parseRetryAfterHeader(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if f, err := parseFloatMs(s); err == nil {
+		return time.Duration(f * float64(time.Second)), nil
+	}
+	if t, err := time.Parse(time.RFC1123, s); err == nil {
+		return time.Until(t), nil
+	}
+	return 0, fmt.Errorf("unparseable retry-after: %s", s)
 }
 
 // handleAnswerShortCommand toggles the answer_short directive via the
