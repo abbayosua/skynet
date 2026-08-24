@@ -14,14 +14,14 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "~1.26"
           cache: true
       - run: CGO_ENABLED=0 go build -o skynet-linux .
       - run: go vet ./...
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: skynet-linux
           path: skynet-linux
@@ -29,14 +29,14 @@ jobs:
   macos-amd64:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "~1.26"
           cache: true
       - run: CGO_ENABLED=0 GOARCH=amd64 go build -o skynet-darwin-amd64 .
       - run: go vet ./...
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: skynet-darwin-amd64
           path: skynet-darwin-amd64
@@ -44,14 +44,14 @@ jobs:
   macos-arm64:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "~1.26"
           cache: true
       - run: CGO_ENABLED=0 GOARCH=arm64 go build -o skynet-darwin-arm64 .
       - run: go vet ./...
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: skynet-darwin-arm64
           path: skynet-darwin-arm64
@@ -61,14 +61,14 @@ jobs:
     env:
       CGO_ENABLED: 0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: "~1.26"
           cache: true
       - run: go build -o skynet-windows.exe .
       - run: go vet ./...
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: skynet-windows
           path: skynet-windows.exe
