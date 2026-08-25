@@ -767,6 +767,7 @@ func allToolNames() []string {
 		"grep",
 		"ls",
 		"planner",
+		"sleep",
 		"spawn_agent",
 		"sourcegraph",
 		"team",

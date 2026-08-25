@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/abbayosua/skynet/internal/agent/commandcode"
+
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/fantasy"
 	"github.com/abbayosua/skynet/internal/agent/hyper"
@@ -293,6 +295,10 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 		case <-ctx.Done():
 			return result, ctx.Err()
 		}
+		// Clean up last failed turn (user + error assistant) before retry
+		// to avoid history pollution and duplicate prompts that require
+		// manual retries. See agent.go deduplication as fallback.
+		c.cleanupFailedTurn(ctx, sessionID, cleanPrompt)
 		result, originalErr = run()
 		logTurnSkillUsage(sessionID, prompt, c.activeSkills, c.skillTracker, beforeLoaded)
 		if originalErr == nil {
@@ -333,6 +339,9 @@ func shouldAutoRetry(err error) bool {
 			strings.Contains(msgLower, "model is unavailable") {
 			return true
 		}
+		if isTransientNetworkMessage(msgLower) {
+			return true
+		}
 	}
 	var retryErr *fantasy.RetryError
 	if errors.As(err, &retryErr) && len(retryErr.Errors) > 0 {
@@ -342,11 +351,77 @@ func shouldAutoRetry(err error) bool {
 	if errors.As(err, &netErr) {
 		return true
 	}
-	if strings.Contains(strings.ToLower(err.Error()), "endpoint is unavailable") ||
-		strings.Contains(strings.ToLower(err.Error()), "model is unavailable") {
+	errLower := strings.ToLower(err.Error())
+	if strings.Contains(errLower, "endpoint is unavailable") ||
+		strings.Contains(errLower, "model is unavailable") {
+		return true
+	}
+	if isTransientNetworkMessage(errLower) {
 		return true
 	}
 	return false
+}
+
+func isTransientNetworkMessage(msgLower string) bool {
+	transientSubstrings := []string{
+		"no such host",
+		"dial tcp",
+		"connection refused",
+		"connection reset",
+		"broken pipe",
+		"network is unreachable",
+		"no route to host",
+		"i/o timeout",
+		"timeout",
+		"client timeout",
+		"tls handshake timeout",
+		"unexpected eof",
+		"eof",
+		"lookup",
+		"no internet",
+		"temporary failure",
+		"name resolution",
+		"connection timed out",
+		"net/http: request canceled",
+		"proxyconnect tcp",
+		"connection was forcibly closed",
+		"connection abort",
+		"stream error",
+		"transport error",
+		"remote error",
+		"write: broken pipe",
+		"read: connection reset",
+	}
+	for _, s := range transientSubstrings {
+		if strings.Contains(msgLower, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *coordinator) cleanupFailedTurn(ctx context.Context, sessionID, prompt string) {
+	msgs, err := c.messages.List(ctx, sessionID)
+	if err != nil || len(msgs) < 2 {
+		return
+	}
+	last := msgs[len(msgs)-1]
+	secondLast := msgs[len(msgs)-2]
+	if last.Role != message.Assistant || secondLast.Role != message.User {
+		return
+	}
+	if strings.TrimSpace(secondLast.Content().Text) != strings.TrimSpace(prompt) {
+		return
+	}
+	fr := last.FinishReason()
+	isError := fr == message.FinishReasonError || fr == message.FinishReasonCanceled || fr == message.FinishReasonUnknown
+	if !isError && !strings.Contains(strings.ToLower(last.Content().Text), "provider error") && !strings.Contains(strings.ToLower(last.Content().Text), "error") {
+		return
+	}
+	// Best effort cleanup, ignore errors (e.g. already deleted).
+	_ = c.messages.Delete(ctx, last.ID)
+	_ = c.messages.Delete(ctx, secondLast.ID)
+	slog.Debug("Cleaned up failed turn before retry", "session_id", sessionID)
 }
 
 func autoRetryDelay(err error, attempt int) time.Duration {
@@ -754,6 +829,7 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 		tools.NewASTGrepSearchTool(c.cfg.WorkingDir()),
 		tools.NewASTGrepReplaceTool(c.cfg.WorkingDir(), c.permissions),
 		tools.NewPlannerTool(c.cfg.WorkingDir()),
+		tools.NewSleepTool(),
 		tools.NewTeamTool(c.cfg.WorkingDir(), teamOrchestrator),
 		tools.NewSpawnAgentTool(c.cfg.WorkingDir(), backgroundAgentManager),
 		tools.NewAgentStatusTool(),
@@ -993,7 +1069,17 @@ func (c *coordinator) buildOpenaiCompatProvider(baseURL, apiKey string, headers 
 
 	// Set HTTP client based on provider and debug mode.
 	var httpClient *http.Client
-	if providerID == string(catwalk.InferenceProviderCopilot) {
+	isCommandCode := strings.Contains(baseURL, "commandcode.ai") || providerID == "commandcode"
+	_ = os.WriteFile("/tmp/cc_build.log", []byte(fmt.Sprintf("buildOpenaiCompat providerID=%s baseURL=%s isCC=%v\n", providerID, baseURL, isCommandCode)), 0644)
+	if isCommandCode {
+		base := http.DefaultTransport
+		if c.cfg.Config().Options.Debug {
+			if dbg := log.NewHTTPClient(); dbg.Transport != nil {
+				base = dbg.Transport
+			}
+		}
+		httpClient = &http.Client{Transport: &commandcode.Transport{Base: base, WorkingDir: c.cfg.WorkingDir()}}
+	} else if providerID == string(catwalk.InferenceProviderCopilot) {
 		opts = append(opts,
 			openaicompat.WithUseResponsesAPI(),
 			openaicompat.WithResponsesAPIFunc(func(modelID string) bool {

@@ -183,11 +183,11 @@ func NewSessionAgent(
 		tools:                csync.NewSliceFrom(opts.Tools),
 		isYolo:               opts.IsYolo,
 		notify:               opts.Notify,
-		messageQueue:   csync.NewMap[string, []SessionAgentCall](),
-		activeRequests: csync.NewMap[string, context.CancelFunc](),
-		ralphLoop:      newRalphLoopState(opts.RalphLoop),
-		answerShort:    csync.NewValue(opts.AnswerShort),
-		answerShortPrompt: csync.NewValue(opts.AnswerShortPrompt),
+		messageQueue:         csync.NewMap[string, []SessionAgentCall](),
+		activeRequests:       csync.NewMap[string, context.CancelFunc](),
+		ralphLoop:            newRalphLoopState(opts.RalphLoop),
+		answerShort:          csync.NewValue(opts.AnswerShort),
+		answerShortPrompt:    csync.NewValue(opts.AnswerShortPrompt),
 	}
 }
 
@@ -292,7 +292,36 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 	}
 	defer wg.Wait()
 
-	// Add the user message to the session.
+	// Deduplicate and clean up failed previous turn on retry to avoid
+	// history pollution. When coordinator auto-retries on transient network
+	// errors (e.g. "no such host", "broken pipe") or user manually retries
+	// after a network failure, the DB already contains the previous user
+	// prompt + error assistant. Without cleanup, each retry would either
+	// create a duplicate user message or send polluted history (user + error
+	// + duplicate prompt) causing LLM confusion and requiring multiple
+	// manual retries.
+	if len(msgs) >= 2 {
+		last := msgs[len(msgs)-1]
+		secondLast := msgs[len(msgs)-2]
+		if secondLast.Role == message.User && last.Role == message.Assistant && strings.TrimSpace(secondLast.Content().Text) == strings.TrimSpace(call.Prompt) {
+			fr := last.FinishReason()
+			isError := fr == message.FinishReasonError || fr == message.FinishReasonCanceled || fr == message.FinishReasonUnknown
+			if isError || strings.Contains(strings.ToLower(last.Content().Text), "provider error") || strings.Contains(strings.ToLower(last.Content().Text), "error:") {
+				// Clean up failed turn so retry is clean (like original request).
+				_ = a.messages.Delete(ctx, last.ID)
+				_ = a.messages.Delete(ctx, secondLast.ID)
+				msgs = msgs[:len(msgs)-2]
+				slog.Debug("Cleaned up previous failed turn for retry", "session_id", call.SessionID)
+			}
+		}
+	}
+	// Also handle orphaned duplicate user with no assistant yet.
+	if len(msgs) > 0 && msgs[len(msgs)-1].Role == message.User && strings.TrimSpace(msgs[len(msgs)-1].Content().Text) == strings.TrimSpace(call.Prompt) {
+		_ = a.messages.Delete(ctx, msgs[len(msgs)-1].ID)
+		msgs = msgs[:len(msgs)-1]
+		slog.Debug("Cleaned up duplicate user message", "session_id", call.SessionID)
+	}
+
 	_, err = a.createUserMessage(ctx, call)
 	if err != nil {
 		return nil, err
@@ -913,8 +942,11 @@ func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fan
 	// Just in case, get just the last usage info.
 	usage := resp.Response.Usage
 	currentSession.SummaryMessageID = summaryMessage.ID
-	currentSession.CompletionTokens = usage.OutputTokens
-	currentSession.PromptTokens = 0
+	// Guard zero usage from overwriting (network error during summarize).
+	if usage.OutputTokens != 0 || usage.InputTokens != 0 || usage.CacheReadTokens != 0 || usage.CacheCreationTokens != 0 {
+		currentSession.CompletionTokens = usage.OutputTokens
+		currentSession.PromptTokens = 0
+	}
 	_, err = a.sessions.Save(genCtx, currentSession)
 	if err != nil {
 		return err
@@ -1293,6 +1325,13 @@ func (a *sessionAgent) openrouterCost(metadata fantasy.ProviderMetadata) *float6
 }
 
 func (a *sessionAgent) updateSessionUsage(model Model, session *session.Session, usage fantasy.Usage, overrideCost *float64) {
+	// Guard against zero usage overwriting valid token counts (e.g. network
+	// disconnect where provider returns no usage). This prevents context
+	// display from dropping to 0% after a transient network error.
+	if usage.InputTokens == 0 && usage.OutputTokens == 0 && usage.CacheReadTokens == 0 && usage.CacheCreationTokens == 0 && (overrideCost == nil || *overrideCost == 0) {
+		return
+	}
+
 	modelConfig := model.CatwalkCfg
 	cost := modelConfig.CostPer1MInCached/1e6*float64(usage.CacheCreationTokens) +
 		modelConfig.CostPer1MOutCached/1e6*float64(usage.CacheReadTokens) +
@@ -1623,4 +1662,3 @@ func providerRetryLogFields(err *fantasy.ProviderError, delay time.Duration) []a
 	}
 	return fields
 }
-
