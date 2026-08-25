@@ -51,7 +51,7 @@ func TestHookedTool_AllowStampsHookApproval(t *testing.T) {
 
 	inner := &fakeTool{name: "view", resp: fantasy.NewTextResponse("ok")}
 	runner := newRunner(t, `echo '{"decision":"allow"}'`)
-	tool := newHookedTool(inner, runner)
+	tool := newHookedTool(inner, runner, nil)
 
 	_, err := tool.Run(t.Context(), fantasy.ToolCall{ID: "call-1", Name: "view"})
 	require.NoError(t, err)
@@ -75,7 +75,7 @@ func TestHookedTool_SilentDoesNotStampApproval(t *testing.T) {
 
 	inner := &fakeTool{name: "view", resp: fantasy.NewTextResponse("ok")}
 	runner := newRunner(t, `exit 0`) // no stdout, no decision
-	tool := newHookedTool(inner, runner)
+	tool := newHookedTool(inner, runner, nil)
 
 	_, err := tool.Run(t.Context(), fantasy.ToolCall{ID: "call-2", Name: "view"})
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestHookedTool_DenySkipsInnerTool(t *testing.T) {
 
 	inner := &fakeTool{name: "bash"}
 	runner := newRunner(t, `echo "blocked" >&2; exit 2`)
-	tool := newHookedTool(inner, runner)
+	tool := newHookedTool(inner, runner, nil)
 
 	resp, err := tool.Run(t.Context(), fantasy.ToolCall{ID: "call-3", Name: "bash"})
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestWrapToolsWithHooks(t *testing.T) {
 
 	t.Run("top-level agent wraps every tool", func(t *testing.T) {
 		t.Parallel()
-		out := wrapToolsWithHooks(inputs, runner, false)
+		out := wrapToolsWithHooks(inputs, runner, nil, false)
 		require.Len(t, out, len(inputs))
 		for i, tool := range out {
 			_, ok := tool.(*hookedTool)
@@ -131,7 +131,7 @@ func TestWrapToolsWithHooks(t *testing.T) {
 
 	t.Run("sub-agent skips the wrap", func(t *testing.T) {
 		t.Parallel()
-		out := wrapToolsWithHooks(inputs, runner, true)
+		out := wrapToolsWithHooks(inputs, runner, nil, true)
 		require.Equal(t, inputs, out, "sub-agent tools should be returned unwrapped")
 		for _, tool := range out {
 			_, isHooked := tool.(*hookedTool)
@@ -141,7 +141,56 @@ func TestWrapToolsWithHooks(t *testing.T) {
 
 	t.Run("nil runner skips the wrap for both agent kinds", func(t *testing.T) {
 		t.Parallel()
-		require.Equal(t, inputs, wrapToolsWithHooks(inputs, nil, false))
-		require.Equal(t, inputs, wrapToolsWithHooks(inputs, nil, true))
+		require.Equal(t, inputs, wrapToolsWithHooks(inputs, nil, nil, false))
+		require.Equal(t, inputs, wrapToolsWithHooks(inputs, nil, nil, true))
 	})
+
+	t.Run("post runner also wraps", func(t *testing.T) {
+		t.Parallel()
+		postRunner := newRunnerForEvent(t, hooks.EventPostToolUse, `echo '{"updated_output":"distilled"}'`)
+		out := wrapToolsWithHooks(inputs, nil, postRunner, false)
+		require.Len(t, out, len(inputs))
+	})
+
+	t.Run("both runners wrap", func(t *testing.T) {
+		t.Parallel()
+		postRunner := newRunnerForEvent(t, hooks.EventPostToolUse, `exit 0`)
+		out := wrapToolsWithHooks(inputs, runner, postRunner, false)
+		require.Len(t, out, len(inputs))
+	})
+}
+
+func newRunnerForEvent(t *testing.T, event, cmd string) *hooks.Runner {
+	t.Helper()
+	cfg := &config.Config{
+		Hooks: map[string][]config.HookConfig{
+			event: {{Command: cmd}},
+		},
+	}
+	require.NoError(t, cfg.ValidateHooks())
+	return hooks.NewRunner(cfg.Hooks[event], t.TempDir(), t.TempDir())
+}
+
+func TestHookedTool_PostRewritesOutput(t *testing.T) {
+	t.Parallel()
+	inner := &fakeTool{name: "bash", resp: fantasy.NewTextResponse("original output")}
+	preRunner := newRunner(t, `exit 0`)
+	postRunner := newRunnerForEvent(t, hooks.EventPostToolUse, `echo '{"updated_output": "distilled output"}'`)
+	tool := newHookedTool(inner, preRunner, postRunner)
+	resp, err := tool.Run(t.Context(), fantasy.ToolCall{ID: "call-post", Name: "bash", Input: `{"command":"echo hi"}`})
+	require.NoError(t, err)
+	require.Equal(t, "distilled output", resp.Content)
+}
+
+func TestHookedTool_PostOmniShape(t *testing.T) {
+	t.Parallel()
+	inner := &fakeTool{name: "view", resp: fantasy.NewTextResponse("hello world")}
+	// Simulate omni's post output shape
+	omniJSON := `{"hookSpecificOutput": {"hookEventName": "PostToolUse", "updatedToolOutput": {"stdout": "distilled via omni"}, "additionalContext": "extra"}}`
+	postRunner := newRunnerForEvent(t, hooks.EventPostToolUse, "echo '"+omniJSON+"'")
+	tool := newHookedTool(inner, nil, postRunner)
+	resp, err := tool.Run(t.Context(), fantasy.ToolCall{ID: "call-omni", Name: "view"})
+	require.NoError(t, err)
+	require.Contains(t, resp.Content, "distilled via omni")
+	require.Contains(t, resp.Content, "extra")
 }

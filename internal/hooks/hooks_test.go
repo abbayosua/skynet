@@ -200,8 +200,13 @@ func TestBuildEnv(t *testing.T) {
 	// detect they're running under Crush the same way bash-tool-invoked
 	// scripts can.
 	require.Equal(t, "1", envMap["CRUSH"])
-	require.Equal(t, "crush", envMap["AGENT"])
-	require.Equal(t, "crush", envMap["AI_AGENT"])
+	// Skynet overrides AGENT to skynet for new hooks, but keeps crush for backward compat in raw env.
+	// Map keeps last value, so expect skynet here; raw env still contains both.
+	require.Equal(t, "skynet", envMap["AGENT"])
+	require.Equal(t, "skynet", envMap["AI_AGENT"])
+	// Also check SKYNET_ prefixed vars are present
+	require.Equal(t, EventPreToolUse, envMap["SKYNET_EVENT"])
+	require.Equal(t, "bash", envMap["SKYNET_TOOL_NAME"])
 }
 
 func splitFirst(s, sep string) []string {

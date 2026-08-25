@@ -12,7 +12,8 @@ import (
 
 // Hook event name constants.
 const (
-	EventPreToolUse = "PreToolUse"
+	EventPreToolUse  = "PreToolUse"
+	EventPostToolUse = "PostToolUse"
 )
 
 // HaltExitCode is the exit code that halts the whole turn. 2 blocks the
@@ -24,22 +25,24 @@ const HaltExitCode = 49
 // HookMetadata is embedded in tool response metadata so the UI can
 // display a hook indicator.
 type HookMetadata struct {
-	HookCount    int        `json:"hook_count"`
-	Decision     string     `json:"decision"`
-	Halt         bool       `json:"halt,omitempty"`
-	Reason       string     `json:"reason,omitempty"`
-	InputRewrite bool       `json:"input_rewrite,omitempty"`
-	Hooks        []HookInfo `json:"hooks,omitempty"`
+	HookCount     int        `json:"hook_count"`
+	Decision      string     `json:"decision"`
+	Halt          bool       `json:"halt,omitempty"`
+	Reason        string     `json:"reason,omitempty"`
+	InputRewrite  bool       `json:"input_rewrite,omitempty"`
+	OutputRewrite bool       `json:"output_rewrite,omitempty"`
+	Hooks         []HookInfo `json:"hooks,omitempty"`
 }
 
 // HookInfo identifies a single hook that ran and its individual result.
 type HookInfo struct {
-	Name         string `json:"name"`
-	Matcher      string `json:"matcher,omitempty"`
-	Decision     string `json:"decision"`
-	Halt         bool   `json:"halt,omitempty"`
-	Reason       string `json:"reason,omitempty"`
-	InputRewrite bool   `json:"input_rewrite,omitempty"`
+	Name          string `json:"name"`
+	Matcher       string `json:"matcher,omitempty"`
+	Decision      string `json:"decision"`
+	Halt          bool   `json:"halt,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+	InputRewrite  bool   `json:"input_rewrite,omitempty"`
+	OutputRewrite bool   `json:"output_rewrite,omitempty"`
 }
 
 // Decision represents the outcome of a single hook execution.
@@ -67,22 +70,24 @@ func (d Decision) String() string {
 
 // HookResult holds the parsed output of a single hook execution.
 type HookResult struct {
-	Decision     Decision
-	Halt         bool   // If true, halt the whole turn.
-	Reason       string // Deny or halt reason (same field, different audience).
-	Context      string
-	UpdatedInput string // Shallow-merge patch against tool_input (opaque JSON).
+	Decision      Decision
+	Halt          bool   // If true, halt the whole turn.
+	Reason        string // Deny or halt reason (same field, different audience).
+	Context       string
+	UpdatedInput  string // Shallow-merge patch against tool_input (opaque JSON).
+	UpdatedOutput string // Replacement for tool output (PostToolUse, e.g. omni distillation).
 }
 
 // AggregateResult holds the combined outcome of all hooks for an event.
 type AggregateResult struct {
-	Decision     Decision
-	Halt         bool       // Any hook requested halt.
-	HookCount    int        // Number of hooks that ran.
-	Hooks        []HookInfo // Info about each hook that ran (config order).
-	Reason       string     // Concatenated deny/halt reasons (newline-separated).
-	Context      string     // Concatenated context from all hooks.
-	UpdatedInput string     // Merged tool_input JSON (empty if no patches).
+	Decision      Decision
+	Halt          bool       // Any hook requested halt.
+	HookCount     int        // Number of hooks that ran.
+	Hooks         []HookInfo // Info about each hook that ran (config order).
+	Reason        string     // Concatenated deny/halt reasons (newline-separated).
+	Context       string     // Concatenated context from all hooks.
+	UpdatedInput  string     // Merged tool_input JSON (empty if no patches).
+	UpdatedOutput string     // Replacement tool output (PostToolUse, last writer wins).
 }
 
 // aggregate merges multiple HookResults into a single AggregateResult.
@@ -93,12 +98,13 @@ type AggregateResult struct {
 // ones on colliding keys.
 func aggregate(results []HookResult, origToolInput string) AggregateResult {
 	var (
-		decision Decision
-		halt     bool
-		reasons  []string
-		contexts []string
-		merged   = origToolInput
-		anyPatch = false
+		decision      Decision
+		halt          bool
+		reasons       []string
+		contexts      []string
+		merged        = origToolInput
+		anyPatch      = false
+		updatedOutput string
 	)
 	for _, r := range results {
 		switch r.Decision {
@@ -137,6 +143,9 @@ func aggregate(results []HookResult, origToolInput string) AggregateResult {
 			merged = next
 			anyPatch = true
 		}
+		if r.UpdatedOutput != "" {
+			updatedOutput = r.UpdatedOutput
+		}
 	}
 
 	agg := AggregateResult{
@@ -146,6 +155,9 @@ func aggregate(results []HookResult, origToolInput string) AggregateResult {
 	}
 	if anyPatch {
 		agg.UpdatedInput = merged
+	}
+	if updatedOutput != "" {
+		agg.UpdatedOutput = updatedOutput
 	}
 	if len(reasons) > 0 {
 		agg.Reason = strings.Join(reasons, "\n")

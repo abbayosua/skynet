@@ -139,6 +139,61 @@ func (r *Runner) Run(ctx context.Context, eventName, sessionID, toolName, toolIn
 	return agg, nil
 }
 
+// RunPost executes all matching PostToolUse hooks with tool output, returning
+// an aggregated result that may contain UpdatedOutput (distilled output).
+func (r *Runner) RunPost(ctx context.Context, sessionID, toolName, toolInputJSON, toolOutput string, isError bool) (AggregateResult, error) {
+	matching := r.matchingHooks(toolName)
+	if len(matching) == 0 {
+		return AggregateResult{Decision: DecisionNone}, nil
+	}
+	seen := make(map[string]bool, len(matching))
+	var deduped []config.HookConfig
+	for _, h := range matching {
+		if seen[h.Command] {
+			continue
+		}
+		seen[h.Command] = true
+		deduped = append(deduped, h)
+	}
+	envVars := BuildEnv(hooksEventPostToolUseAlias, toolName, sessionID, r.cwd, r.projectDir, toolInputJSON)
+	// Also add tool output to env for simple shell hooks (e.g., rtk)
+	envVars = append(envVars, "SKYNET_TOOL_OUTPUT="+toolOutput, "CRUSH_TOOL_OUTPUT="+toolOutput)
+	payload := BuildPostPayload(EventPostToolUse, sessionID, r.cwd, toolName, toolInputJSON, toolOutput, isError)
+	results := make([]HookResult, len(deduped))
+	var wg sync.WaitGroup
+	wg.Add(len(deduped))
+	for i, h := range deduped {
+		go func(idx int, hook config.HookConfig) {
+			defer wg.Done()
+			results[idx] = r.runOne(ctx, hook, envVars, payload)
+		}(i, h)
+	}
+	wg.Wait()
+	agg := aggregate(results, toolInputJSON)
+	agg.Hooks = make([]HookInfo, len(deduped))
+	for i, h := range deduped {
+		agg.Hooks[i] = HookInfo{
+			Name:          h.Command,
+			Matcher:       h.Matcher,
+			Decision:      results[i].Decision.String(),
+			Halt:          results[i].Halt,
+			Reason:        results[i].Reason,
+			InputRewrite:  results[i].UpdatedInput != "",
+			OutputRewrite: results[i].UpdatedOutput != "",
+		}
+	}
+	slog.Info("Hook completed",
+		"event", EventPostToolUse,
+		"tool", toolName,
+		"hooks", len(deduped),
+		"decision", agg.Decision.String(),
+	)
+	return agg, nil
+}
+
+// Alias for env var consistency (avoid import cycle, keep string literal)
+const hooksEventPostToolUseAlias = "PostToolUse"
+
 // matchingHooks returns hooks whose matcher matches the tool name (or has
 // no matcher, which matches everything).
 func (r *Runner) matchingHooks(toolName string) []config.HookConfig {
