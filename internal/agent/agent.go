@@ -55,6 +55,13 @@ const (
 	smallContextWindowRatio     = 0.2
 )
 
+func isDeepSeekCacheModel(m Model) bool {
+	idLower := strings.ToLower(m.CatwalkCfg.ID)
+	providerLower := strings.ToLower(m.ModelCfg.Provider)
+	modelLower := strings.ToLower(m.ModelCfg.Model)
+	return strings.Contains(idLower, "deepseek") || strings.Contains(providerLower, "deepseek") || strings.Contains(modelLower, "deepseek") || strings.Contains(idLower, "mimo")
+}
+
 var userAgent = fmt.Sprintf("SkyNet/%s", version.Version)
 
 //go:embed templates/title.md
@@ -568,7 +575,15 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 				if cw > largeContextWindowThreshold {
 					threshold = largeContextWindowBuffer
 				} else {
-					threshold = int64(float64(cw) * smallContextWindowRatio)
+					// For DeepSeek and other prefix-cache models, keep threshold small (10%)
+					// to maximize cache hit (prefix reuse). DeepSeek's 128k with 20% caused
+					// summarize at 102k, cutting prefix and forcing miss. With 10%, summarize at 115k,
+					// keeping 90% prefix stable for 50x cheaper hit ($0.0028 vs $0.14).
+					ratio := smallContextWindowRatio
+					if isDeepSeekCacheModel(largeModel) {
+						ratio = 0.1
+					}
+					threshold = int64(float64(cw) * ratio)
 				}
 				if (remaining <= threshold) && !a.disableAutoSummarize {
 					shouldSummarize = true

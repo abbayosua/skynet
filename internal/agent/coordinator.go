@@ -198,7 +198,7 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 		return nil, errModelProviderNotConfigured
 	}
 
-	mergedOptions, temp, topP, topK, freqPenalty, presPenalty := mergeCallOptions(model, providerCfg)
+	mergedOptions, temp, topP, topK, freqPenalty, presPenalty := mergeCallOptions(model, providerCfg, sessionID)
 
 	if err := c.refreshTokenIfExpired(ctx, providerCfg); err != nil {
 		// NOTE(@andreynering): We don't return here because the event handling to ask the user to reauthenticate
@@ -520,7 +520,7 @@ func (c *coordinator) handleAnswerShortCommand(ctx context.Context, prompt strin
 	}, nil
 }
 
-func getProviderOptions(model Model, providerCfg config.ProviderConfig) fantasy.ProviderOptions {
+func getProviderOptions(model Model, providerCfg config.ProviderConfig, sessionID string) fantasy.ProviderOptions {
 	options := fantasy.ProviderOptions{}
 
 	cfgOpts := []byte("{}")
@@ -688,6 +688,12 @@ func getProviderOptions(model Model, providerCfg config.ProviderConfig) fantasy.
 			}
 		}
 
+		// Opencode gateway: group prompt cache per session, mirroring what
+		// the opencode CLI itself sends (prompt_cache_key = session ID).
+		if sessionID != "" && strings.HasPrefix(providerCfg.ID, "opencode") {
+			extraBody["prompt_cache_key"] = sessionID
+		}
+
 		mergedOptions["extra_body"] = extraBody
 
 		parsed, err := openaicompat.ParseOptions(mergedOptions)
@@ -699,8 +705,8 @@ func getProviderOptions(model Model, providerCfg config.ProviderConfig) fantasy.
 	return options
 }
 
-func mergeCallOptions(model Model, cfg config.ProviderConfig) (fantasy.ProviderOptions, *float64, *float64, *int64, *float64, *float64) {
-	modelOptions := getProviderOptions(model, cfg)
+func mergeCallOptions(model Model, cfg config.ProviderConfig, sessionID string) (fantasy.ProviderOptions, *float64, *float64, *int64, *float64, *float64) {
+	modelOptions := getProviderOptions(model, cfg, sessionID)
 	temp := cmp.Or(model.ModelCfg.Temperature, model.CatwalkCfg.Options.Temperature)
 	topP := cmp.Or(model.ModelCfg.TopP, model.CatwalkCfg.Options.TopP)
 	topK := cmp.Or(model.ModelCfg.TopK, model.CatwalkCfg.Options.TopK)
@@ -1091,6 +1097,14 @@ func (c *coordinator) buildOpenaiCompatProvider(baseURL, apiKey string, headers 
 			}),
 		)
 		httpClient = copilot.NewClient(isSubAgent, c.cfg.Config().Options.Debug)
+	} else if strings.HasPrefix(providerID, "opencode") {
+		// Opencode gateway serves some model families (e.g. muse) only via
+		// the Responses API; chat completions returns 500 for them while
+		// /responses works. Route per-model like the opencode CLI does.
+		opts = append(opts,
+			openaicompat.WithUseResponsesAPI(),
+			openaicompat.WithResponsesAPIFunc(opencodeNeedsResponsesAPI),
+		)
 	} else if c.cfg.Config().Options.Debug {
 		httpClient = log.NewHTTPClient()
 	}
@@ -1107,6 +1121,14 @@ func (c *coordinator) buildOpenaiCompatProvider(baseURL, apiKey string, headers 
 	}
 
 	return openaicompat.New(opts...)
+}
+
+// opencodeNeedsResponsesAPI reports whether the opencode gateway serves the
+// given model only via the Responses API. The muse family returns 500 on
+// chat completions but works on /responses; other families are the reverse.
+func opencodeNeedsResponsesAPI(modelID string) bool {
+	id := strings.ToLower(modelID)
+	return strings.Contains(id, "muse")
 }
 
 func (c *coordinator) buildAzureProvider(baseURL, apiKey string, headers map[string]string, options map[string]string) (fantasy.Provider, error) {
@@ -1352,7 +1374,7 @@ func (c *coordinator) Summarize(ctx context.Context, sessionID string) error {
 	}
 
 	summarize := func() error {
-		return c.currentAgent.Summarize(ctx, sessionID, getProviderOptions(c.currentAgent.Model(), providerCfg))
+		return c.currentAgent.Summarize(ctx, sessionID, getProviderOptions(c.currentAgent.Model(), providerCfg, sessionID))
 	}
 
 	err := summarize()
@@ -1467,7 +1489,7 @@ func (c *coordinator) runSubAgent(ctx context.Context, params subAgentParams) (f
 		SessionID:        session.ID,
 		Prompt:           params.Prompt,
 		MaxOutputTokens:  maxTokens,
-		ProviderOptions:  getProviderOptions(model, providerCfg),
+		ProviderOptions:  getProviderOptions(model, providerCfg, session.ID),
 		Temperature:      model.ModelCfg.Temperature,
 		TopP:             model.ModelCfg.TopP,
 		TopK:             model.ModelCfg.TopK,
@@ -1532,7 +1554,7 @@ func (c *coordinator) runBackgroundTask(ctx context.Context, userPrompt string) 
 		SessionID:        sess.ID,
 		Prompt:           userPrompt,
 		MaxOutputTokens:  maxTokens,
-		ProviderOptions:  getProviderOptions(model, providerCfg),
+		ProviderOptions:  getProviderOptions(model, providerCfg, sess.ID),
 		Temperature:      model.ModelCfg.Temperature,
 		TopP:             model.ModelCfg.TopP,
 		TopK:             model.ModelCfg.TopK,
@@ -1633,7 +1655,7 @@ func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSe
 	opts := SessionAgentCall{
 		SessionID:        sess.ID,
 		MaxOutputTokens:  maxTokens,
-		ProviderOptions:  getProviderOptions(model, providerCfg),
+		ProviderOptions:  getProviderOptions(model, providerCfg, sess.ID),
 		Temperature:      model.ModelCfg.Temperature,
 		TopP:             model.ModelCfg.TopP,
 		TopK:             model.ModelCfg.TopK,

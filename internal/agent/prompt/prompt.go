@@ -200,6 +200,15 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 	}
 
 	isGit := isGitRepo(store.WorkingDir())
+	// For DeepSeek and other prefix-cache models, keep Date and GitStatus stable
+	// to maximize cache hit (prefix reuse). Date changing daily and GitStatus
+	// changing per commit would otherwise make the system prompt prefix miss
+	// every time (50x cost difference: $0.14 vs $0.0028 per 1M).
+	isCacheModel := isDeepSeekCachePrompt(provider, model)
+	dateStr := p.now().Format("1/2/2006")
+	if isCacheModel {
+		dateStr = "1/1/2006"
+	}
 	data := PromptDat{
 		Provider:      provider,
 		Model:         model,
@@ -207,15 +216,21 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 		WorkingDir:    filepath.ToSlash(workingDir),
 		IsGitRepo:     isGit,
 		Platform:      platform,
-		Date:          p.now().Format("1/2/2006"),
+		Date:          dateStr,
 		AvailSkillXML: availSkillXML,
 		TaskPlannerEnabled: cfg.Options != nil && cfg.Options.TaskPlanner != nil && cfg.Options.TaskPlanner.Enabled,
 	}
 	if isGit {
 		var err error
-		data.GitStatus, err = getGitStatus(ctx, store.WorkingDir())
-		if err != nil {
-			return PromptDat{}, err
+		if isCacheModel {
+			// For cache models, only include branch (stable) not status/commits (volatile)
+			branch, _ := getGitBranch(ctx, shell.NewShell(&shell.Options{WorkingDir: store.WorkingDir()}))
+			data.GitStatus = branch
+		} else {
+			data.GitStatus, err = getGitStatus(ctx, store.WorkingDir())
+			if err != nil {
+				return PromptDat{}, err
+			}
 		}
 	}
 
@@ -228,6 +243,13 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 func isGitRepo(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, ".git"))
 	return err == nil
+}
+
+func isDeepSeekCachePrompt(provider, model string) bool {
+	pl := strings.ToLower(provider)
+	ml := strings.ToLower(model)
+	// DeepSeek and Mimo benefit from prefix cache (stable system prompt)
+	return strings.Contains(pl, "deepseek") || strings.Contains(ml, "deepseek") || strings.Contains(pl, "mimo") || strings.Contains(ml, "mimo")
 }
 
 func getGitStatus(ctx context.Context, dir string) (string, error) {

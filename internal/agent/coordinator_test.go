@@ -10,6 +10,7 @@ import (
 	"charm.land/fantasy"
 	"charm.land/fantasy/providers/anthropic"
 	"charm.land/fantasy/providers/bedrock"
+	"charm.land/fantasy/providers/openaicompat"
 	"github.com/abbayosua/skynet/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -413,7 +414,7 @@ func TestGetProviderOptionsReasoningEffort(t *testing.T) {
 			}
 			providerCfg := config.ProviderConfig{ID: "test", Type: tc.providerType}
 
-			opts := getProviderOptions(model, providerCfg)
+			opts := getProviderOptions(model, providerCfg, "sess-test")
 
 			raw, ok := opts[anthropic.Name]
 			require.True(t, ok, "options should be keyed under anthropic.Name for type %q", tc.providerType)
@@ -462,4 +463,39 @@ func TestProviderHeadersUserExtraHeadersPreserved(t *testing.T) {
 	headers := providerHeaders(providerCfg, false)
 	assert.Equal(t, "value", headers["X-Custom"], "user extra headers should be preserved")
 	assert.Contains(t, headers, "x-opencode-session")
+}
+
+func TestGetProviderOptionsOpencodeCacheKey(t *testing.T) {
+	providerCfg := config.ProviderConfig{
+		ID:   string(catwalk.InferenceProviderOpenCodeGo),
+		Type: catwalk.Type("openai-compat"),
+	}
+	model := Model{CatwalkCfg: catwalk.Model{ID: "muse-spark-1.2-contributor"}}
+
+	opts := getProviderOptions(model, providerCfg, "sess-abc123")
+	raw, ok := opts[openaicompat.Name]
+	require.True(t, ok, "options should be keyed under openaicompat.Name")
+	parsed, ok := raw.(*openaicompat.ProviderOptions)
+	require.True(t, ok)
+	require.Equal(t, "sess-abc123", parsed.ExtraBody["prompt_cache_key"],
+		"opencode providers should get per-session prompt cache key")
+
+	// No session ID -> no cache key.
+	opts = getProviderOptions(model, providerCfg, "")
+	parsed = opts[openaicompat.Name].(*openaicompat.ProviderOptions)
+	require.NotContains(t, parsed.ExtraBody, "prompt_cache_key")
+
+	// Non-opencode provider -> no cache key.
+	otherCfg := config.ProviderConfig{ID: "deepseek", Type: catwalk.Type("openai-compat")}
+	opts = getProviderOptions(model, otherCfg, "sess-abc123")
+	parsed = opts[openaicompat.Name].(*openaicompat.ProviderOptions)
+	require.NotContains(t, parsed.ExtraBody, "prompt_cache_key")
+}
+
+func TestOpencodeNeedsResponsesAPI(t *testing.T) {
+	require.True(t, opencodeNeedsResponsesAPI("muse-spark-1.2-contributor"))
+	require.True(t, opencodeNeedsResponsesAPI("MUSE-Glimmer-30B"))
+	require.False(t, opencodeNeedsResponsesAPI("x-preview-f-free"))
+	require.False(t, opencodeNeedsResponsesAPI("mimo-v2.5"))
+	require.False(t, opencodeNeedsResponsesAPI("deepseek-v4-flash"))
 }
