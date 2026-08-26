@@ -1124,11 +1124,18 @@ func (c *coordinator) buildOpenaiCompatProvider(baseURL, apiKey string, headers 
 }
 
 // opencodeNeedsResponsesAPI reports whether the opencode gateway serves the
-// given model only via the Responses API. The muse family returns 500 on
-// chat completions but works on /responses; other families are the reverse.
+// given model only via the Responses API. Per the official endpoint table:
+// muse family, grok-4.6, and gpt-5.6-luna live on /responses; everything
+// else is chat completions (or /messages, which also answers chat here).
 func opencodeNeedsResponsesAPI(modelID string) bool {
 	id := strings.ToLower(modelID)
-	return strings.Contains(id, "muse")
+	switch {
+	case strings.Contains(id, "muse"):
+		return true
+	case strings.HasPrefix(id, "grok-4."), strings.HasPrefix(id, "gpt-5.6"):
+		return true
+	}
+	return false
 }
 
 func (c *coordinator) buildAzureProvider(baseURL, apiKey string, headers map[string]string, options map[string]string) (fantasy.Provider, error) {

@@ -495,7 +495,12 @@ func TestGetProviderOptionsOpencodeCacheKey(t *testing.T) {
 func TestOpencodeNeedsResponsesAPI(t *testing.T) {
 	require.True(t, opencodeNeedsResponsesAPI("muse-spark-1.2-contributor"))
 	require.True(t, opencodeNeedsResponsesAPI("MUSE-Glimmer-30B"))
+	require.True(t, opencodeNeedsResponsesAPI("grok-4.6"))
+	require.True(t, opencodeNeedsResponsesAPI("gpt-5.6-luna"))
 	require.False(t, opencodeNeedsResponsesAPI("x-preview-f-free"))
 	require.False(t, opencodeNeedsResponsesAPI("mimo-v2.5"))
 	require.False(t, opencodeNeedsResponsesAPI("deepseek-v4-flash"))
+	require.False(t, opencodeNeedsResponsesAPI("minimax-m3"))
+	require.False(t, opencodeNeedsResponsesAPI("qwen3.8-max"))
+	require.False(t, opencodeNeedsResponsesAPI("ox-alpha-free"))
 }
