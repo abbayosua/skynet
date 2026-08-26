@@ -1,1 +1,1 @@
-Get stdout/stderr from a background shell by ID; set wait=true to block until completion.
+Get stdout/stderr from a background shell by ID; set wait=true to block until completion (timeout default 30s, max 300s).

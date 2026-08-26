@@ -143,7 +143,10 @@ func (m *BackgroundShellManager) Remove(id string) error {
 	return nil
 }
 
-// Kill terminates a background shell by ID.
+// Kill terminates a background shell by ID. Waits up to 2s for graceful
+// exit; if the shell does not yield, it returns and lets the goroutine
+// finish on its own (abandoned), so the caller never hangs forever on
+// jobs that ignore SIGTERM or hold pipe FDs open.
 func (m *BackgroundShellManager) Kill(id string) error {
 	shell, ok := m.shells.Take(id)
 	if !ok {
@@ -151,8 +154,14 @@ func (m *BackgroundShellManager) Kill(id string) error {
 	}
 
 	shell.cancel()
-	<-shell.done
-	return nil
+	select {
+	case <-shell.done:
+		return nil
+	case <-time.After(2 * time.Second):
+		// Abandon: shell may still be writing to buffers, but caller
+		// has been unblocked. This mirrors hooks/runner.go abandonGrace.
+		return nil
+	}
 }
 
 // BackgroundShellInfo contains information about a background shell.

@@ -290,6 +290,13 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 			"delay", delay,
 			"error", originalErr,
 		)
+		// Publish activity so TUI spinner shows retry (otherwise looks stuck).
+		if c.notify != nil {
+			c.notify.Publish(pubsub.UpdatedEvent, notify.Notification{
+				Type:     notify.TypeActivityUpdate,
+				Activity: fmt.Sprintf("Provider error, retrying %d/%d in %s...", attempt, maxAutoRetries, delay),
+			})
+		}
 		select {
 		case <-time.After(delay):
 		case <-ctx.Done():
