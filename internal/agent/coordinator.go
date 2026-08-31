@@ -1341,12 +1341,6 @@ func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model con
 		if err != nil {
 			return nil, err
 		}
-		// B.AI/DeepSeek require reasoning_content to be echoed back
-		// in all assistant messages when thinking mode is active.
-		// This also enables prefix cache by keeping payload consistent.
-		if strings.HasPrefix(providerCfg.ID, "b-ai") {
-			p = newDeepseekProvider(p)
-		}
 		return p, nil
 	default:
 		return nil, fmt.Errorf("provider type not supported: %q", providerCfg.Type)
