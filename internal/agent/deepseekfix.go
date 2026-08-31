@@ -118,11 +118,16 @@ func (p *deepseekProvider) captureReasoning(resp *fantasy.Response) {
 // ensureReasoningInPrompt adds the last captured reasoning_content to
 // assistant messages that don't have one, ensuring DeepSeek prefix cache
 // works (consistent payload structure across turns).
+//
+// IMPORTANT: Never inject empty reasoning_content — DeepSeek rejects
+// requests with "reasoning_content": "". Only inject when we have a
+// non-empty reasoning string from a previous turn.
 func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantasy.Prompt {
 	p.mu.Lock()
 	lastReasoning := p.lastReasoning
 	p.mu.Unlock()
 
+	// No reasoning captured yet — nothing to inject
 	if lastReasoning == "" {
 		return prompt
 	}
@@ -134,7 +139,7 @@ func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantas
 			continue
 		}
 
-		// Check if this message already has reasoning
+		// Check if this message already has reasoning content
 		hasReasoning := false
 		for _, c := range msg.Content {
 			if c.GetType() == fantasy.ContentTypeReasoning {
@@ -148,7 +153,13 @@ func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantas
 			continue
 		}
 
-		// Add the last captured reasoning to ensure consistent payload
+		// Only inject if we have actual reasoning content (non-empty)
+		// Empty string causes DeepSeek to reject the request
+		if lastReasoning == "" {
+			patched[i] = msg
+			continue
+		}
+
 		newMsg := msg
 		newMsg.Content = append([]fantasy.MessagePart{
 			fantasy.ReasoningPart{Text: lastReasoning},
