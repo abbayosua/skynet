@@ -20,7 +20,7 @@ import (
 )
 
 type ReferencesParams struct {
-	Symbol string `json:"symbol" description:"The symbol name to search for (e.g., function name, variable name, type name)"`
+	Symbol string `json:"symbol" description:"REQUIRED: The symbol name to search for (e.g., function name, variable name, type name) (required, do not omit)"`
 	Path   string `json:"path,omitempty" description:"The directory to search in. Use a directory/file to narrow down the symbol search. Defaults to the current working directory."`
 }
 

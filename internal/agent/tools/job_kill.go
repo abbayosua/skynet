@@ -17,7 +17,7 @@ const (
 var jobKillDescription string
 
 type JobKillParams struct {
-	ShellID string `json:"shell_id" description:"The ID of the background shell to terminate"`
+	ShellID string `json:"shell_id" description:"REQUIRED: The ID of the background shell to terminate (required, do not omit)"`
 }
 
 type JobKillResponseMetadata struct {

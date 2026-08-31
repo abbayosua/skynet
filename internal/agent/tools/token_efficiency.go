@@ -16,8 +16,8 @@ import (
 
 // cacheEntry holds a cached tool output with its expiry time.
 type cacheEntry struct {
-	key      string
-	value    string
+	key       string
+	value     string
 	expiresAt time.Time
 }
 
@@ -289,10 +289,10 @@ func TruncateFileContent(content string, maxLines int) TruncateResult {
 // TokenBudget tracks per-turn and per-session token usage for efficient
 // context management.
 type TokenBudget struct {
-	mu           sync.Mutex
-	perTurnLimit int
-	usedThisTurn int
-	usedTotal    int
+	mu               sync.Mutex
+	perTurnLimit     int
+	usedThisTurn     int
+	usedTotal        int
 	compressionCount int
 }
 
@@ -505,19 +505,19 @@ var globalFileCache = NewFileContentCache(50, 5*time.Minute)
 
 // KnowledgeEntry stores a distilled piece of knowledge about the codebase.
 type KnowledgeEntry struct {
-	Topic       string    `json:"topic"`
-	Summary     string    `json:"summary"`
-	Files       []string  `json:"files"`
-	Decisions   []string  `json:"decisions"`
-	CreatedAt   time.Time `json:"created_at"`
-	SessionID   string    `json:"session_id,omitempty"`
+	Topic     string    `json:"topic"`
+	Summary   string    `json:"summary"`
+	Files     []string  `json:"files"`
+	Decisions []string  `json:"decisions"`
+	CreatedAt time.Time `json:"created_at"`
+	SessionID string    `json:"session_id,omitempty"`
 }
 
 // KnowledgeStore manages distilled knowledge entries.
 // Thread-safe, in-memory store with optional file persistence.
 type KnowledgeStore struct {
-	mu        sync.Mutex
-	entries   []KnowledgeEntry
+	mu         sync.Mutex
+	entries    []KnowledgeEntry
 	maxEntries int
 }
 

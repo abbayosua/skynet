@@ -20,8 +20,8 @@ import (
 )
 
 type BashParams struct {
-	Description         string `json:"description" description:"A brief description of what the command does, try to keep it under 30 characters or so"`
-	Command             string `json:"command" description:"The command to execute"`
+	Description         string `json:"description" description:"REQUIRED: A brief description of what the command does, try to keep it under 30 characters or so (required, do not omit)"`
+	Command             string `json:"command" description:"REQUIRED: The command to execute (required, do not omit)"`
 	WorkingDir          string `json:"working_dir,omitempty" description:"The working directory to execute the command in (defaults to current directory)"`
 	RunInBackground     bool   `json:"run_in_background,omitempty" description:"Set to true (boolean) to run this command in the background. Use job_output to read the output later."`
 	AutoBackgroundAfter int    `json:"auto_background_after,omitempty" description:"Seconds to wait before automatically moving the command to a background job (default: 60)"`
@@ -92,7 +92,10 @@ func NewBashTool(permissions permission.Service, workingDir string, attribution 
 		string(bashDescription(attribution, modelID)),
 		func(ctx context.Context, params BashParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if params.Command == "" {
-				return fantasy.NewTextErrorResponse("missing command"), nil
+				return fantasy.NewTextErrorResponse("missing required parameter: command — please retry with both 'command' and 'description' filled (e.g. {\"command\":\"echo hi\",\"description\":\"run echo\"})"), nil
+			}
+			if params.Description == "" {
+				return fantasy.NewTextErrorResponse("missing required parameter: description — please retry with both 'command' and 'description' filled (e.g. {\"command\":\"echo hi\",\"description\":\"run echo\"})"), nil
 			}
 
 			ReportActivity(ctx, "Running: "+params.Command)

@@ -59,7 +59,11 @@ func isDeepSeekCacheModel(m Model) bool {
 	idLower := strings.ToLower(m.CatwalkCfg.ID)
 	providerLower := strings.ToLower(m.ModelCfg.Provider)
 	modelLower := strings.ToLower(m.ModelCfg.Model)
-	return strings.Contains(idLower, "deepseek") || strings.Contains(providerLower, "deepseek") || strings.Contains(modelLower, "deepseek") || strings.Contains(idLower, "mimo")
+	if strings.Contains(idLower, "deepseek") || strings.Contains(providerLower, "deepseek") || strings.Contains(modelLower, "deepseek") || strings.Contains(idLower, "mimo") || strings.Contains(providerLower, "mimo") || strings.Contains(modelLower, "mimo") {
+		return true
+	}
+	// All opencode providers benefit from stable prefix (Date fixed, GitStatus branch-only) + lower summarize threshold
+	return strings.HasPrefix(providerLower, "opencode")
 }
 
 var userAgent = fmt.Sprintf("SkyNet/%s", version.Version)
@@ -271,12 +275,15 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		agentTools[len(agentTools)-1].SetProviderOptions(a.getCacheControlOptions())
 	}
 
-	agent := fantasy.NewAgent(
-		largeModel.Model,
+	agentOpts := []fantasy.AgentOption{
 		fantasy.WithSystemPrompt(systemPrompt),
 		fantasy.WithTools(agentTools...),
 		fantasy.WithUserAgent(userAgent),
-	)
+	}
+	if shouldUseArgsRepair(largeModel.ModelCfg.Provider) {
+		agentOpts = append(agentOpts, fantasy.WithRepairToolCall(repairToolCallArgs))
+	}
+	agent := fantasy.NewAgent(largeModel.Model, agentOpts...)
 
 	sessionLock := sync.Mutex{}
 	currentSession, err := a.sessions.Get(ctx, call.SessionID)

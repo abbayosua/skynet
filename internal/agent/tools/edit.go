@@ -22,9 +22,9 @@ import (
 )
 
 type EditParams struct {
-	FilePath   string `json:"file_path" description:"The absolute path to the file to modify"`
-	OldString  string `json:"old_string" description:"The text to replace"`
-	NewString  string `json:"new_string" description:"The text to replace it with"`
+	FilePath   string `json:"file_path" description:"REQUIRED: The absolute path to the file to modify (required, do not omit)"`
+	OldString  string `json:"old_string" description:"REQUIRED: The text to replace (required, do not omit; use empty to create new file)"`
+	NewString  string `json:"new_string" description:"REQUIRED: The text to replace it with (required, do not omit)"`
 	ReplaceAll bool   `json:"replace_all,omitempty" description:"Replace all occurrences of old_string (default false)"`
 }
 
@@ -71,7 +71,7 @@ func NewEditTool(
 		editDescription,
 		func(ctx context.Context, params EditParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if params.FilePath == "" {
-				return fantasy.NewTextErrorResponse("file_path is required"), nil
+				return fantasy.NewTextErrorResponse("missing required parameter: file_path — please retry with 'file_path', 'old_string' and 'new_string' filled"), nil
 			}
 
 			ReportActivity(ctx, "Editing: "+params.FilePath)

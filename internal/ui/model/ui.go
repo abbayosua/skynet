@@ -3346,6 +3346,30 @@ func (m *UI) sendMessage(content string, attachments ...message.Attachment) tea.
 		m.setState(uiChat, m.focus)
 	}
 
+	// "/autopilot <goal>" runs the goal-driven autopilot loop in the
+	// current session instead of sending a normal message.
+	if goal, ok := strings.CutPrefix(content, "/autopilot "); ok {
+		goal = strings.TrimSpace(goal)
+		if goal == "" {
+			return util.ReportError(fmt.Errorf("usage: /autopilot <goal>"))
+		}
+		sessionID := m.session.ID
+		if m.com.Workspace.AgentIsSessionBusy(sessionID) {
+			return util.ReportError(fmt.Errorf("agent is busy - wait for the current task to finish"))
+		}
+		return func() tea.Msg {
+			ctx := context.Background()
+			if err := m.com.Workspace.AgentAutoPilot(ctx, sessionID, goal); err != nil &&
+				!errors.Is(err, context.Canceled) {
+				return util.InfoMsg{
+					Type: util.InfoTypeError,
+					Msg:  fmt.Sprintf("autopilot: %v", err),
+				}
+			}
+			return nil
+		}
+	}
+
 	ctx := context.Background()
 	cmds = append(cmds, func() tea.Msg {
 		for _, path := range m.sessionFileReads {

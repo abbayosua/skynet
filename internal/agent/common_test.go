@@ -61,6 +61,22 @@ func hyperBuilder(model string) builderFunc {
 	}
 }
 
+// zenBuilder builds a model served by the opencode zen gateway
+// (https://opencode.ai/zen). The API key comes from OPENCODE_API_KEY.
+func zenBuilder(model string) builderFunc {
+	return func(t *testing.T, r *vcr.Recorder) (fantasy.LanguageModel, error) {
+		provider, err := openaicompat.New(
+			openaicompat.WithBaseURL("https://opencode.ai/zen/go/v1"),
+			openaicompat.WithAPIKey(os.Getenv("OPENCODE_API_KEY")),
+			openaicompat.WithHTTPClient(&http.Client{Transport: r}),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return provider.LanguageModel(t.Context(), model)
+	}
+}
+
 func testEnv(t *testing.T) fakeEnv {
 	workingDir := filepath.Join("/tmp/crush-test/", t.Name())
 	os.RemoveAll(workingDir)

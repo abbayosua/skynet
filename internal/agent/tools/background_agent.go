@@ -45,14 +45,14 @@ func init() {
 
 // SpawnAgentParams defines parameters for spawning a background agent.
 type SpawnAgentParams struct {
-	Prompt      string `json:"prompt" description:"The task for the background agent to perform"`
+	Prompt      string `json:"prompt" description:"REQUIRED: The task for the background agent to perform (required, do not omit)"`
 	Description string `json:"description,omitempty" description:"A short description of what this agent is doing"`
 	Timeout     int    `json:"timeout_seconds,omitempty" description:"Maximum execution time in seconds (default: 600, max: 3600)"`
 }
 
 // CollectAgentParams defines parameters for collecting a background agent result.
 type CollectAgentParams struct {
-	AgentID string `json:"agent_id" description:"The agent ID returned by spawn_agent"`
+	AgentID string `json:"agent_id" description:"REQUIRED: The agent ID returned by spawn_agent (required, do not omit)"`
 }
 
 // NewSpawnAgentTool creates a tool that spawns a background agent for async execution.

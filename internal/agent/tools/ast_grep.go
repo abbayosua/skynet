@@ -23,18 +23,18 @@ const (
 )
 
 type ASTGrepSearchParams struct {
-	Pattern  string   `json:"pattern" description:"AST pattern to search for (e.g. 'console.log($MSG)')"`
-	Lang     string   `json:"lang,omitempty" description:"Language for the pattern (e.g. typescript, go, python, rust). Auto-detected from file extension if not specified."`
-	Paths    []string `json:"paths,omitempty" description:"Paths to search in (defaults to working directory)"`
-	Context  int      `json:"context,omitempty" description:"Number of context lines around matches (default: 0)"`
+	Pattern string   `json:"pattern" description:"REQUIRED: AST pattern to search for (e.g. 'console.log($MSG)') (required, do not omit)"`
+	Lang    string   `json:"lang,omitempty" description:"Language for the pattern (e.g. typescript, go, python, rust). Auto-detected from file extension if not specified."`
+	Paths   []string `json:"paths,omitempty" description:"Paths to search in (defaults to working directory)"`
+	Context int      `json:"context,omitempty" description:"Number of context lines around matches (default: 0)"`
 }
 
 type ASTGrepReplaceParams struct {
-	Pattern  string `json:"pattern" description:"AST pattern to match (e.g. 'console.log($MSG)')"`
-	Rewrite  string `json:"rewrite" description:"Replacement pattern using $VAR from the pattern (e.g. 'logger.info($MSG)')"`
-	Lang     string `json:"lang,omitempty" description:"Language for the pattern"`
-	Paths    string `json:"paths,omitempty" description:"Directory or file path to run replacement on"`
-	DryRun   bool   `json:"dry_run,omitempty" description:"Preview changes without applying (default: true)"`
+	Pattern string `json:"pattern" description:"REQUIRED: AST pattern to match (e.g. 'console.log($MSG)') (required, do not omit)"`
+	Rewrite string `json:"rewrite" description:"REQUIRED: Replacement pattern using $VAR from the pattern (e.g. 'logger.info($MSG)') (required, do not omit)"`
+	Lang    string `json:"lang,omitempty" description:"Language for the pattern"`
+	Paths   string `json:"paths,omitempty" description:"Directory or file path to run replacement on"`
+	DryRun  bool   `json:"dry_run,omitempty" description:"Preview changes without applying (default: true)"`
 }
 
 // findASTGrepBinary locates the ast-grep executable.

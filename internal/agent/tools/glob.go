@@ -39,7 +39,7 @@ func globDescription() string {
 }
 
 type GlobParams struct {
-	Pattern string `json:"pattern" description:"The glob pattern to match files against"`
+	Pattern string `json:"pattern" description:"REQUIRED: The glob pattern to match files against (required, do not omit)"`
 	Path    string `json:"path,omitempty" description:"The directory to search in. Defaults to the current working directory."`
 }
 

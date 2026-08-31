@@ -19,7 +19,7 @@ const (
 var jobOutputDescription string
 
 type JobOutputParams struct {
-	ShellID string `json:"shell_id" description:"The ID of the background shell to retrieve output from"`
+	ShellID string `json:"shell_id" description:"REQUIRED: The ID of the background shell to retrieve output from (required, do not omit)"`
 	Wait    bool   `json:"wait" description:"If true, block until the background shell completes before returning output"`
 	Timeout int    `json:"timeout,omitempty" description:"When wait is true, max seconds to wait (default 30, max 300). Returns current output with running status if exceeded, so the agent can re-poll. Prevents infinite hang on never-ending jobs (e.g. dev servers)"`
 }

@@ -25,8 +25,8 @@ import (
 var writeDescription string
 
 type WriteParams struct {
-	FilePath string `json:"file_path" description:"The path to the file to write"`
-	Content  string `json:"content" description:"The content to write to the file"`
+	FilePath string `json:"file_path" description:"REQUIRED: The path to the file to write (required, do not omit)"`
+	Content  string `json:"content" description:"REQUIRED: The content to write to the file (required, do not omit)"`
 }
 
 type WritePermissionsParams struct {
@@ -55,7 +55,7 @@ func NewWriteTool(
 		writeDescription,
 		func(ctx context.Context, params WriteParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if params.FilePath == "" {
-				return fantasy.NewTextErrorResponse("file_path is required"), nil
+				return fantasy.NewTextErrorResponse("missing required parameter: file_path — please retry with 'file_path' and 'content' filled (e.g. {\"file_path\":\"/tmp/test.txt\",\"content\":\"hello\"})"), nil
 			}
 
 			ReportActivity(ctx, "Writing: "+params.FilePath)

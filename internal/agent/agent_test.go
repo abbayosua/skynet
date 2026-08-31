@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 var modelPairs = []modelPair{
-	{"glm-5.1", hyperBuilder("glm-5.1"), hyperBuilder("gpt-oss-120b")},
+	{"ox-alpha-free", zenBuilder("ox-alpha-free"), zenBuilder("gpt-oss-120b")},
 }
 
 func getModels(t *testing.T, r *vcr.Recorder, pair modelPair) (fantasy.LanguageModel, fantasy.LanguageModel) {

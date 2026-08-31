@@ -26,9 +26,9 @@ var hashlineEditDescription string
 const HashlineEditToolName = "hashline_edit"
 
 type HashlineEditParams struct {
-	FilePath   string `json:"file_path" description:"The absolute path to the file to modify"`
-	LineID     string `json:"line_id" description:"The LINE#ID of the line to replace (e.g. \"15#VKMB\"), as shown by the View tool output"`
-	NewContent string `json:"new_content" description:"The new line content to replace the old line with"`
+	FilePath   string `json:"file_path" description:"REQUIRED: The absolute path to the file to modify (required, do not omit)"`
+	LineID     string `json:"line_id" description:"REQUIRED: The LINE#ID of the line to replace (e.g. \"15#VKMB\"), as shown by the View tool output (required, do not omit)"`
+	NewContent string `json:"new_content" description:"REQUIRED: The new line content to replace the old line with (required, do not omit)"`
 }
 
 func NewHashlineEditTool(
@@ -57,10 +57,10 @@ func NewHashlineEditTool(
 			// Parse the LINE#ID reference.
 			lid := hashline.ParseLineID(params.LineID)
 			if lid == nil {
-	return fantasy.NewTextErrorResponse(fmt.Sprintf(
-				"invalid line_id format: %q. Expected format is LINE#HASH (e.g. \"15#VKMB\") as shown in View output",
-				params.LineID,
-			)), nil
+				return fantasy.NewTextErrorResponse(fmt.Sprintf(
+					"invalid line_id format: %q. Expected format is LINE#HASH (e.g. \"15#VKMB\") as shown in View output",
+					params.LineID,
+				)), nil
 			}
 
 			// Check file exists and is not a directory.

@@ -46,7 +46,7 @@ func viewDescription() string {
 }
 
 type ViewParams struct {
-	FilePath string `json:"file_path" description:"The path to the file to read"`
+	FilePath string `json:"file_path" description:"REQUIRED: The path to the file to read (required, do not omit)"`
 	Offset   int    `json:"offset,omitempty" description:"The line number to start reading from (0-based)"`
 	Limit    int    `json:"limit,omitempty" description:"The number of lines to read (defaults to 2000)"`
 }

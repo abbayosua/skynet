@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/abbayosua/skynet/internal/agent/commandcode"
@@ -91,7 +92,7 @@ type Coordinator interface {
 	Summarize(context.Context, string) error
 	Model() Model
 	UpdateModels(ctx context.Context) error
-	RunAutoPilot(ctx context.Context, output io.Writer, mainSessionID string) error
+	RunAutoPilotGoal(ctx context.Context, sessionID, goal string, output io.Writer) error
 }
 
 type coordinator struct {
@@ -904,6 +905,12 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 		return strings.Compare(a.Info().Name, b.Info().Name)
 	})
 
+	// Inject "required" into tool JSON Schema parameters so models know
+	// which fields are mandatory. Works around charm.land/fantasy omitting
+	// the top-level "required" array in schema.ToParameters().
+	providerID := c.cfg.Config().Models[config.SelectedModelTypeLarge].Provider
+	filteredTools = patchToolSchemas(filteredTools, providerID)
+
 	// Wrap tools with hook interception for the top-level agent only.
 	// Sub-agents (the `agent` task tool, `agentic_fetch`, etc.) run
 	// without hook interception to avoid firing the user's hook N times
@@ -1244,6 +1251,27 @@ func openCodeSessionID() string {
 	return "ses_" + string(b)
 }
 
+// stableOpencodeSessionID is a process-global stable session id for
+// opencode providers. Generating a fresh random id per provider build
+// (every UpdateModels/Run) breaks prefix caching at the gateway because
+// the gateway treats different session ids as different conversations.
+// Using a stable id keeps the header constant across turns so that
+// prompt_cache_key (per-Skynet-session) remains the only varying cache
+// key and prefix hits stay high.
+// For true per-Skynet-session isolation the prompt_cache_key already
+// provides it; the header only needs stability for routing.
+var (
+	stableOpencodeSessionID     string
+	stableOpencodeSessionIDOnce sync.Once
+)
+
+func stableOpenCodeSessionID() string {
+	stableOpencodeSessionIDOnce.Do(func() {
+		stableOpencodeSessionID = openCodeSessionID()
+	})
+	return stableOpencodeSessionID
+}
+
 // providerHeaders returns the HTTP headers to send with requests to the
 // given provider, merging user-configured extra headers with provider
 // specific defaults.
@@ -1265,9 +1293,11 @@ func providerHeaders(providerCfg config.ProviderConfig, anthropicThinking bool) 
 	// opencode.ai routes requests to the upstream serving the selected
 	// model based on the x-opencode-session header, so generate a fresh
 	// session id per conversation the same way the opencode CLI does.
+	// Use a process-stable id to avoid breaking prefix cache — prompt_cache_key
+	// (injected per Skynet session) already isolates conversations.
 	switch providerCfg.ID {
 	case string(catwalk.InferenceProviderOpenCodeGo), string(catwalk.InferenceProviderOpenCodeZen):
-		headers["x-opencode-session"] = openCodeSessionID()
+		headers["x-opencode-session"] = stableOpenCodeSessionID()
 	}
 
 	return headers
@@ -1307,7 +1337,17 @@ func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model con
 			}
 			providerCfg.ExtraBody["tool_stream"] = true
 		}
-		return c.buildOpenaiCompatProvider(baseURL, apiKey, headers, providerCfg.ExtraBody, providerCfg.ID, isSubAgent)
+		p, err := c.buildOpenaiCompatProvider(baseURL, apiKey, headers, providerCfg.ExtraBody, providerCfg.ID, isSubAgent)
+		if err != nil {
+			return nil, err
+		}
+		// B.AI/DeepSeek require reasoning_content to be echoed back
+		// in all assistant messages when thinking mode is active.
+		// This also enables prefix cache by keeping payload consistent.
+		if strings.HasPrefix(providerCfg.ID, "b-ai") {
+			p = newDeepseekProvider(p)
+		}
+		return p, nil
 	default:
 		return nil, fmt.Errorf("provider type not supported: %q", providerCfg.Type)
 	}
@@ -1581,353 +1621,6 @@ func (c *coordinator) runBackgroundTask(ctx context.Context, userPrompt string) 
 	}
 
 	return result.Response.Content.Text(), nil
-}
-
-// RunAutoPilot starts the autonomous coding mode.
-func (c *coordinator) RunAutoPilot(ctx context.Context, output io.Writer, mainSessionID string) error {
-	agentCfg, ok := c.cfg.Config().Agents[config.AgentCoder]
-	if !ok {
-		return errors.New("autopilot: coder agent not configured")
-	}
-
-	p, err := autopilotPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir()))
-	if err != nil {
-		return fmt.Errorf("autopilot: build prompt: %w", err)
-	}
-
-	agent, err := c.buildAgent(ctx, p, agentCfg, true)
-	if err != nil {
-		return fmt.Errorf("autopilot: build agent: %w", err)
-	}
-
-	sess, err := c.sessions.Create(ctx, "AutoPilot")
-	if err != nil {
-		return fmt.Errorf("autopilot: create session: %w", err)
-	}
-	c.permissions.AutoApproveSession(sess.ID)
-
-	model := agent.Model()
-	maxTokens := model.CatwalkCfg.DefaultMaxTokens
-	if model.ModelCfg.MaxTokens != 0 {
-		maxTokens = model.ModelCfg.MaxTokens
-	}
-
-	providerCfg, ok := c.cfg.Config().Providers.Get(model.ModelCfg.Provider)
-	if !ok {
-		return errors.New("autopilot: model provider not configured")
-	}
-
-	// Read main session context for initial analysis.
-	var mainCtx string
-	if mainSessionID != "" {
-		msgs, err := c.messages.List(ctx, mainSessionID)
-		if err == nil && len(msgs) > 0 {
-			var parts []string
-			for _, msg := range msgs {
-				content := msg.Content().Text
-				if content == "" {
-					continue
-				}
-				parts = append(parts, fmt.Sprintf("[%s] %s", string(msg.Role), content))
-				if len(parts) >= 10 {
-					break
-				}
-			}
-			mainCtx = strings.Join(parts, "\n")
-		}
-	}
-
-	// Setup file logging.
-	logDir := filepath.Join(c.cfg.WorkingDir(), ".skynet", "autopilot", "logs")
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
-		slog.Warn("autopilot: cannot create log dir", "error", err)
-	}
-	logPath := filepath.Join(logDir, sess.ID+".log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		slog.Warn("autopilot: cannot open log file", "error", err)
-	}
-	if logFile != nil {
-		defer logFile.Close()
-	}
-
-	logEvent := func(evType, detail string) {
-		if logFile == nil {
-			return
-		}
-		line := fmt.Sprintf(`{"time":"%s","session_id":"%s","type":"%s","detail":"%s"}`+"\n",
-			time.Now().Format(time.RFC3339), sess.ID, evType, strings.ReplaceAll(detail, `"`, `\"`))
-		logFile.WriteString(line)
-	}
-
-	writeOutput := func(format string, args ...any) {
-		line := fmt.Sprintf(format, args...)
-		fmt.Fprintln(output, line)
-		logEvent("output", line)
-	}
-
-	opts := SessionAgentCall{
-		SessionID:        sess.ID,
-		MaxOutputTokens:  maxTokens,
-		ProviderOptions:  getProviderOptions(model, providerCfg, sess.ID),
-		Temperature:      model.ModelCfg.Temperature,
-		TopP:             model.ModelCfg.TopP,
-		TopK:             model.ModelCfg.TopK,
-		FrequencyPenalty: model.ModelCfg.FrequencyPenalty,
-		PresencePenalty:  model.ModelCfg.PresencePenalty,
-		NonInteractive:   true,
-	}
-
-	// Message streaming: subscribe to real-time message updates.
-	msgCh := c.messages.Subscribe(ctx)
-	seenParts := make(map[string]int)      // messageID -> parts printed count
-	seenText := make(map[string]int)       // messageID -> text bytes printed
-	seenThinking := make(map[string]int)   // messageID -> thinking bytes printed
-	seenToolInput := make(map[string]bool) // toolCallID -> input already printed
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case ev, ok := <-msgCh:
-				if !ok {
-					return
-				}
-				msg := ev.Payload
-				if msg.SessionID != sess.ID {
-					continue
-				}
-				if msg.Role != message.Assistant && msg.Role != message.Tool {
-					continue
-				}
-
-				// 1. Print new parts (tool calls, tool results).
-				prevCount := seenParts[msg.ID]
-				for i := prevCount; i < len(msg.Parts); i++ {
-					switch p := msg.Parts[i].(type) {
-					case message.ToolCall:
-						seenToolInput[p.ID] = false
-					case message.ToolResult:
-						content := truncateMsg(p.Content, 200)
-						if p.IsError {
-							writeOutput("  ❌ %s: %s", p.Name, content)
-						} else {
-							writeOutput("  📦 %s", content)
-						}
-					case message.TextContent:
-						t := strings.TrimSpace(p.Text)
-						if t != "" {
-							writeOutput("  💬 %s", truncateMsg(t, 200))
-						}
-						seenText[msg.ID] = len(p.Text)
-					case message.ReasoningContent:
-						t := strings.TrimSpace(p.Thinking)
-						if t != "" {
-							writeOutput("  🤔 %s", truncateMsg(t, 200))
-						}
-						seenThinking[msg.ID] = len(p.Thinking)
-					}
-				}
-
-				// 2. Update existing parts (streaming text, reasoning, tool input).
-				for i := 0; i < len(msg.Parts); i++ {
-					switch p := msg.Parts[i].(type) {
-					case message.TextContent:
-						if len(p.Text) > seenText[msg.ID] {
-							newText := p.Text[seenText[msg.ID]:]
-							seenText[msg.ID] = len(p.Text)
-							t := strings.TrimSpace(newText)
-							if t != "" {
-								writeOutput("  💬 %s", truncateMsg(t, 200))
-							}
-						}
-					case message.ReasoningContent:
-						if len(p.Thinking) > seenThinking[msg.ID] {
-							newThink := p.Thinking[seenThinking[msg.ID]:]
-							seenThinking[msg.ID] = len(p.Thinking)
-							t := strings.TrimSpace(newThink)
-							if t != "" {
-								writeOutput("  🤔 %s", truncateMsg(t, 200))
-							}
-						}
-					case message.ToolCall:
-						if !seenToolInput[p.ID] && p.Input != "" {
-							seenToolInput[p.ID] = true
-							writeOutput("  🛠 %s(%s)", p.Name, truncateMsg(p.Input, 200))
-						}
-					}
-				}
-				seenParts[msg.ID] = len(msg.Parts)
-			}
-		}
-	}()
-
-	// Watchdog: detect stuck state (5 min no progress).
-	watchdogCtx, watchdogCancel := context.WithCancel(ctx)
-	defer watchdogCancel()
-	lastActivity := time.Now()
-
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-watchdogCtx.Done():
-				return
-			case <-ticker.C:
-				if time.Since(lastActivity) > 5*time.Minute {
-					writeOutput("  ⚠ No progress for 5 minutes. Checking in...")
-					logEvent("watchdog", "No progress for 5 minutes")
-					slog.Warn("AutoPilot watchdog triggered: no activity",
-						"session_id", sess.ID)
-				}
-			}
-		}
-	}()
-
-	writeOutput("── AutoPilot ──────────────────────────────────")
-	logEvent("start", "AutoPilot session started")
-	if mainCtx != "" {
-		writeOutput("  📖 Loaded context from main session")
-	}
-	writeOutput("  🔍 Analyzing codebase...")
-
-	// Initial analysis prompt.
-	prompt := "Analyze the current codebase state. Read git log, check git status, review recent changes. Identify what needs improvement. Then create a plan and execute it."
-	if mainCtx != "" {
-		prompt += "\n\nRecent conversation context from the main session:\n" + mainCtx
-	}
-
-	iterations := 0
-	iterationsPerSession := 0
-
-	for {
-		select {
-		case <-ctx.Done():
-			writeOutput("  ⛔ AutoPilot stopped (Ctrl+C)")
-			logEvent("stop", "user cancelled")
-			return ctx.Err()
-		default:
-		}
-
-		iterations++
-		iterationsPerSession++
-		lastActivity = time.Now()
-		logEvent("iteration", fmt.Sprintf("Iteration %d (session: %d)", iterations, iterationsPerSession))
-
-		opts.Prompt = prompt
-		result, err := agent.Run(ctx, opts)
-		if err != nil {
-			lastActivity = time.Now()
-			logEvent("error", fmt.Sprintf("Agent error: %v", err))
-			if ctx.Err() != nil {
-				writeOutput("  ⛔ AutoPilot cancelled.")
-				return ctx.Err()
-			}
-			writeOutput("  ⚠ Error: %v", err)
-			prompt = "The previous operation encountered an error. Analyze what went wrong and try a different approach. Focus on making progress."
-			continue
-		}
-
-		response := strings.TrimSpace(result.Response.Content.Text())
-		logEvent("response", response)
-
-		// Emergency rotation: context window exhausted.
-		if result.Response.FinishReason == fantasy.FinishReasonLength {
-			writeOutput("  🔄 Context window exhausted. Rotating session...")
-			logEvent("rotation", "emergency rotate: context window full")
-
-			summary := buildSessionSummary(result, response)
-			newSess, err := c.sessions.Create(ctx, "AutoPilot (rotated)")
-			if err != nil {
-				writeOutput("  ⚠ Failed to create new session: %v", err)
-				prompt = "Continue working. The previous session ended due to context limits."
-				iterationsPerSession = 0
-				continue
-			}
-
-			oldID := opts.SessionID
-			opts.SessionID = newSess.ID
-			c.permissions.AutoApproveSession(newSess.ID)
-			iterationsPerSession = 0
-
-			writeOutput("  📋 Session rotated: %s → %s", truncateMsg(oldID, 12), truncateMsg(newSess.ID, 12))
-			logEvent("rotation", fmt.Sprintf("new_session=%s summary=%s", newSess.ID, summary))
-			prompt = "Continue from the previous session. Summary of progress so far:\n" + summary + "\n\nAnalyze the current state and decide what to do next."
-			continue
-		}
-
-		// Natural break: task complete and session old enough to rotate.
-		taskDone := strings.Contains(response, "<autopilot>DONE</autopilot>") ||
-			strings.Contains(response, "<autopilot>BLOCKED")
-
-		if taskDone {
-			writeOutput("  ✅ Task completed.")
-			logEvent("phase", "task-complete")
-
-			if iterationsPerSession >= 25 {
-				writeOutput("  🔄 Session age %d iterations. Rotating to fresh context...", iterationsPerSession)
-				logEvent("rotation", fmt.Sprintf("proactive rotate at %d iterations", iterationsPerSession))
-
-				summary := buildSessionSummary(result, response)
-				newSess, err := c.sessions.Create(ctx, "AutoPilot (rotated)")
-				if err != nil {
-					writeOutput("  ⚠ Failed to create new session: %v", err)
-				} else {
-					opts.SessionID = newSess.ID
-					c.permissions.AutoApproveSession(newSess.ID)
-					iterationsPerSession = 0
-
-					writeOutput("  📋 Session rotated: fresh context with summary")
-					logEvent("rotation", fmt.Sprintf("new_session=%s summary=%s", newSess.ID, summary))
-					prompt = "Continue from the previous session. Summary of progress so far:\n" + summary + "\n\nAnalyze the codebase and identify the next most valuable improvement."
-					continue
-				}
-			}
-
-			prompt = "What should I improve next? Analyze the codebase and identify the next most valuable improvement."
-			continue
-		}
-
-		// Continue working.
-		prompt = "Continue working on the improvement. Review what you've done and decide: are you done with this task? If yes, say <autopilot>DONE</autopilot>. If blocked, say <autopilot>BLOCKED: reason</autopilot>. Otherwise, keep working."
-	}
-}
-
-// buildSessionSummary extracts key progress info from the current iteration.
-func buildSessionSummary(result *fantasy.AgentResult, response string) string {
-	var parts []string
-	parts = append(parts, "- Most recent action: "+truncateMsg(response, 200))
-
-	if result != nil {
-		for _, step := range result.Steps {
-			content := step.Response.Content
-			for _, call := range content.ToolCalls() {
-				parts = append(parts, fmt.Sprintf("- Tool: %s", call.ToolName))
-			}
-			for _, tr := range content.ToolResults() {
-				if text, ok := tr.Result.(fantasy.ToolResultOutputContentText); ok {
-					t := strings.TrimSpace(text.Text)
-					if t != "" {
-						parts = append(parts, fmt.Sprintf("- Result: %s", truncateMsg(t, 150)))
-					}
-				}
-			}
-		}
-	}
-
-	if len(parts) > 10 {
-		parts = parts[len(parts)-10:]
-	}
-	return strings.Join(parts, "\n")
-}
-
-func truncateMsg(msg string, maxLen int) string {
-	if len(msg) <= maxLen {
-		return msg
-	}
-	return msg[:maxLen] + "..."
 }
 
 // backgroundAgentManager is the shared background agent manager used by all tools.

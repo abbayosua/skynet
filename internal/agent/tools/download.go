@@ -19,8 +19,8 @@ import (
 )
 
 type DownloadParams struct {
-	URL      string `json:"url" description:"The URL to download from"`
-	FilePath string `json:"file_path" description:"The local file path where the downloaded content should be saved"`
+	URL      string `json:"url" description:"REQUIRED: The URL to download from (required, do not omit)"`
+	FilePath string `json:"file_path" description:"REQUIRED: The local file path where the downloaded content should be saved (required, do not omit)"`
 	Timeout  int    `json:"timeout,omitempty" description:"Optional timeout in seconds (max 600)"`
 }
 

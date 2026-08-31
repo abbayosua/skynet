@@ -15,32 +15,31 @@ import (
 )
 
 var autopilotCmd = &cobra.Command{
-	Use:   "autopilot [session-id]",
-	Short: "Start autonomous coding mode",
-	Long: `Start the AutoPilot - a fully autonomous AI developer that continuously 
-improves the codebase. It has its own context and works independently.
+	Use:   "autopilot <goal>",
+	Short: "Run the AutoPilot on a concrete goal",
+	Long: `Run the AutoPilot - a goal-driven autonomous AI developer.
 
-Optionally pass a session ID to give the AutoPilot read-only access to
-that session's conversation history for context.`,
+It plans the work, executes each step in its own turn (with tests/build
+verification), and finishes with a summary report. All progress is
+stored as a regular session, so you can review it later in the TUI.
+
+Optionally pass --session or --continue to seed the run with context
+from an existing session.`,
 	Example: `
-# Start autopilot with access to the most recent session
-skynet autopilot
+# Run autopilot on a new session with a concrete goal
+skynet autopilot "fix the race condition in internal/shell/background.go"
 
-# Start autopilot with access to a specific session
-skynet autopilot <session-id>
-
-# Start autopilot with the latest session
-skynet autopilot --continue
+# Continue working in an existing session
+skynet autopilot --continue "add tests for the job output timeout"
 	`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var (
-			sessionID, _  = cmd.Flags().GetString("session")
-			useLast, _    = cmd.Flags().GetBool("continue")
-		)
+		goal := strings.TrimSpace(args[0])
 
-		if len(args) > 0 && sessionID == "" {
-			sessionID = args[0]
-		}
+		var (
+			sessionID, _ = cmd.Flags().GetString("session")
+			useLast, _   = cmd.Flags().GetBool("continue")
+		)
 
 		ws, cleanup, err := setupLocalWorkspace(cmd)
 		if err != nil {
@@ -57,12 +56,13 @@ skynet autopilot --continue
 		appWs := ws.(*workspace.AppWorkspace)
 		a := appWs.App()
 
-		// Resolve main session ID for context access.
-		var mainSessionID string
 		ctx := context.Background()
+
+		// Resolve an existing session for context, otherwise create one.
+		var sess session.Session
 		switch {
 		case sessionID != "":
-			sess, err := a.Sessions.Get(ctx, sessionID)
+			sess, err = a.Sessions.Get(ctx, sessionID)
 			if err != nil {
 				sessions, listErr := a.Sessions.List(ctx)
 				if listErr != nil {
@@ -81,30 +81,42 @@ skynet autopilot --continue
 					return fmt.Errorf("session %q not found", sessionID)
 				}
 			}
-			mainSessionID = sess.ID
 
 		case useLast:
-			sess, err := a.Sessions.GetLast(ctx)
+			sess, err = a.Sessions.GetLast(ctx)
 			if err != nil {
-				slog.Info("No previous sessions found, autopilot running without context")
-			} else {
-				mainSessionID = sess.ID
+				slog.Info("No previous sessions found, creating a fresh session")
+				sess, err = a.Sessions.Create(ctx, "AutoPilot")
+				if err != nil {
+					return fmt.Errorf("failed to create session: %w", err)
+				}
+			}
+
+		default:
+			sess, err = a.Sessions.Create(ctx, "AutoPilot")
+			if err != nil {
+				return fmt.Errorf("failed to create session: %w", err)
 			}
 		}
 
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 		defer cancel()
 
-		slog.Info("Starting AutoPilot",
-			"session_id", mainSessionID,
-		)
+		// Headless mode: approve permissions automatically for this run.
+		a.Permissions.AutoApproveSession(sess.ID)
 
-		return a.AgentCoordinator.RunAutoPilot(ctx, os.Stdout, mainSessionID)
+		slog.Info("Starting AutoPilot",
+			"session_id", sess.ID,
+			"goal", goal,
+		)
+		fmt.Printf("Goal: %s\nSession: %s\n\n", goal, sess.ID)
+
+		return a.AgentCoordinator.RunAutoPilotGoal(ctx, sess.ID, goal, os.Stdout)
 	},
 }
 
 func init() {
-	autopilotCmd.Flags().StringP("session", "s", "", "Session ID to read for context")
-	autopilotCmd.Flags().BoolP("continue", "C", false, "Use the most recent session for context")
+	autopilotCmd.Flags().StringP("session", "s", "", "Existing session ID to continue in")
+	autopilotCmd.Flags().BoolP("continue", "C", false, "Continue in the most recent session")
 	autopilotCmd.MarkFlagsMutuallyExclusive("session", "continue")
 }

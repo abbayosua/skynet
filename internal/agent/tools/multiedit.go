@@ -21,14 +21,14 @@ import (
 )
 
 type MultiEditOperation struct {
-	OldString  string `json:"old_string" description:"The text to replace"`
-	NewString  string `json:"new_string" description:"The text to replace it with"`
+	OldString  string `json:"old_string" description:"REQUIRED: The text to replace (required, do not omit)"`
+	NewString  string `json:"new_string" description:"REQUIRED: The text to replace it with (required, do not omit)"`
 	ReplaceAll bool   `json:"replace_all,omitempty" description:"Replace all occurrences of old_string (default false)."`
 }
 
 type MultiEditParams struct {
-	FilePath string               `json:"file_path" description:"The absolute path to the file to modify"`
-	Edits    []MultiEditOperation `json:"edits" description:"Array of edit operations to perform sequentially on the file"`
+	FilePath string               `json:"file_path" description:"REQUIRED: The absolute path to the file to modify (required, do not omit)"`
+	Edits    []MultiEditOperation `json:"edits" description:"REQUIRED: Array of edit operations to perform sequentially on the file (required, do not omit)"`
 }
 
 type MultiEditPermissionsParams struct {

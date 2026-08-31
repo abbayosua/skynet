@@ -27,30 +27,30 @@ const (
 type TeamPhase string
 
 const (
-	PhaseIdle       TeamPhase = "idle"
-	PhasePlanning   TeamPhase = "planning"
-	PhaseExecuting  TeamPhase = "executing"
-	PhaseReviewing  TeamPhase = "reviewing"
-	PhaseTesting    TeamPhase = "testing"
-	PhaseIterating  TeamPhase = "iterating"
-	PhaseCompleted  TeamPhase = "completed"
-	PhaseFailed     TeamPhase = "failed"
-	PhaseCancelled  TeamPhase = "cancelled"
+	PhaseIdle      TeamPhase = "idle"
+	PhasePlanning  TeamPhase = "planning"
+	PhaseExecuting TeamPhase = "executing"
+	PhaseReviewing TeamPhase = "reviewing"
+	PhaseTesting   TeamPhase = "testing"
+	PhaseIterating TeamPhase = "iterating"
+	PhaseCompleted TeamPhase = "completed"
+	PhaseFailed    TeamPhase = "failed"
+	PhaseCancelled TeamPhase = "cancelled"
 )
 
 // TeamExecution tracks the execution state of a team workflow.
 type TeamExecution struct {
-	TeamName    string
-	Phase       TeamPhase
-	Plan        string
-	Results     map[string]string // memberID -> result
-	Review      string
-	ReviewPass  bool
-	Iteration   int
-	MaxIter     int
-	StartedAt   time.Time
-	UpdatedAt   time.Time
-	Error       string
+	TeamName   string
+	Phase      TeamPhase
+	Plan       string
+	Results    map[string]string // memberID -> result
+	Review     string
+	ReviewPass bool
+	Iteration  int
+	MaxIter    int
+	StartedAt  time.Time
+	UpdatedAt  time.Time
+	Error      string
 }
 
 // TeamOrchestrator manages team-based multi-agent task execution.
@@ -66,8 +66,8 @@ type TeamOrchestrator struct {
 
 // teamExecutionStore holds execution state for active teams.
 type teamExecutionStore struct {
-	mu     sync.Mutex
-	execs  map[string]*TeamExecution
+	mu    sync.Mutex
+	execs map[string]*TeamExecution
 }
 
 var globalTeamExecStore = &teamExecutionStore{

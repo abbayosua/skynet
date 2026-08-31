@@ -19,11 +19,11 @@ const PlannerToolName = "planner"
 
 // PlannerParams defines the input for the planner tool.
 type PlannerParams struct {
-	Action        string `json:"action" description:"Action to perform: \"create\" to create a new plan, \"list\" to list existing plans"`
-	Task          string `json:"task,omitempty" description:"The task or feature description to plan for (required for create action)"`
-	PlanName      string `json:"plan_name,omitempty" description:"A short name for the plan file (e.g. 'auth-system'). Auto-generated from task if not provided."`
-	Context       string `json:"context,omitempty" description:"Additional context about the codebase, constraints, or preferences"`
-	Acceptance    string `json:"acceptance,omitempty" description:"Specific acceptance criteria the plan should address"`
+	Action     string `json:"action" description:"Action to perform: \"create\" to create a new plan, \"list\" to list existing plans"`
+	Task       string `json:"task,omitempty" description:"The task or feature description to plan for (required for create action)"`
+	PlanName   string `json:"plan_name,omitempty" description:"A short name for the plan file (e.g. 'auth-system'). Auto-generated from task if not provided."`
+	Context    string `json:"context,omitempty" description:"Additional context about the codebase, constraints, or preferences"`
+	Acceptance string `json:"acceptance,omitempty" description:"Specific acceptance criteria the plan should address"`
 }
 
 // PlanEntry represents a single task within a plan.
@@ -37,13 +37,13 @@ type PlanEntry struct {
 
 // Plan represents a complete work plan.
 type Plan struct {
-	Name        string      `json:"name"`
-	Objective   string      `json:"objective"`
-	Scope       string      `json:"scope"`
-	Approach    string      `json:"approach"`
-	Tasks       []PlanEntry `json:"tasks"`
-	CreatedAt   string      `json:"created_at"`
-	FilePath    string      `json:"file_path"`
+	Name      string      `json:"name"`
+	Objective string      `json:"objective"`
+	Scope     string      `json:"scope"`
+	Approach  string      `json:"approach"`
+	Tasks     []PlanEntry `json:"tasks"`
+	CreatedAt string      `json:"created_at"`
+	FilePath  string      `json:"file_path"`
 }
 
 func NewPlannerTool(workingDir string) fantasy.AgentTool {
