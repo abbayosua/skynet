@@ -115,20 +115,32 @@ func (p *deepseekProvider) captureReasoning(resp *fantasy.Response) {
 	}
 }
 
-// ensureReasoningInPrompt adds the last captured reasoning_content to
-// assistant messages that don't have one, ensuring DeepSeek prefix cache
-// works (consistent payload structure across turns).
+// ensureReasoningInPrompt adds reasoning_content to assistant messages
+// that don't have one. It extracts reasoning from the most recent assistant
+// message in the prompt (from history), so it works for both streaming and
+// non-streaming modes.
 //
 // IMPORTANT: Never inject empty reasoning_content — DeepSeek rejects
 // requests with "reasoning_content": "". Only inject when we have a
 // non-empty reasoning string from a previous turn.
 func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantasy.Prompt {
+	// First, try to extract reasoning from the prompt's assistant messages
+	// This is more reliable than capturing from responses (which doesn't work for streaming)
+	reasoningFromHistory := extractLastReasoning(prompt)
+
+	// Fall back to captured reasoning from non-streaming responses
 	p.mu.Lock()
-	lastReasoning := p.lastReasoning
+	capturedReasoning := p.lastReasoning
 	p.mu.Unlock()
 
-	// No reasoning captured yet — nothing to inject
-	if lastReasoning == "" {
+	// Use whichever we have (prefer history as it's more complete)
+	reasoning := reasoningFromHistory
+	if reasoning == "" {
+		reasoning = capturedReasoning
+	}
+
+	// No reasoning found anywhere — nothing to inject
+	if reasoning == "" {
 		return prompt
 	}
 
@@ -153,19 +165,32 @@ func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantas
 			continue
 		}
 
-		// Only inject if we have actual reasoning content (non-empty)
-		// Empty string causes DeepSeek to reject the request
-		if lastReasoning == "" {
-			patched[i] = msg
-			continue
-		}
-
 		newMsg := msg
 		newMsg.Content = append([]fantasy.MessagePart{
-			fantasy.ReasoningPart{Text: lastReasoning},
+			fantasy.ReasoningPart{Text: reasoning},
 		}, msg.Content...)
 		patched[i] = newMsg
 	}
 
 	return patched
+}
+
+// extractLastReasoning scans assistant messages in the prompt and returns
+// the most recent non-empty reasoning_content. Works for both streaming
+// and non-streaming modes since it reads from the history.
+func extractLastReasoning(prompt fantasy.Prompt) string {
+	var lastReasoning string
+	for _, msg := range prompt {
+		if msg.Role != fantasy.MessageRoleAssistant {
+			continue
+		}
+		for _, c := range msg.Content {
+			if rc, ok := c.(fantasy.ReasoningPart); ok {
+				if rc.Text != "" {
+					lastReasoning = rc.Text
+				}
+			}
+		}
+	}
+	return lastReasoning
 }
