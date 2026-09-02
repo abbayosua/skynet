@@ -1744,6 +1744,25 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			}
 			return util.NewInfoMsg("Answer Short prompt updated")
 		})
+	case dialog.ActionAutopilot:
+		m.dialog.CloseFrontDialog()
+		if m.com.Workspace.AgentIsSessionBusy(m.session.ID) {
+			cmds = append(cmds, util.ReportError(fmt.Errorf("agent is busy - wait for the current task to finish")))
+			break
+		}
+		goal := msg.Goal
+		sessionID := m.session.ID
+		cmds = append(cmds, func() tea.Msg {
+			ctx := context.Background()
+			if err := m.com.Workspace.AgentAutoPilot(ctx, sessionID, goal); err != nil &&
+				!errors.Is(err, context.Canceled) {
+				return util.InfoMsg{
+					Type: util.InfoTypeError,
+					Msg:  fmt.Sprintf("autopilot: %v", err),
+				}
+			}
+			return nil
+		})
 	case dialog.ActionRunMCPPrompt:
 		if len(msg.Arguments) > 0 && msg.Args == nil {
 			m.dialog.CloseFrontDialog()
@@ -3484,6 +3503,10 @@ func (m *UI) openDialog(id string) tea.Cmd {
 		if cmd := m.openEditAnswerShortPromptDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	case dialog.AutopilotID:
+		if cmd := m.openAutopilotDialog(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	default:
 		// Unknown dialog
 		break
@@ -3560,6 +3583,18 @@ func (m *UI) openEditAnswerShortPromptDialog() tea.Cmd {
 	}
 
 	dia, cmd := dialog.NewEditAnswerShortPrompt(m.com, current)
+	m.dialog.OpenDialog(dia)
+	return cmd
+}
+
+// openAutopilotDialog opens the autopilot goal input dialog.
+func (m *UI) openAutopilotDialog() tea.Cmd {
+	if m.dialog.ContainsDialog(dialog.AutopilotID) {
+		m.dialog.BringToFront(dialog.AutopilotID)
+		return nil
+	}
+
+	dia, cmd := dialog.NewAutopilot(m.com)
 	m.dialog.OpenDialog(dia)
 	return cmd
 }

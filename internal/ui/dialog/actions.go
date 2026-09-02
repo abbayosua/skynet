@@ -69,6 +69,7 @@ type (
 	ActionConnectTelegram             struct{ Token string }
 	ActionDisconnectTelegram          struct{}
 	ActionInitializeProject           struct{}
+	ActionAutopilot                   struct{ Goal string }
 	ActionSummarize                   struct {
 		SessionID string
 	}

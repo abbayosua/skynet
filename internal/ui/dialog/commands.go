@@ -545,8 +545,8 @@ func (c *Commands) defaultCommands() []*CommandItem {
 		NewCommandItem(c.com.Styles, "toggle_help", "Toggle Help", "ctrl+g", ActionToggleHelp{}),
 		NewCommandItem(c.com.Styles, "init", "Initialize Project", "", ActionInitializeProject{}),
 		NewCommandItem(c.com.Styles, "save_command", "Save Command", "", ActionOpenDialog{DialogID: SaveCommandID}),
+		NewCommandItem(c.com.Styles, "autopilot", "Autopilot", "", ActionOpenDialog{DialogID: AutopilotID}),
 	)
-
 	// Add transparent background toggle.
 	transparentLabel := "Disable Background Color"
 	if cfg != nil && cfg.Options != nil && cfg.Options.TUI.Transparent != nil && *cfg.Options.TUI.Transparent {

@@ -221,5 +221,13 @@ func extractJSONFieldRepair(input, field string) string {
 }
 
 func shouldUseArgsRepair(providerID string) bool {
-	return strings.HasPrefix(providerID, "opencode")
+	if strings.HasPrefix(providerID, "opencode") {
+		return true
+	}
+	// B.ai uses DeepSeek models which sometimes omit required tool params.
+// B.ai uses DeepSeek models which sometimes omit required tool params.
+	if providerID == "b-ai" || strings.HasPrefix(providerID, "b-ai-") {
+		return true
+	}
+	return false
 }
