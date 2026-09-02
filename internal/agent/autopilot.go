@@ -50,6 +50,7 @@ func (c *coordinator) RunAutoPilotGoal(ctx context.Context, sessionID, goal stri
 	if maxSteps <= 0 {
 		maxSteps = autopilotDefaultMaxSteps
 	}
+	slog.Info("AutoPilot started", "session_id", sessionID, "goal", goal, "max_steps", maxSteps)
 
 	writeLine := func(format string, args ...any) {
 		if output == nil {
@@ -70,7 +71,7 @@ func (c *coordinator) RunAutoPilotGoal(ctx context.Context, sessionID, goal stri
 	writeLine("  🎯 Goal: %s", goal)
 	writeLine("  📝 Phase 1/3: Planning...")
 
-	result, err := c.Run(ctx, sessionID, buildPlanPrompt(goal))
+	result, err := c.Run(ctx, sessionID, buildPlanPrompt(goal, maxSteps))
 	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -183,14 +184,15 @@ func (c *coordinator) runAutoPilotFallback(
 
 // buildPlanPrompt asks for a strictly formatted checklist so steps can
 // be parsed deterministically.
-func buildPlanPrompt(goal string) string {
+func buildPlanPrompt(goal string, maxSteps int) string {
 	return fmt.Sprintf(
 		"Create an execution plan for this goal: %s\n\n"+
 			"Output ONLY a markdown checklist, one item per concrete step, like:\n"+
 			"- [ ] Step description\n\n"+
 			"Each step must be independently executable and verifiable "+
-			"(e.g. ends with a test or build check). Do not start executing.",
-		goal)
+			"(e.g. ends with a test or build check). Do not start executing. "+
+			"You may break the plan into up to %d steps (use fewer if the goal is simple).",
+		goal, maxSteps)
 }
 
 func buildStepPrompt(number, total int, step, goal string) string {
