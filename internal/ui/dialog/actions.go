@@ -65,12 +65,15 @@ type (
 	ActionEditAnswerShortPrompt struct {
 		Prompt string
 	}
-	ActionToggleTaskPlanner           struct{}
-	ActionConnectTelegram             struct{ Token string }
-	ActionDisconnectTelegram          struct{}
-	ActionInitializeProject           struct{}
-	ActionAutopilot                   struct{ Goal string }
-	ActionSummarize                   struct {
+	ActionToggleTaskPlanner  struct{}
+	ActionConnectTelegram    struct{ Token string }
+	ActionDisconnectTelegram struct{}
+	ActionInitializeProject  struct{}
+	ActionAutopilot          struct {
+		Goal     string
+		MaxSteps int
+	}
+	ActionSummarize struct {
 		SessionID string
 	}
 	// ActionSelectReasoningEffort is a message indicating a reasoning effort

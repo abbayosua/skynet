@@ -164,7 +164,7 @@ func (w *ClientWorkspace) AgentRun(ctx context.Context, sessionID, prompt string
 	return w.client.SendMessage(ctx, w.workspaceID(), sessionID, prompt, attachments...)
 }
 
-func (w *ClientWorkspace) AgentAutoPilot(ctx context.Context, sessionID, goal string) error {
+func (w *ClientWorkspace) AgentAutoPilot(ctx context.Context, sessionID, goal string, maxSteps int) error {
 	return errors.New("autopilot is not supported in client mode")
 }
 

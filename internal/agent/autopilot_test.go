@@ -46,7 +46,7 @@ func TestParsePlanSteps(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			require.Equal(t, tt.expected, parsePlanSteps(tt.response))
+			require.Equal(t, tt.expected, parsePlanSteps(tt.response, 10))
 		})
 	}
 }
@@ -55,12 +55,12 @@ func TestParsePlanSteps_CapsAtMaxSteps(t *testing.T) {
 	t.Parallel()
 
 	response := ""
-	for i := range autopilotMaxSteps + 5 {
+	for i := 0; i < 15; i++ {
 		response += "- [ ] Step something\n"
 		_ = i
 	}
-	steps := parsePlanSteps(response)
-	require.Len(t, steps, autopilotMaxSteps)
+	steps := parsePlanSteps(response, 10)
+	require.Len(t, steps, 10)
 }
 
 func TestExtractBlockedReason(t *testing.T) {

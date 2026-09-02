@@ -92,7 +92,7 @@ type Coordinator interface {
 	Summarize(context.Context, string) error
 	Model() Model
 	UpdateModels(ctx context.Context) error
-	RunAutoPilotGoal(ctx context.Context, sessionID, goal string, output io.Writer) error
+	RunAutoPilotGoal(ctx context.Context, sessionID, goal string, maxSteps int, output io.Writer) error
 }
 
 type coordinator struct {

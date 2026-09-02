@@ -21,7 +21,7 @@ const (
 )
 
 // autopilotMaxSteps bounds the plan execution and fallback loop.
-const autopilotMaxSteps = 10
+var autopilotDefaultMaxSteps = 10
 
 var (
 	errAutoPilotGoalRequired   = errors.New("autopilot: goal is required")
@@ -40,12 +40,15 @@ var (
 // Progress lines are written to output when non-nil, and activity
 // updates are published so the TUI status line reflects the current
 // phase even while another session is open.
-func (c *coordinator) RunAutoPilotGoal(ctx context.Context, sessionID, goal string, output io.Writer) error {
+func (c *coordinator) RunAutoPilotGoal(ctx context.Context, sessionID, goal string, maxSteps int, output io.Writer) error {
 	if strings.TrimSpace(goal) == "" {
 		return errAutoPilotGoalRequired
 	}
 	if strings.TrimSpace(sessionID) == "" {
 		return errAutoPilotSessionMissing
+	}
+	if maxSteps <= 0 {
+		maxSteps = autopilotDefaultMaxSteps
 	}
 
 	writeLine := func(format string, args ...any) {
@@ -75,13 +78,13 @@ func (c *coordinator) RunAutoPilotGoal(ctx context.Context, sessionID, goal stri
 		return fmt.Errorf("autopilot: plan phase failed: %w", err)
 	}
 
-	steps := parsePlanSteps(responseText(result))
+	steps := parsePlanSteps(responseText(result), maxSteps)
 	writeLine("  📋 Plan: %d step(s)", len(steps))
 
 	if len(steps) == 0 {
 		// The model did not produce a parseable plan. Fall back to a
 		// bounded working loop instead of looping forever.
-		return c.runAutoPilotFallback(ctx, sessionID, goal, writeLine, setActivity)
+		return c.runAutoPilotFallback(ctx, sessionID, goal, maxSteps, writeLine, setActivity)
 	}
 
 	for i, step := range steps {
@@ -133,6 +136,7 @@ func (c *coordinator) RunAutoPilotGoal(ctx context.Context, sessionID, goal stri
 func (c *coordinator) runAutoPilotFallback(
 	ctx context.Context,
 	sessionID, goal string,
+	maxSteps int,
 	writeLine func(string, ...any),
 	setActivity func(string),
 ) error {
@@ -146,12 +150,12 @@ func (c *coordinator) runAutoPilotFallback(
 			"- If you cannot make progress, end your reply with %s: reason.\n",
 		goal, autopilotTagDone, autopilotTagBlockedPre)
 
-	for i := range autopilotMaxSteps {
+	for i := 0; i < maxSteps; i++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
-		setActivity(fmt.Sprintf("Autopilot: iteration %d/%d", i+1, autopilotMaxSteps))
+		setActivity(fmt.Sprintf("Autopilot: iteration %d/%d", i+1, maxSteps))
 		result, err := c.Run(ctx, sessionID, prompt)
 		if err != nil {
 			if ctx.Err() != nil {
@@ -173,7 +177,7 @@ func (c *coordinator) runAutoPilotFallback(
 		prompt = "Continue working toward the goal. If it is fully achieved, end your reply with <autopilot>DONE</autopilot>. If blocked, end with <autopilot>BLOCKED</autopilot>: reason."
 	}
 
-	writeLine("  ⏱ Stopped after %d iterations without an explicit completion.", autopilotMaxSteps)
+	writeLine("  ⏱ Stopped after %d iterations without an explicit completion.", maxSteps)
 	return nil
 }
 
@@ -209,7 +213,7 @@ var planStepRe = regexp.MustCompile(`^\s*(?:[-*]\s*\[[ xX]\]\s*|\d+[.)]\s+)(.+)$
 
 // parsePlanSteps extracts ordered steps from a markdown checklist or
 // numbered list in the model's response.
-func parsePlanSteps(response string) []string {
+func parsePlanSteps(response string, maxSteps int) []string {
 	var steps []string
 	for _, line := range strings.Split(response, "\n") {
 		m := planStepRe.FindStringSubmatch(line)
@@ -221,8 +225,8 @@ func parsePlanSteps(response string) []string {
 			steps = append(steps, step)
 		}
 	}
-	if len(steps) > autopilotMaxSteps {
-		steps = steps[:autopilotMaxSteps]
+	if maxSteps > 0 && len(steps) > maxSteps {
+		steps = steps[:maxSteps]
 	}
 	return steps
 }

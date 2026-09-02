@@ -260,11 +260,11 @@ type UI struct {
 	detailsOpen bool
 
 	// pills state
-	pillsExpanded      bool
-	focusedPillSection pillSection
-	promptQueue            int
-	pendingSchedulerQueue  []string
-	pillsView              string
+	pillsExpanded         bool
+	focusedPillSection    pillSection
+	promptQueue           int
+	pendingSchedulerQueue []string
+	pillsView             string
 
 	// Todo spinner
 	todoSpinner    spinner.Model
@@ -1711,7 +1711,8 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		))
 
 	case dialog.ActionRunCustomCommand:
-		if len(msg.Arguments) > 0 && msg.Args == nil {			m.dialog.CloseFrontDialog()
+		if len(msg.Arguments) > 0 && msg.Args == nil {
+			m.dialog.CloseFrontDialog()
 			argsDialog := dialog.NewArguments(
 				m.com,
 				"Custom Command Arguments",
@@ -1754,7 +1755,7 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		sessionID := m.session.ID
 		cmds = append(cmds, func() tea.Msg {
 			ctx := context.Background()
-			if err := m.com.Workspace.AgentAutoPilot(ctx, sessionID, goal); err != nil &&
+			if err := m.com.Workspace.AgentAutoPilot(ctx, sessionID, goal, msg.MaxSteps); err != nil &&
 				!errors.Is(err, context.Canceled) {
 				return util.InfoMsg{
 					Type: util.InfoTypeError,
@@ -3378,7 +3379,7 @@ func (m *UI) sendMessage(content string, attachments ...message.Attachment) tea.
 		}
 		return func() tea.Msg {
 			ctx := context.Background()
-			if err := m.com.Workspace.AgentAutoPilot(ctx, sessionID, goal); err != nil &&
+			if err := m.com.Workspace.AgentAutoPilot(ctx, sessionID, goal, 0); err != nil &&
 				!errors.Is(err, context.Canceled) {
 				return util.InfoMsg{
 					Type: util.InfoTypeError,
@@ -4178,5 +4179,3 @@ func renderLogo(t *styles.Styles, compact, hyper bool, width int) string {
 		Hyper:        hyper,
 	})
 }
-
-

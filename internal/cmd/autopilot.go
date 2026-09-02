@@ -39,6 +39,7 @@ skynet autopilot --continue "add tests for the job output timeout"
 		var (
 			sessionID, _ = cmd.Flags().GetString("session")
 			useLast, _   = cmd.Flags().GetBool("continue")
+			maxSteps, _  = cmd.Flags().GetInt("max-steps")
 		)
 
 		ws, cleanup, err := setupLocalWorkspace(cmd)
@@ -111,12 +112,13 @@ skynet autopilot --continue "add tests for the job output timeout"
 		)
 		fmt.Printf("Goal: %s\nSession: %s\n\n", goal, sess.ID)
 
-		return a.AgentCoordinator.RunAutoPilotGoal(ctx, sess.ID, goal, os.Stdout)
+		return a.AgentCoordinator.RunAutoPilotGoal(ctx, sess.ID, goal, maxSteps, os.Stdout)
 	},
 }
 
 func init() {
 	autopilotCmd.Flags().StringP("session", "s", "", "Existing session ID to continue in")
 	autopilotCmd.Flags().BoolP("continue", "C", false, "Continue in the most recent session")
+	autopilotCmd.Flags().IntP("max-steps", "m", 10, "Maximum number of steps/iterations")
 	autopilotCmd.MarkFlagsMutuallyExclusive("session", "continue")
 }

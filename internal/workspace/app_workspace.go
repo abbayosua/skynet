@@ -100,11 +100,11 @@ func (w *AppWorkspace) AgentRun(ctx context.Context, sessionID, prompt string, a
 // AgentAutoPilot runs the goal-driven autopilot loop in an existing
 // session. Progress streams to the session as regular messages, so the
 // TUI renders it without any special handling.
-func (w *AppWorkspace) AgentAutoPilot(ctx context.Context, sessionID, goal string) error {
+func (w *AppWorkspace) AgentAutoPilot(ctx context.Context, sessionID, goal string, maxSteps int) error {
 	if w.app.AgentCoordinator == nil {
 		return errors.New("agent coordinator not initialized")
 	}
-	return w.app.AgentCoordinator.RunAutoPilotGoal(ctx, sessionID, goal, nil)
+	return w.app.AgentCoordinator.RunAutoPilotGoal(ctx, sessionID, goal, maxSteps, nil)
 }
 
 func (w *AppWorkspace) AgentCancel(sessionID string) {
