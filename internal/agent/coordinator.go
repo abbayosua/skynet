@@ -1341,6 +1341,9 @@ func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model con
 		if err != nil {
 			return nil, err
 		}
+		if strings.HasPrefix(providerCfg.ID, "b-ai") {
+			p = newDeepseekProvider(p)
+		}
 		return p, nil
 	default:
 		return nil, fmt.Errorf("provider type not supported: %q", providerCfg.Type)
