@@ -102,47 +102,158 @@ func repairToolCallArgs(_ context.Context, opts fantasy.ToolCallRepairOptions) (
 				}
 			}
 		}
-		if toolName == "bash" {
-			hasCmd := isNonEmptyStringRepair(raw["command"])
-			hasDesc := isNonEmptyStringRepair(raw["description"])
-			if !hasCmd {
-				if v, ok := raw["description"]; ok {
-					var s string
-					if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
-						b, _ := json.Marshal(s)
-						raw["command"] = b
-						aliasFixed = true
-						hasCmd = true
-					}
-				}
-				if !hasCmd {
-					if m := extractJSONFieldRepair(input, "command"); m != "" {
-						b, _ := json.Marshal(m)
-						raw["command"] = b
-						aliasFixed = true
-					}
+	}
+	if toolName == "bash" {
+		hasCmd := isNonEmptyStringRepair(raw["command"])
+		hasDesc := isNonEmptyStringRepair(raw["description"])
+		if !hasCmd {
+			if v, ok := raw["description"]; ok {
+				var s string
+				if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+					b, _ := json.Marshal(s)
+					raw["command"] = b
+					aliasFixed = true
+					hasCmd = true
 				}
 			}
-			if !hasDesc {
-				if v, ok := raw["command"]; ok {
-					var s string
-					if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
-						desc := s
-						if len(desc) > 30 {
-							desc = desc[:30]
-						}
-						b, _ := json.Marshal(desc)
-						raw["description"] = b
-						aliasFixed = true
-					} else if m := extractJSONFieldRepair(input, "description"); m != "" {
-						b, _ := json.Marshal(m)
-						raw["description"] = b
-						aliasFixed = true
+			if !hasCmd {
+				if m := extractJSONFieldRepair(input, "command"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["command"] = b
+					aliasFixed = true
+				}
+			}
+		}
+		if !hasDesc {
+			if v, ok := raw["command"]; ok {
+				var s string
+				if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+					desc := s
+					if len(desc) > 30 {
+						desc = desc[:30]
 					}
+					b, _ := json.Marshal(desc)
+					raw["description"] = b
+					aliasFixed = true
 				} else if m := extractJSONFieldRepair(input, "description"); m != "" {
 					b, _ := json.Marshal(m)
 					raw["description"] = b
 					aliasFixed = true
+				}
+			} else if m := extractJSONFieldRepair(input, "description"); m != "" {
+				b, _ := json.Marshal(m)
+				raw["description"] = b
+				aliasFixed = true
+			}
+		}
+	}
+	if toolName == "write" {
+		if !isNonEmptyStringRepair(raw["file_path"]) {
+			for _, alias := range []string{"filePath", "path", "filepath"} {
+				if v, ok := raw[alias]; ok {
+					raw["file_path"] = v
+					aliasFixed = true
+					break
+				}
+			}
+			if !isNonEmptyStringRepair(raw["file_path"]) {
+				if m := extractJSONFieldRepair(input, "file_path"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["file_path"] = b
+					aliasFixed = true
+				}
+			}
+		}
+		if !isNonEmptyStringRepair(raw["content"]) {
+			for _, alias := range []string{"text", "body", "data", "file_content"} {
+				if v, ok := raw[alias]; ok {
+					raw["content"] = v
+					aliasFixed = true
+					break
+				}
+			}
+			if !isNonEmptyStringRepair(raw["content"]) {
+				if m := extractJSONFieldRepair(input, "content"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["content"] = b
+					aliasFixed = true
+				}
+			}
+		}
+	}
+	if toolName == "edit" {
+		if !isNonEmptyStringRepair(raw["file_path"]) {
+			for _, alias := range []string{"filePath", "path", "filepath"} {
+				if v, ok := raw[alias]; ok {
+					raw["file_path"] = v
+					aliasFixed = true
+					break
+				}
+			}
+			if !isNonEmptyStringRepair(raw["file_path"]) {
+				if m := extractJSONFieldRepair(input, "file_path"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["file_path"] = b
+					aliasFixed = true
+				}
+			}
+		}
+		if !isNonEmptyStringRepair(raw["old_string"]) {
+			for _, alias := range []string{"oldString", "find", "search", "old_text", "oldText"} {
+				if v, ok := raw[alias]; ok {
+					raw["old_string"] = v
+					aliasFixed = true
+					break
+				}
+			}
+			if !isNonEmptyStringRepair(raw["old_string"]) {
+				if m := extractJSONFieldRepair(input, "old_string"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["old_string"] = b
+					aliasFixed = true
+				}
+			}
+		}
+		if !isNonEmptyStringRepair(raw["new_string"]) {
+			for _, alias := range []string{"newString", "replace", "replacement", "new_text", "newText"} {
+				if v, ok := raw[alias]; ok {
+					raw["new_string"] = v
+					aliasFixed = true
+					break
+				}
+			}
+			if !isNonEmptyStringRepair(raw["new_string"]) {
+				if m := extractJSONFieldRepair(input, "new_string"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["new_string"] = b
+					aliasFixed = true
+				}
+			}
+		}
+	}
+	if toolName == "multiedit" {
+		if !isNonEmptyStringRepair(raw["file_path"]) {
+			for _, alias := range []string{"filePath", "path", "filepath"} {
+				if v, ok := raw[alias]; ok {
+					raw["file_path"] = v
+					aliasFixed = true
+					break
+				}
+			}
+			if !isNonEmptyStringRepair(raw["file_path"]) {
+				if m := extractJSONFieldRepair(input, "file_path"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["file_path"] = b
+					aliasFixed = true
+				}
+			}
+		}
+		if !isNonEmptyStringRepair(raw["edits"]) {
+			for _, alias := range []string{"changes", "operations", "replacements", "edit_operations"} {
+				if v, ok := raw[alias]; ok {
+					raw["edits"] = v
+					aliasFixed = true
+					break
 				}
 			}
 		}
@@ -168,7 +279,7 @@ func isNonEmptyStringRepair(raw json.RawMessage) bool {
 	}
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
-		return true
+		return false
 	}
 	return strings.TrimSpace(s) != ""
 }
@@ -225,8 +336,7 @@ func shouldUseArgsRepair(providerID string) bool {
 		return true
 	}
 	// B.ai uses DeepSeek models which sometimes omit required tool params.
-// B.ai uses DeepSeek models which sometimes omit required tool params.
-	if providerID == "b-ai" || strings.HasPrefix(providerID, "b-ai-") {
+	if providerID == "b-ai" || strings.HasPrefix(providerID, "b-ai-") || strings.Contains(providerID, "deepseek") {
 		return true
 	}
 	return false

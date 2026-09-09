@@ -9,7 +9,7 @@ import (
 // Build-time parameters set via -ldflags.
 
 var (
-	Version = "devel"
+	Version = "v0.1.28"
 	Commit  = "unknown"
 	// BuildID is a unique identifier for this build. For release builds it
 	// equals Commit; for development builds (go run / go build without
@@ -23,6 +23,13 @@ var (
 // we use the embedded build version that *is* set when using `go install` (and
 // is only set for `go install` and not for `go build`).
 func init() {
+	// If Version was set via ldflags (not "devel"), keep it as-is.
+	if Version != "devel" {
+		if BuildID == "" {
+			BuildID = deriveBuildID()
+		}
+		return
+	}
 	info, ok := debug.ReadBuildInfo()
 	if ok {
 		mainVersion := info.Main.Version
@@ -30,7 +37,6 @@ func init() {
 			Version = mainVersion
 		}
 	}
-
 	// Derive BuildID when not set via ldflags.
 	if BuildID == "" {
 		BuildID = deriveBuildID()

@@ -1,7 +1,7 @@
 # Issue: muse-spark-1.2-contributor via opencode-go — Missing Required Parameters
 
 > Created: 2026-08-27
-> **Status**: Open — needs fix
+> **Status**: Fixed
 > **Model**: `muse-spark-1.2-contributor` via `opencode-go` provider (Responses API)
 
 ## Problem

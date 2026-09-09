@@ -20,8 +20,8 @@ import (
 )
 
 type BashParams struct {
-	Description         string `json:"description" description:"REQUIRED: A brief description of what the command does, try to keep it under 30 characters or so (required, do not omit)"`
-	Command             string `json:"command" description:"REQUIRED: The command to execute (required, do not omit)"`
+	Description         string `json:"description" description:"A brief description of what the command does, try to keep it under 30 characters or so"`
+	Command             string `json:"command" description:"The command to execute"`
 	WorkingDir          string `json:"working_dir,omitempty" description:"The working directory to execute the command in (defaults to current directory)"`
 	RunInBackground     bool   `json:"run_in_background,omitempty" description:"Set to true (boolean) to run this command in the background. Use job_output to read the output later."`
 	AutoBackgroundAfter int    `json:"auto_background_after,omitempty" description:"Seconds to wait before automatically moving the command to a background job (default: 60)"`
@@ -62,15 +62,20 @@ var bashDescriptionTpl = template.Must(
 )
 
 type bashDescriptionData struct {
+	BannedCommands  string
 	MaxOutputLength int
 	Attribution     config.Attribution
 	ModelID         string
 	RgAvailable     bool
 }
 
+var bannedCommands = []string{}
+
 func bashDescription(attribution *config.Attribution, modelID string) string {
+	bannedCommandsStr := strings.Join(bannedCommands, ", ")
 	var out bytes.Buffer
 	if err := bashDescriptionTpl.Execute(&out, bashDescriptionData{
+		BannedCommands:  bannedCommandsStr,
 		MaxOutputLength: MaxOutputLength,
 		Attribution:     *attribution,
 		ModelID:         modelID,
@@ -83,7 +88,35 @@ func bashDescription(attribution *config.Attribution, modelID string) string {
 }
 
 func blockFuncs() []shell.BlockFunc {
-	return nil
+	return []shell.BlockFunc{
+		shell.CommandsBlocker(bannedCommands),
+
+		// System package managers
+		shell.ArgumentsBlocker("apk", []string{"add"}, nil),
+		shell.ArgumentsBlocker("apt", []string{"install"}, nil),
+		shell.ArgumentsBlocker("apt-get", []string{"install"}, nil),
+		shell.ArgumentsBlocker("dnf", []string{"install"}, nil),
+		shell.ArgumentsBlocker("pacman", nil, []string{"-S"}),
+		shell.ArgumentsBlocker("pkg", []string{"install"}, nil),
+		shell.ArgumentsBlocker("yum", []string{"install"}, nil),
+		shell.ArgumentsBlocker("zypper", []string{"install"}, nil),
+
+		// Language-specific package managers
+		shell.ArgumentsBlocker("brew", []string{"install"}, nil),
+		shell.ArgumentsBlocker("cargo", []string{"install"}, nil),
+		shell.ArgumentsBlocker("gem", []string{"install"}, nil),
+		shell.ArgumentsBlocker("go", []string{"install"}, nil),
+		shell.ArgumentsBlocker("npm", []string{"install"}, []string{"--global"}),
+		shell.ArgumentsBlocker("npm", []string{"install"}, []string{"-g"}),
+		shell.ArgumentsBlocker("pip", []string{"install"}, []string{"--user"}),
+		shell.ArgumentsBlocker("pip3", []string{"install"}, []string{"--user"}),
+		shell.ArgumentsBlocker("pnpm", []string{"add"}, []string{"--global"}),
+		shell.ArgumentsBlocker("pnpm", []string{"add"}, []string{"-g"}),
+		shell.ArgumentsBlocker("yarn", []string{"global", "add"}, nil),
+
+		// `go test -exec` can run arbitrary commands
+		shell.ArgumentsBlocker("go", []string{"test"}, []string{"-exec"}),
+	}
 }
 
 func NewBashTool(permissions permission.Service, workingDir string, attribution *config.Attribution, modelID string) fantasy.AgentTool {
@@ -92,10 +125,7 @@ func NewBashTool(permissions permission.Service, workingDir string, attribution 
 		string(bashDescription(attribution, modelID)),
 		func(ctx context.Context, params BashParams, call fantasy.ToolCall) (fantasy.ToolResponse, error) {
 			if params.Command == "" {
-				return fantasy.NewTextErrorResponse("missing required parameter: command — please retry with both 'command' and 'description' filled (e.g. {\"command\":\"echo hi\",\"description\":\"run echo\"})"), nil
-			}
-			if params.Description == "" {
-				return fantasy.NewTextErrorResponse("missing required parameter: description — please retry with both 'command' and 'description' filled (e.g. {\"command\":\"echo hi\",\"description\":\"run echo\"})"), nil
+				return fantasy.NewTextErrorResponse("missing command"), nil
 			}
 
 			ReportActivity(ctx, "Running: "+params.Command)

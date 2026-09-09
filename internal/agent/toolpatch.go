@@ -8,24 +8,40 @@ import (
 	"charm.land/fantasy"
 )
 
-func patchToolSchemas(tools []fantasy.AgentTool, providerID string) []fantasy.AgentTool {
+func patchToolSchemas(tools []fantasy.AgentTool, providerID, modelID string) []fantasy.AgentTool {
 	if !strings.HasPrefix(providerID, "opencode") {
 		return tools
 	}
+	hasReqHint := strings.Contains(strings.ToLower(modelID), "muse")
 	patched := make([]fantasy.AgentTool, len(tools))
 	for i, tool := range tools {
-		patched[i] = &noRequiredTool{inner: tool}
+		patched[i] = &noRequiredTool{inner: tool, hasReqHint: hasReqHint}
 	}
 	return patched
 }
 
 type noRequiredTool struct {
-	inner fantasy.AgentTool
+	inner      fantasy.AgentTool
+	hasReqHint bool
 }
 
 func (t *noRequiredTool) Info() fantasy.ToolInfo {
 	info := t.inner.Info()
 	info.Required = []string{}
+	if t.hasReqHint && info.Parameters != nil {
+		newParams := make(map[string]any, len(info.Parameters))
+		for k, v := range info.Parameters {
+			if obj, ok := v.(map[string]any); ok {
+				if desc, ok := obj["description"].(string); ok && desc != "" && !strings.HasPrefix(desc, "[REQ] ") {
+					obj["description"] = "[REQ] " + desc
+				}
+				newParams[k] = obj
+			} else {
+				newParams[k] = v
+			}
+		}
+		info.Parameters = newParams
+	}
 	return info
 }
 
@@ -78,8 +94,108 @@ func repairOpencodeInput(input string, info fantasy.ToolInfo) string {
 	}
 	if len(info.Required) == 0 {
 		if len(raw) != origLen {
+			if info.Name == "bash" {
+				changed := false
+				hasCmd := isNonEmptyString(raw["command"])
+				hasDesc := isNonEmptyString(raw["description"])
+				if !hasCmd {
+					if v, ok := raw["description"]; ok {
+						var s string
+						if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+							b, _ := json.Marshal(s)
+							raw["command"] = b
+							changed = true
+							hasCmd = true
+						}
+					}
+					if !hasCmd {
+						if m := extractJSONField(input, "command"); m != "" {
+							b, _ := json.Marshal(m)
+							raw["command"] = b
+							changed = true
+						}
+					}
+				}
+				if !hasDesc {
+					if v, ok := raw["command"]; ok {
+						var s string
+						if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+							desc := s
+							if len(desc) > 30 {
+								desc = desc[:30]
+							}
+							b, _ := json.Marshal(desc)
+							raw["description"] = b
+							changed = true
+						} else if m := extractJSONField(input, "description"); m != "" {
+							b, _ := json.Marshal(m)
+							raw["description"] = b
+							changed = true
+						}
+					} else if m := extractJSONField(input, "description"); m != "" {
+						b, _ := json.Marshal(m)
+						raw["description"] = b
+						changed = true
+					}
+				}
+				if changed {
+					if b, err := json.Marshal(raw); err == nil {
+						return string(b)
+					}
+				}
+			}
 			if b, err := json.Marshal(raw); err == nil {
 				return string(b)
+			}
+		}
+		if info.Name == "bash" {
+			changed := false
+			hasCmd := isNonEmptyString(raw["command"])
+			hasDesc := isNonEmptyString(raw["description"])
+			if !hasCmd {
+				if v, ok := raw["description"]; ok {
+					var s string
+					if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+						b, _ := json.Marshal(s)
+						raw["command"] = b
+						changed = true
+						hasCmd = true
+					}
+				}
+				if !hasCmd {
+					if m := extractJSONField(input, "command"); m != "" {
+						b, _ := json.Marshal(m)
+						raw["command"] = b
+						changed = true
+					}
+				}
+			}
+			if !hasDesc {
+				if v, ok := raw["command"]; ok {
+					var s string
+					if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+						desc := s
+						if len(desc) > 30 {
+							desc = desc[:30]
+						}
+						b, _ := json.Marshal(desc)
+						raw["description"] = b
+						changed = true
+					} else if m := extractJSONField(input, "description"); m != "" {
+						b, _ := json.Marshal(m)
+						raw["description"] = b
+						changed = true
+					}
+				} else if m := extractJSONField(input, "description"); m != "" {
+					b, _ := json.Marshal(m)
+					raw["description"] = b
+					changed = true
+				}
+			}
+			if changed {
+				if b, err := json.Marshal(raw); err == nil {
+					return string(b)
+				}
 			}
 		}
 		return ""
@@ -228,7 +344,7 @@ func extractJSONField(input, field string) string {
 				}
 				if quoteStart != -1 {
 					for j := quoteStart + 1; j < len(tmp); j++ {
-						if tmp[j] == '"' && (j==0 || tmp[j-1] != '\\') {
+						if tmp[j] == '"' && (j == 0 || tmp[j-1] != '\\') {
 							return tmp[quoteStart+1 : j]
 						}
 					}
@@ -297,7 +413,7 @@ func isNonEmptyString(raw json.RawMessage) bool {
 	}
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
-		return true
+		return false
 	}
 	return strings.TrimSpace(s) != ""
 }
