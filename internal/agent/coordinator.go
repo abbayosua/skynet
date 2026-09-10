@@ -93,6 +93,13 @@ type Coordinator interface {
 	Model() Model
 	UpdateModels(ctx context.Context) error
 	RunAutoPilotGoal(ctx context.Context, sessionID, goal string, maxSteps int, output io.Writer) error
+	// SetAutoCompactTokens sets the auto-compact threshold for a session.
+	// A positive value compacts at an exact token count; zero disables
+	// custom compaction for the session (context-window default).
+	SetAutoCompactTokens(sessionID string, tokens int64)
+	// AutoCompactTokens returns the custom threshold for a session, or
+	// zero when disabled (default behavior).
+	AutoCompactTokens(sessionID string) int64
 }
 
 type coordinator struct {
@@ -730,6 +737,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *promptpkg.Prompt, 
 	}
 
 	largeProviderCfg, _ := c.cfg.Config().Providers.Get(large.ModelCfg.Provider)
+
 	result := NewSessionAgent(SessionAgentOptions{
 		LargeModel:           large,
 		SmallModel:           small,
@@ -909,7 +917,8 @@ func (c *coordinator) buildTools(ctx context.Context, agent config.Agent, isSubA
 	// which fields are mandatory. Works around charm.land/fantasy omitting
 	// the top-level "required" array in schema.ToParameters().
 	providerID := c.cfg.Config().Models[config.SelectedModelTypeLarge].Provider
-	filteredTools = patchToolSchemas(filteredTools, providerID)
+	modelID = c.cfg.Config().Models[config.SelectedModelTypeLarge].Model
+	filteredTools = patchToolSchemas(filteredTools, providerID, modelID)
 
 	// Wrap tools with hook interception for the top-level agent only.
 	// Sub-agents (the `agent` task tool, `agentic_fetch`, etc.) run
@@ -1043,6 +1052,13 @@ func (c *coordinator) buildOpenaiProvider(baseURL, apiKey string, headers map[st
 	opts := []openai.Option{
 		openai.WithAPIKey(apiKey),
 		openai.WithUseResponsesAPI(),
+		openai.WithResponsesAPIFunc(func(modelID string) bool {
+			if openai.IsResponsesModel(modelID) {
+				return true
+			}
+			id := strings.ToLower(modelID)
+			return strings.Contains(id, "gpt-5") || strings.Contains(id, "gpt-5.")
+		}),
 	}
 	if c.cfg.Config().Options.Debug {
 		httpClient := log.NewHTTPClient()
@@ -1341,7 +1357,7 @@ func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model con
 		if err != nil {
 			return nil, err
 		}
-		if strings.HasPrefix(providerCfg.ID, "b-ai") {
+		if strings.HasPrefix(providerCfg.ID, "b-ai") || strings.Contains(providerCfg.ID, "deepseek") {
 			p = newDeepseekProvider(p)
 		}
 		return p, nil
@@ -1359,6 +1375,19 @@ func isExactoSupported(modelID string) bool {
 		"qwen/qwen3-coder",
 	}
 	return slices.Contains(supportedModels, modelID)
+}
+
+// SetAutoCompactTokens sets the auto-compact threshold for a session on
+// the main agent. A positive value compacts at an exact token count;
+// zero disables custom compaction for the session.
+func (c *coordinator) SetAutoCompactTokens(sessionID string, tokens int64) {
+	c.currentAgent.SetAutoCompactTokens(sessionID, tokens)
+}
+
+// AutoCompactTokens returns the custom auto-compact threshold for a
+// session, or zero when disabled (default behavior).
+func (c *coordinator) AutoCompactTokens(sessionID string) int64 {
+	return c.currentAgent.AutoCompactTokens(sessionID)
 }
 
 func (c *coordinator) Cancel(sessionID string) {
