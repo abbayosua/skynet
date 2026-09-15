@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,17 +36,19 @@ func (m *mockSessionAgent) SetSystemPrompt(systemPrompt string) {}
 func (m *mockSessionAgent) Cancel(sessionID string) {
 	m.cancelled = append(m.cancelled, sessionID)
 }
-func (m *mockSessionAgent) CancelAll()                                  {}
-func (m *mockSessionAgent) IsSessionBusy(sessionID string) bool         { return false }
-func (m *mockSessionAgent) IsBusy() bool                                { return false }
-func (m *mockSessionAgent) QueuedPrompts(sessionID string) int          { return 0 }
-func (m *mockSessionAgent) QueuedPromptsList(sessionID string) []string { return nil }
-func (m *mockSessionAgent) ClearQueue(sessionID string)                 {}
-func (m *mockSessionAgent) EnqueuePrompt(sessionID, prompt string)      {}
-func (m *mockSessionAgent) SetAnswerShort(enabled bool)                 {}
-func (m *mockSessionAgent) AnswerShort() bool                           { return false }
-func (m *mockSessionAgent) SetAnswerShortPrompt(prompt string)          {}
-func (m *mockSessionAgent) AnswerShortPrompt() string                   { return "" }
+func (m *mockSessionAgent) CancelAll()                                          {}
+func (m *mockSessionAgent) IsSessionBusy(sessionID string) bool                 { return false }
+func (m *mockSessionAgent) IsBusy() bool                                        { return false }
+func (m *mockSessionAgent) QueuedPrompts(sessionID string) int                  { return 0 }
+func (m *mockSessionAgent) QueuedPromptsList(sessionID string) []string         { return nil }
+func (m *mockSessionAgent) ClearQueue(sessionID string)                         {}
+func (m *mockSessionAgent) EnqueuePrompt(sessionID, prompt string)              {}
+func (m *mockSessionAgent) SetAnswerShort(enabled bool)                         {}
+func (m *mockSessionAgent) AnswerShort() bool                                   { return false }
+func (m *mockSessionAgent) SetAnswerShortPrompt(prompt string)                  {}
+func (m *mockSessionAgent) AnswerShortPrompt() string                           { return "" }
+func (m *mockSessionAgent) SetAutoCompactTokens(sessionID string, tokens int64) {}
+func (m *mockSessionAgent) AutoCompactTokens(sessionID string) int64            { return 0 }
 func (m *mockSessionAgent) Summarize(context.Context, string, fantasy.ProviderOptions) error {
 	return nil
 }
@@ -442,16 +446,64 @@ func TestOpenCodeSessionID(t *testing.T) {
 }
 
 func TestProviderHeadersOpencodeSession(t *testing.T) {
-	for _, providerID := range []string{string(catwalk.InferenceProviderOpenCodeGo), string(catwalk.InferenceProviderOpenCodeZen)} {
-		providerCfg := config.ProviderConfig{ID: providerID, Type: catwalk.Type("openai-compat")}
-		headers := providerHeaders(providerCfg, false)
+	tmpDir := t.TempDir()
+
+	// Aliases and custom variants must all be treated as opencode providers.
+	for _, providerCfg := range []config.ProviderConfig{
+		{ID: string(catwalk.InferenceProviderOpenCodeGo), Type: catwalk.Type("openai-compat")},
+		{ID: string(catwalk.InferenceProviderOpenCodeZen), Type: catwalk.Type("openai-compat")},
+		{ID: "opencode-zen-bangdjarot", Type: catwalk.Type("openai-compat")},
+		{ID: "my-gateway", Type: catwalk.Type("openai-compat"), BaseURL: "https://opencode.ai/zen/go/v1"},
+	} {
+		headers := providerHeaders(providerCfg, false, tmpDir)
 		assert.Regexp(t, `^ses_[0-9A-Za-z]{26}$`, headers["x-opencode-session"],
-			"provider %q should get a generated session id", providerID)
+			"provider %q should get a persistent session id", providerCfg.ID)
 	}
 
-	other := providerHeaders(config.ProviderConfig{ID: "openai", Type: catwalk.Type("openai")}, false)
+	other := providerHeaders(config.ProviderConfig{ID: "openai", Type: catwalk.Type("openai")}, false, tmpDir)
 	_, ok := other["x-opencode-session"]
 	assert.False(t, ok, "non-opencode providers should not get a session id")
+}
+
+func TestStableOpenCodeSessionIDPersistsAcrossProcesses(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	first := stableOpenCodeSessionID(tmpDir)
+	require.Regexp(t, `^ses_[0-9A-Za-z]{26}$`, first)
+
+	// Every call within the same data dir stays constant, so the routing
+	// header never changes mid-session.
+	assert.Equal(t, first, stableOpenCodeSessionID(tmpDir))
+
+	// Drop the in-process cache to simulate a fresh `skynet run` process. The
+	// id must survive, otherwise the gateway sees a new conversation and the
+	// upstream prefix cache is cold again.
+	opencodeSessionIDsMu.Lock()
+	opencodeSessionIDs = make(map[string]string)
+	opencodeSessionIDsMu.Unlock()
+
+	assert.Equal(t, first, stableOpenCodeSessionID(tmpDir),
+		"session id must be read back from disk on a new process")
+}
+
+func TestLoadOrCreateOpencodeSessionIDRegeneratesCorruptFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, opencodeSessionIDFile)
+	require.NoError(t, os.WriteFile(path, []byte("ses_truncated"), 0o600))
+
+	id := loadOrCreateOpencodeSessionID(tmpDir)
+	require.True(t, isOpencodeSessionID(id), "corrupt file should be replaced with a valid id, got %q", id)
+
+	onDisk, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, id, string(onDisk), "regenerated id should be persisted")
+}
+
+func TestIsOpencodeProvider(t *testing.T) {
+	assert.True(t, isOpencodeProvider(config.ProviderConfig{ID: "opencode-go"}))
+	assert.True(t, isOpencodeProvider(config.ProviderConfig{ID: "opencode-zen-nvb"}))
+	assert.True(t, isOpencodeProvider(config.ProviderConfig{BaseURL: "https://opencode.ai/zen/v1"}))
+	assert.False(t, isOpencodeProvider(config.ProviderConfig{ID: "deepseek", BaseURL: "https://api.deepseek.com/v1"}))
 }
 
 func TestProviderHeadersUserExtraHeadersPreserved(t *testing.T) {
@@ -460,7 +512,7 @@ func TestProviderHeadersUserExtraHeadersPreserved(t *testing.T) {
 		Type:         catwalk.Type("openai-compat"),
 		ExtraHeaders: map[string]string{"X-Custom": "value"},
 	}
-	headers := providerHeaders(providerCfg, false)
+	headers := providerHeaders(providerCfg, false, t.TempDir())
 	assert.Equal(t, "value", headers["X-Custom"], "user extra headers should be preserved")
 	assert.Contains(t, headers, "x-opencode-session")
 }

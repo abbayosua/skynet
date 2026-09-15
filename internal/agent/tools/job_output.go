@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/fantasy"
 	"github.com/abbayosua/skynet/internal/shell"
@@ -20,6 +21,7 @@ var jobOutputDescription string
 type JobOutputParams struct {
 	ShellID string `json:"shell_id" description:"The ID of the background shell to retrieve output from"`
 	Wait    bool   `json:"wait" description:"If true, block until the background shell completes before returning output"`
+	Timeout int    `json:"timeout,omitempty" description:"When wait is true, max seconds to wait (default 30, max 300). Returns current output with running status if exceeded, so the agent can re-poll. Prevents infinite hang on never-ending jobs (e.g. dev servers)"`
 }
 
 type JobOutputResponseMetadata struct {
@@ -46,7 +48,27 @@ func NewJobOutputTool() fantasy.AgentTool {
 			}
 
 			if params.Wait {
-				bgShell.WaitContext(ctx)
+				waitDur := 30 * time.Second
+				if params.Timeout > 0 {
+					waitDur = time.Duration(params.Timeout) * time.Second
+					if waitDur > 300*time.Second {
+						waitDur = 300 * time.Second
+					}
+					if waitDur < time.Second {
+						waitDur = time.Second
+					}
+				}
+				// Surface the wait so a long block does not look like a stuck state.
+				ReportActivity(ctx, fmt.Sprintf("Waiting for job %s (max %s)...", params.ShellID, waitDur))
+				waitCtx, cancel := context.WithTimeout(ctx, waitDur)
+				completed := bgShell.WaitContext(waitCtx)
+				cancel()
+				if !completed && ctx.Err() != nil {
+					return fantasy.ToolResponse{}, ctx.Err()
+				}
+				// Timeout hit while the job is still running: fall through and return the
+				// current output with a "running" status so the agent re-polls instead of
+				// blocking forever on a job that never exits (e.g. a dev server).
 			}
 
 			stdout, stderr, done, err := bgShell.GetOutput()

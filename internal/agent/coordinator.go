@@ -1267,31 +1267,116 @@ func openCodeSessionID() string {
 	return "ses_" + string(b)
 }
 
-// stableOpencodeSessionID is a process-global stable session id for
-// opencode providers. Generating a fresh random id per provider build
-// (every UpdateModels/Run) breaks prefix caching at the gateway because
-// the gateway treats different session ids as different conversations.
-// Using a stable id keeps the header constant across turns so that
-// prompt_cache_key (per-Skynet-session) remains the only varying cache
-// key and prefix hits stay high.
-// For true per-Skynet-session isolation the prompt_cache_key already
-// provides it; the header only needs stability for routing.
+// isOpencodeProvider reports whether the provider talks to the opencode.ai
+// gateway. The gateway is served under several aliases (opencode-go,
+// opencode-zen and user-defined variants such as "opencode-zen-<name>"), so
+// match on the id prefix and the base URL instead of an exact id.
+func isOpencodeProvider(providerCfg config.ProviderConfig) bool {
+	if strings.HasPrefix(providerCfg.ID, "opencode") {
+		return true
+	}
+	return strings.Contains(providerCfg.BaseURL, "opencode.ai")
+}
+
+// opencodeSessionIDFile is where the persistent gateway session id lives,
+// relative to the Skynet data directory.
+const opencodeSessionIDFile = "opencode_session_id"
+
+// stableOpenCodeSessionID returns the gateway session id for dataDir, cached
+// for the lifetime of the process and persisted across processes.
+//
+// Stability is what matters, not uniqueness: x-opencode-session pins the
+// request to an upstream worker whose prefix cache is per-worker. A random id
+// per process (the previous behaviour) sent every `skynet run` to an
+// arbitrary worker, which measured as 0% cache hits for models whose upstream
+// does not share a global prefix cache (e.g. deepseek-v4.1-flash),
+// versus ~94% once the id is stable.
+func stableOpenCodeSessionID(dataDir string) string {
+	opencodeSessionIDsMu.Lock()
+	defer opencodeSessionIDsMu.Unlock()
+	if id, ok := opencodeSessionIDs[dataDir]; ok {
+		return id
+	}
+	id := loadOrCreateOpencodeSessionID(dataDir)
+	opencodeSessionIDs[dataDir] = id
+	return id
+}
+
 var (
-	stableOpencodeSessionID     string
-	stableOpencodeSessionIDOnce sync.Once
+	opencodeSessionIDsMu sync.Mutex
+	opencodeSessionIDs   = make(map[string]string)
 )
 
-func stableOpenCodeSessionID() string {
-	stableOpencodeSessionIDOnce.Do(func() {
-		stableOpencodeSessionID = openCodeSessionID()
-	})
-	return stableOpencodeSessionID
+// loadOrCreateOpencodeSessionID reads the persisted session id, creating one
+// on first use. With no data directory it falls back to a random id.
+func loadOrCreateOpencodeSessionID(dataDir string) string {
+	if dataDir == "" {
+		return openCodeSessionID()
+	}
+	path := filepath.Join(dataDir, opencodeSessionIDFile)
+	if id := readOpencodeSessionID(path); id != "" {
+		return id
+	}
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return openCodeSessionID()
+	}
+	// O_EXCL so concurrent first runs converge on one id: the loser reads the
+	// winner's value instead of overwriting it.
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if id := readOpencodeSessionID(path); id != "" {
+			return id
+		}
+		// The file exists but is unusable: replace it, otherwise every process
+		// would keep generating a different id and the cache would never warm.
+		id := openCodeSessionID()
+		if writeErr := os.WriteFile(path, []byte(id), 0o600); writeErr != nil {
+			return id
+		}
+		return id
+	}
+	id := openCodeSessionID()
+	_, writeErr := f.WriteString(id)
+	if closeErr := f.Close(); writeErr != nil || closeErr != nil {
+		return id
+	}
+	return id
+}
+
+func readOpencodeSessionID(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	id := strings.TrimSpace(string(b))
+	if !isOpencodeSessionID(id) {
+		return ""
+	}
+	return id
+}
+
+// isOpencodeSessionID validates the opencode CLI session id shape ("ses_"
+// followed by 26 base62 characters) so a corrupt file cannot poison the
+// routing header.
+func isOpencodeSessionID(id string) bool {
+	const prefix = "ses_"
+	if !strings.HasPrefix(id, prefix) || len(id) != len(prefix)+26 {
+		return false
+	}
+	for _, r := range id[len(prefix):] {
+		switch {
+		case r >= '0' && r <= '9', r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // providerHeaders returns the HTTP headers to send with requests to the
 // given provider, merging user-configured extra headers with provider
 // specific defaults.
-func providerHeaders(providerCfg config.ProviderConfig, anthropicThinking bool) map[string]string {
+func providerHeaders(providerCfg config.ProviderConfig, anthropicThinking bool, dataDir string) map[string]string {
 	headers := maps.Clone(providerCfg.ExtraHeaders)
 	if headers == nil {
 		headers = make(map[string]string)
@@ -1306,21 +1391,18 @@ func providerHeaders(providerCfg config.ProviderConfig, anthropicThinking bool) 
 		}
 	}
 
-	// opencode.ai routes requests to the upstream serving the selected
-	// model based on the x-opencode-session header, so generate a fresh
-	// session id per conversation the same way the opencode CLI does.
-	// Use a process-stable id to avoid breaking prefix cache — prompt_cache_key
-	// (injected per Skynet session) already isolates conversations.
-	switch providerCfg.ID {
-	case string(catwalk.InferenceProviderOpenCodeGo), string(catwalk.InferenceProviderOpenCodeZen):
-		headers["x-opencode-session"] = stableOpenCodeSessionID()
+	// opencode.ai routes requests to the upstream serving the selected model
+	// based on x-opencode-session, and that upstream's prefix cache only hits
+	// when the value stays constant. Always send the persistent id.
+	if isOpencodeProvider(providerCfg) {
+		headers["x-opencode-session"] = stableOpenCodeSessionID(dataDir)
 	}
 
 	return headers
 }
 
 func (c *coordinator) buildProvider(providerCfg config.ProviderConfig, model config.SelectedModel, isSubAgent bool) (fantasy.Provider, error) {
-	headers := providerHeaders(providerCfg, c.isAnthropicThinking(model))
+	headers := providerHeaders(providerCfg, c.isAnthropicThinking(model), c.cfg.Config().Options.DataDirectory)
 
 	apiKey, _ := c.cfg.Resolve(providerCfg.APIKey)
 	baseURL, _ := c.cfg.Resolve(providerCfg.BaseURL)
