@@ -124,6 +124,13 @@ type SessionAgent interface {
 	SetAnswerShortPrompt(prompt string)
 	// AnswerShortPrompt returns the current directive text.
 	AnswerShortPrompt() string
+	// SetAutoCompactTokens sets the auto-compact threshold for a session.
+	// A positive value compacts at an exact token count; zero disables
+	// custom compaction for the session (context-window default).
+	SetAutoCompactTokens(sessionID string, tokens int64)
+	// AutoCompactTokens returns the custom threshold for a session, or
+	// zero when disabled (default behavior).
+	AutoCompactTokens(sessionID string) int64
 }
 
 type Model struct {
@@ -144,10 +151,14 @@ type sessionAgent struct {
 	sessions             session.Service
 	messages             message.Service
 	disableAutoSummarize bool
-	isYolo               bool
-	notify               pubsub.Publisher[notify.Notification]
-	answerShort          *csync.Value[bool]
-	answerShortPrompt    *csync.Value[string]
+	// autoCompactTokens stores the custom auto-compact threshold per
+	// session ID. Sessions without an entry use the context-window based
+	// default compaction.
+	autoCompactTokens *csync.Map[string, int64]
+	isYolo            bool
+	notify            pubsub.Publisher[notify.Notification]
+	answerShort       *csync.Value[bool]
+	answerShortPrompt *csync.Value[string]
 
 	messageQueue   *csync.Map[string, []SessionAgentCall]
 	activeRequests *csync.Map[string, context.CancelFunc]
@@ -196,6 +207,7 @@ func NewSessionAgent(
 		notify:               opts.Notify,
 		messageQueue:         csync.NewMap[string, []SessionAgentCall](),
 		activeRequests:       csync.NewMap[string, context.CancelFunc](),
+		autoCompactTokens:    csync.NewMap[string, int64](),
 		ralphLoop:            newRalphLoopState(opts.RalphLoop),
 		answerShort:          csync.NewValue(opts.AnswerShort),
 		answerShortPrompt:    csync.NewValue(opts.AnswerShortPrompt),
@@ -1449,6 +1461,24 @@ func (a *sessionAgent) SetAnswerShortPrompt(prompt string) {
 
 func (a *sessionAgent) AnswerShortPrompt() string {
 	return a.answerShortPrompt.Get()
+}
+
+// SetAutoCompactTokens sets the auto-compact threshold for a single
+// session. A positive value compacts at an exact token count; zero
+// disables custom compaction for the session (context-window default).
+func (a *sessionAgent) SetAutoCompactTokens(sessionID string, tokens int64) {
+	if tokens > 0 {
+		a.autoCompactTokens.Set(sessionID, tokens)
+		return
+	}
+	a.autoCompactTokens.Del(sessionID)
+}
+
+// AutoCompactTokens returns the custom auto-compact threshold for a
+// session, or zero when disabled (default context-window behavior).
+func (a *sessionAgent) AutoCompactTokens(sessionID string) int64 {
+	v, _ := a.autoCompactTokens.Get(sessionID)
+	return v
 }
 
 func (a *sessionAgent) CancelAll() {
