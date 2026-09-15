@@ -169,4 +169,3 @@ func renderHeaderDetails(
 	result := cwd + metadata
 	return ansi.Truncate(result, max(0, availWidth), "…")
 }
-

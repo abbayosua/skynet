@@ -813,6 +813,36 @@ func (c *controllerV1) handlePostWorkspaceAgentSessionSummarize(w http.ResponseW
 	w.WriteHeader(http.StatusOK)
 }
 
+// handlePostWorkspaceAgentAutoCompact overrides the agent auto-compact
+// threshold for a session in a workspace.
+//
+//	@Summary		Set auto-compact threshold
+//	@Tags			agent
+//	@Param			id		path	string							true	"Workspace ID"
+//	@Param			sid		path	string							true	"Session ID"
+//	@Param			request	body	proto.AutoCompactTokensRequest	true	"Auto-compact tokens"
+//	@Success		200
+//	@Failure		404	{object}	proto.Error
+//	@Failure		500	{object}	proto.Error
+//	@Router			/workspaces/{id}/agent/sessions/{sid}/auto-compact [post]
+func (c *controllerV1) handlePostWorkspaceAgentAutoCompact(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sid := r.PathValue("sid")
+
+	var req proto.AutoCompactTokensRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		c.server.logError(r, "Failed to decode request", "error", err)
+		jsonError(w, http.StatusBadRequest, "failed to decode request")
+		return
+	}
+
+	if err := c.backend.SetAutoCompactTokens(id, sid, req.Tokens); err != nil {
+		c.handleError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 // handleGetWorkspaceAgentSessionPromptList returns the list of queued prompts.
 //
 //	@Summary		List queued prompts

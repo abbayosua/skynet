@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -84,12 +85,133 @@ type App struct {
 	cleanupFuncs       []func(context.Context) error
 	agentNotifications *pubsub.Broker[notify.Notification]
 
-	lastTelegramMu   sync.Mutex
-	lastTelegramText string
+	telegramMu  sync.Mutex
+	telegramBot *telegramSession
 
-	TelegramBot *telegram.Bot
-	Scheduler   *scheduler.Scheduler
-	tuiProgram  *tea.Program
+	Scheduler  *scheduler.Scheduler
+	tuiProgram *tea.Program
+}
+
+// telegramSession holds an in-memory Telegram bot. The token is never
+// persisted to disk. The bot follows the active session: sessionID points
+// at whichever session is currently being mirrored.
+type telegramSession struct {
+	bot    *telegram.Bot
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	targetMu     sync.Mutex
+	sessionID    string
+	lastRetarget time.Time
+
+	lastMu    sync.Mutex
+	lastMsgID string
+	last      string
+	lastAt    time.Time
+
+	// sendMu serialises outbound sends so a retarget cannot interleave
+	// two sends to different sessions.
+	sendMu sync.Mutex
+
+	// Feature toggles, settable from the TUI via /verbose, /thinking,
+	// /stream and /subagents.
+	verbose   atomic.Bool
+	thinking  atomic.Bool
+	stream    atomic.Bool
+	subagents atomic.Bool
+
+	streamMu    sync.Mutex
+	streamMsgID int64
+	streamAt    time.Time
+	streamLast  string
+}
+
+// target returns the session the bot is currently mirroring.
+func (s *telegramSession) target() string {
+	s.targetMu.Lock()
+	defer s.targetMu.Unlock()
+	return s.sessionID
+}
+
+// retargetedWithin reports whether the bot was rebound to a new session
+// within the given duration.
+func (s *telegramSession) retargetedWithin(d time.Duration) bool {
+	s.targetMu.Lock()
+	defer s.targetMu.Unlock()
+	return !s.lastRetarget.IsZero() && time.Since(s.lastRetarget) < d
+}
+
+// setTarget rebinds the bot to a new session without dropping the
+// underlying Telegram connection.
+func (s *telegramSession) setTarget(sessionID string) {
+	s.targetMu.Lock()
+	s.sessionID = sessionID
+	s.lastRetarget = time.Now()
+	s.targetMu.Unlock()
+	// A retarget invalidates the streaming status message.
+	s.streamMu.Lock()
+	s.streamMsgID = 0
+	s.streamLast = ""
+	s.streamMu.Unlock()
+}
+
+// send serialises an outbound message through the bot.
+func (s *telegramSession) send(text string) error {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+	return s.bot.SendMessage(text)
+}
+
+// streamUpdate mirrors a streaming delta into a single status message,
+// editing it in place at most once every 2 seconds. Only active when the
+// user enabled /stream.
+func (s *telegramSession) streamUpdate(text string) {
+	if !s.stream.Load() {
+		return
+	}
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	s.streamMu.Lock()
+	defer s.streamMu.Unlock()
+	if text == s.streamLast {
+		return
+	}
+	if s.streamMsgID != 0 && time.Since(s.streamAt) < 2*time.Second {
+		return
+	}
+	s.streamAt = time.Now()
+	s.streamLast = text
+	short := text
+	if len(short) > 3500 {
+		short = short[len(short)-3500:]
+	}
+	if s.streamMsgID == 0 {
+		if id, err := s.bot.SendMessageReturningID(short); err == nil {
+			s.streamMsgID = id
+		}
+		return
+	}
+	_ = s.bot.EditMessage(s.bot.ChatID(), s.streamMsgID, telegram.RenderHTML(short), "HTML")
+}
+
+// setLast records the last mirrored message for de-duplication. Two paths
+// (message pubsub and activity notifications) may fire for the same turn;
+// within a short window identical text is suppressed. A later turn with
+// identical text is still delivered.
+func (s *telegramSession) setLast(msgID, text string) bool {
+	s.lastMu.Lock()
+	defer s.lastMu.Unlock()
+	if msgID != "" && msgID == s.lastMsgID {
+		return false
+	}
+	if text == s.last && time.Since(s.lastAt) < 5*time.Second {
+		return false
+	}
+	s.lastMsgID = msgID
+	s.last = text
+	s.lastAt = time.Now()
+	return true
 }
 
 // New initializes a new application instance.
@@ -199,8 +321,8 @@ func (app *App) SendEvent(msg tea.Msg) {
 }
 
 // mirrorMessagesToTelegram subscribes to message events and forwards
-// assistant (AI) messages to Telegram for bi-directional mirroring.
-func (app *App) mirrorMessagesToTelegram(ctx context.Context, bot *telegram.Bot) {
+// assistant (AI) messages belonging to the bot's current session.
+func (app *App) mirrorMessagesToTelegram(ctx context.Context, sess *telegramSession) {
 	sub := app.Messages.Subscribe(ctx)
 	for {
 		select {
@@ -214,43 +336,74 @@ func (app *App) mirrorMessagesToTelegram(ctx context.Context, bot *telegram.Bot)
 				continue
 			}
 			msg := evt.Payload
+			target := sess.target()
+			prefix := ""
+			if msg.SessionID != target {
+				child := false
+				if sess.subagents.Load() && app.Sessions != nil {
+					if s, err := app.Sessions.Get(ctx, msg.SessionID); err == nil && s.ParentSessionID == target {
+						child = true
+					}
+				}
+				switch {
+				case child:
+					prefix = "↳ "
+				case sess.retargetedWithin(2 * time.Second):
+					// Session switched while a turn was streaming; tag the
+					// late message so the user knows which session it is.
+					prefix = "[" + shortSessionID(msg.SessionID) + "] "
+				default:
+					continue
+				}
+			}
 			if msg.Role != message.Assistant {
 				continue
 			}
 			if !msg.IsFinished() {
 				continue
 			}
-			text := msg.Content().String()
+			if msg.IsSummaryMessage {
+				continue
+			}
+			text := msg.AllText()
 			if text == "" {
 				continue
 			}
-
-			app.lastTelegramMu.Lock()
-			if text == app.lastTelegramText {
-				app.lastTelegramMu.Unlock()
+			if !sess.setLast(msg.ID, text) {
 				continue
 			}
-			app.lastTelegramText = text
-			app.lastTelegramMu.Unlock()
 
-			full := fullTelegramText(text)
-			if err := bot.SendMessage(full); err != nil {
+			full := prefix + fullTelegramText(text)
+			if err := sess.send(full); err != nil {
 				slog.Warn("Telegram: failed to send message mirror", "error", err)
 			} else {
 				slog.Debug("Telegram: sent message mirror", "session_id", msg.SessionID, "msg_id", msg.ID, "len", len(text))
+			}
+
+			// Mirror any image attachments (diffs/screenshots) as photos.
+			for _, part := range msg.Parts {
+				bc, ok := part.(message.BinaryContent)
+				if !ok || len(bc.Data) == 0 || !strings.HasPrefix(bc.MIMEType, "image/") {
+					continue
+				}
+				name := filepath.Base(bc.Path)
+				if name == "" || name == "." {
+					name = "image.png"
+				}
+				if err := sess.bot.SendPhoto(bc.Data, name); err != nil {
+					slog.Warn("Telegram: failed to send image", "error", err)
+				}
 			}
 		}
 	}
 }
 
-// mirrorActivityToTelegram subscribes to agent activity notifications
-// and sends activity updates to Telegram. Updates are rate-limited to
-// at most one message per 3 seconds and only sent when the activity
-// changes.
-func (app *App) mirrorActivityToTelegram(ctx context.Context, bot *telegram.Bot) {
+// mirrorActivityToTelegram subscribes to agent activity notifications for
+// the bot's current session and sends activity updates to Telegram. Updates
+// are rate-limited to at most one message per 3 seconds and only sent when
+// the activity changes.
+func (app *App) mirrorActivityToTelegram(ctx context.Context, sess *telegramSession) {
 	sub := app.agentNotifications.Subscribe(ctx)
-	var lastSentAt time.Time
-	var lastActivity string
 	for {
 		select {
 		case <-ctx.Done():
@@ -260,20 +413,16 @@ func (app *App) mirrorActivityToTelegram(ctx context.Context, bot *telegram.Bot)
 				return
 			}
 			n := evt.Payload
+			if n.SessionID != sess.target() {
+				continue
+			}
 			switch n.Type {
 			case notify.TypeActivityUpdate:
-				if n.Activity == "" || n.Activity == lastActivity {
+				if n.Activity == "" {
 					continue
 				}
-				// Rate limit: at most one activity per 3 seconds.
-				if time.Since(lastSentAt) < 3*time.Second {
-					continue
-				}
-				lastActivity = n.Activity
-				lastSentAt = time.Now()
-				msg := "🤖 " + n.Activity
-				if err := bot.SendMessage(msg); err != nil {
-					slog.Warn("Telegram: failed to send activity update", "error", err)
+				if err := sess.bot.SendChatAction(sess.bot.ChatID(), "typing"); err != nil {
+					slog.Debug("Telegram: sendChatAction failed", "error", err)
 				}
 
 			case notify.TypeAgentResponded:
@@ -281,31 +430,129 @@ func (app *App) mirrorActivityToTelegram(ctx context.Context, bot *telegram.Bot)
 				// This is a more reliable delivery path than the
 				// message pubsub (mirrorMessagesToTelegram) which
 				// can drop events under channel contention.
-				if n.Activity == "" {
+				if n.Activity == "" || !sess.setLast("", n.Activity) {
 					continue
 				}
+				// Streaming is done; the transient status message is no
+				// longer needed.
+				sess.streamMu.Lock()
+				sess.streamMsgID = 0
+				sess.streamLast = ""
+				sess.streamMu.Unlock()
 
-				app.lastTelegramMu.Lock()
-				if n.Activity == app.lastTelegramText {
-					app.lastTelegramMu.Unlock()
-					continue
-				}
-				app.lastTelegramText = n.Activity
-				app.lastTelegramMu.Unlock()
-
-				lastActivity = n.Activity
-				full := "🤖 " + n.Activity
-				if err := bot.SendMessage(full); err != nil {
+				if err := sess.send("🤖 " + n.Activity); err != nil {
 					slog.Warn("Telegram: failed to send final response", "error", err)
 				} else {
 					slog.Debug("Telegram: sent final response from activity mirror", "len", len(n.Activity))
+				}
+
+			case notify.TypeAgentError:
+				if n.Activity == "" {
+					continue
+				}
+				if err := sess.send("⚠️ " + n.Activity); err != nil {
+					slog.Warn("Telegram: failed to send error notice", "error", err)
+				}
+
+			case notify.TypeToolError:
+				if n.Activity == "" {
+					continue
+				}
+				if err := sess.send(n.Activity); err != nil {
+					slog.Warn("Telegram: failed to send tool error", "error", err)
+				}
+
+			case notify.TypeToolOutput:
+				// Only mirrored when the user enabled /verbose.
+				if !sess.verbose.Load() || n.Activity == "" {
+					continue
+				}
+				if err := sess.send(n.Activity); err != nil {
+					slog.Warn("Telegram: failed to send tool output", "error", err)
+				}
+
+			case notify.TypeReasoning:
+				// Only mirrored when the user enabled /thinking.
+				if !sess.thinking.Load() || n.Activity == "" {
+					continue
+				}
+				if err := sess.send("🧠 " + n.Activity); err != nil {
+					slog.Warn("Telegram: failed to send reasoning", "error", err)
+				}
+
+			case notify.TypeStreamDelta:
+				// Only mirrored when the user enabled /stream.
+				if n.Activity == "" {
+					continue
+				}
+				sess.streamUpdate(n.Activity)
+
+			case notify.TypeReAuthenticate:
+				msg := "🔐 Re-authentication required"
+				if n.ProviderID != "" {
+					msg += " (provider: " + n.ProviderID + ")"
+				}
+				msg += "\nRun `skynet auth " + n.ProviderID + "` to re-authenticate."
+				if err := sess.send(msg); err != nil {
+					slog.Warn("Telegram: failed to send re-auth notice", "error", err)
 				}
 			}
 		}
 	}
 }
 
-// fullTelegramText returns the full assistant text with a prefix.
+// mirrorTodosToTelegram mirrors session todo/progress updates to Telegram.
+// Only top-level progress changes are sent (deduplicated by content).
+func (app *App) mirrorTodosToTelegram(ctx context.Context, sess *telegramSession) {
+	if app.Sessions == nil {
+		return
+	}
+	sub := app.Sessions.Subscribe(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt, ok := <-sub:
+			if !ok {
+				return
+			}
+			s := evt.Payload
+			if s.ID != sess.target() || len(s.Todos) == 0 {
+				continue
+			}
+			text := formatTodos(s.Todos)
+			if text == "" || !sess.setLast("todos:"+s.ID, text) {
+				continue
+			}
+			if err := sess.send(text); err != nil {
+				slog.Warn("Telegram: failed to send todo update", "error", err)
+			}
+		}
+	}
+}
+
+// formatTodos renders a session's todos as a compact checklist.
+func formatTodos(todos []session.Todo) string {
+	var b strings.Builder
+	b.WriteString("📝 Progress:\n")
+	for _, t := range todos {
+		var mark string
+		switch t.Status {
+		case session.TodoStatusCompleted:
+			mark = "✅"
+		case session.TodoStatusInProgress:
+			mark = "▶"
+		default:
+			mark = "⬜"
+		}
+		content := t.Content
+		if t.Status == session.TodoStatusInProgress && t.ActiveForm != "" {
+			content = t.ActiveForm
+		}
+		fmt.Fprintf(&b, "%s %s\n", mark, content)
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
 func fullTelegramText(text string) string {
 	cleaned := strings.TrimSpace(text)
 	if cleaned == "" {
@@ -314,56 +561,161 @@ func fullTelegramText(text string) string {
 	return "🤖 " + cleaned
 }
 
+// shortSessionID returns a short, human-friendly session tag for prefixes.
+func shortSessionID(id string) string {
+	if len(id) <= 8 {
+		return id
+	}
+	return id[:8]
+}
+
 // AgentNotifications returns the broker for agent notification events.
 func (app *App) AgentNotifications() *pubsub.Broker[notify.Notification] {
 	return app.agentNotifications
 }
 
-// StartTelegramBot creates and starts a Telegram bot with the given token.
-func (app *App) StartTelegramBot(token string) error {
-	if app.TelegramBot != nil {
-		app.TelegramBot.Stop()
+// StartTelegramBot creates and starts a Telegram bot for the given session.
+// The token is held only in memory and never persisted. Any existing bot is
+// replaced.
+func (app *App) StartTelegramBot(sessionID, token string) error {
+	if sessionID == "" {
+		return fmt.Errorf("no active session")
 	}
 
+	app.telegramMu.Lock()
+	if app.telegramBot != nil {
+		app.telegramBot.cancel()
+		app.telegramBot.bot.Stop()
+	}
+	ctx, cancel := context.WithCancel(app.globalCtx)
 	bot := telegram.NewBot(token)
-	app.TelegramBot = bot
+	bot.SetSessionID(sessionID)
+	if cfg := app.config.Config(); cfg != nil && cfg.Options != nil && cfg.Options.DataDirectory != "" {
+		bot.SetDataDir(cfg.Options.DataDirectory)
+	}
+	sess := &telegramSession{bot: bot, ctx: ctx, cancel: cancel, sessionID: sessionID}
+	app.telegramBot = sess
+	tuiRunning := app.tuiProgram != nil
+	app.telegramMu.Unlock()
+
 	app.serviceEventsWG.Add(1)
 	go func() {
 		defer app.serviceEventsWG.Done()
-		bot.Start(app.globalCtx)
+		sess.bot.Start(ctx)
 	}()
 
-	// Start mirror goroutine (TUI→Telegram).
-	go app.mirrorMessagesToTelegram(app.globalCtx, bot)
+	// TUI→Telegram mirroring.
+	go app.mirrorMessagesToTelegram(ctx, sess)
 
-	// Start activity mirror goroutine (Agent activity → Telegram).
-	go app.mirrorActivityToTelegram(app.globalCtx, bot)
+	// Agent activity → Telegram mirroring.
+	go app.mirrorActivityToTelegram(ctx, sess)
 
-	// Telegram→TUI forwarding is now handled in Subscribe().
-	// If TUI is already running, start forwarding here.
-	if app.tuiProgram != nil {
-		go app.forwardTelegramToTUI(bot)
+	// Session todo/progress → Telegram mirroring.
+	go app.mirrorTodosToTelegram(ctx, sess)
+
+	// Telegram→TUI forwarding, when the TUI is already running.
+	if tuiRunning {
+		go app.forwardTelegramToTUI(ctx, sess)
 	}
 
-	slog.Info("Telegram bot started at runtime")
+	slog.Info("Telegram bot started", "session_id", sessionID)
 	return nil
 }
 
-// StopTelegramBot stops the running Telegram bot.
-func (app *App) StopTelegramBot() {
-	if app.TelegramBot != nil {
-		app.TelegramBot.Stop()
-		app.TelegramBot = nil
+// RetargetTelegramBot rebinds the running bot to the given session so it
+// keeps mirroring after the user switches or creates a session. It is a
+// no-op when no bot is running.
+func (app *App) RetargetTelegramBot(sessionID string) {
+	if sessionID == "" {
+		return
 	}
-	slog.Info("Telegram bot stopped")
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	app.telegramMu.Unlock()
+	if sess != nil {
+		sess.setTarget(sessionID)
+	}
 }
 
-// SendTelegramMessage sends a text message to the connected Telegram chat.
-func (app *App) SendTelegramMessage(ctx context.Context, text string) error {
-	if app.TelegramBot == nil {
+// StopTelegramBot stops the bot if it is bound to the given session.
+func (app *App) StopTelegramBot(sessionID string) {
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	if sess != nil && sess.target() == sessionID {
+		app.telegramBot = nil
+	}
+	app.telegramMu.Unlock()
+
+	if sess != nil && sess.target() == sessionID {
+		sess.cancel()
+		sess.bot.Stop()
+	}
+	slog.Info("Telegram bot stopped", "session_id", sessionID)
+}
+
+// SendTelegramMessage sends a text message to the session's Telegram chat.
+func (app *App) SendTelegramMessage(ctx context.Context, sessionID, text string) error {
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	app.telegramMu.Unlock()
+	if sess == nil || sess.target() != sessionID {
 		return fmt.Errorf("no telegram bot connected")
 	}
-	return app.TelegramBot.SendMessage(text)
+	return sess.bot.SendMessage(text)
+}
+
+// TelegramBotActive reports whether the bot is bound to the given session.
+func (app *App) TelegramBotActive(sessionID string) bool {
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	app.telegramMu.Unlock()
+	return sess != nil && sess.target() == sessionID
+}
+
+// TelegramSetVerbose enables/disables tool-output mirroring.
+func (app *App) TelegramSetVerbose(sessionID string, on bool) bool {
+	return app.telegramToggle(sessionID, func(s *telegramSession) { s.verbose.Store(on) })
+}
+
+// TelegramSetThinking enables/disables reasoning mirroring.
+func (app *App) TelegramSetThinking(sessionID string, on bool) bool {
+	return app.telegramToggle(sessionID, func(s *telegramSession) { s.thinking.Store(on) })
+}
+
+// TelegramSetStream enables/disables live streaming status edits.
+func (app *App) TelegramSetStream(sessionID string, on bool) bool {
+	return app.telegramToggle(sessionID, func(s *telegramSession) { s.stream.Store(on) })
+}
+
+// TelegramSetSubagents enables/disables mirroring child (sub-agent) sessions.
+func (app *App) TelegramSetSubagents(sessionID string, on bool) bool {
+	return app.telegramToggle(sessionID, func(s *telegramSession) { s.subagents.Store(on) })
+}
+
+func (app *App) telegramToggle(sessionID string, apply func(*telegramSession)) bool {
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	app.telegramMu.Unlock()
+	if sess == nil || sess.target() != sessionID {
+		return false
+	}
+	apply(sess)
+	return true
+}
+
+// SendTelegramMessageWithKeyboard sends a message with an inline keyboard.
+func (app *App) SendTelegramMessageWithKeyboard(ctx context.Context, sessionID, text, _ string, keyboard any) error {
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	app.telegramMu.Unlock()
+	if sess == nil || sess.target() != sessionID {
+		return fmt.Errorf("no telegram bot connected")
+	}
+	kb, ok := keyboard.(telegram.InlineKeyboardMarkup)
+	if !ok {
+		return fmt.Errorf("invalid keyboard type")
+	}
+	return sess.bot.SendMessageWithKeyboard(text, "", kb)
 }
 
 // resolveSession resolves which session to use for a non-interactive run
@@ -399,7 +751,7 @@ func (app *App) resolveSession(ctx context.Context, continueSessionID string, us
 
 // RunNonInteractive runs the application in non-interactive mode with the
 // given prompt, printing to stdout.
-func (app *App) RunNonInteractive(ctx context.Context, output io.Writer, prompt, largeModel, smallModel string, hideSpinner bool, continueSessionID string, useLast bool) error {
+func (app *App) RunNonInteractive(ctx context.Context, output io.Writer, prompt, largeModel, smallModel string, hideSpinner bool, continueSessionID string, useLast bool, autoCompactTokens int64) error {
 	slog.Info("Running in non-interactive mode")
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -470,6 +822,10 @@ func (app *App) RunNonInteractive(ctx context.Context, output io.Writer, prompt,
 	sess, err := app.resolveSession(ctx, continueSessionID, useLast)
 	if err != nil {
 		return fmt.Errorf("failed to create session for non-interactive mode: %w", err)
+	}
+
+	if autoCompactTokens > 0 {
+		app.AgentCoordinator.SetAutoCompactTokens(sess.ID, autoCompactTokens)
 	}
 
 	if continueSessionID != "" || useLast {
@@ -754,9 +1110,12 @@ func (app *App) Subscribe(program *tea.Program) {
 
 	app.tuiProgram = program
 
-	// Start Telegram→TUI forwarding if bot is already running.
-	if app.TelegramBot != nil {
-		go app.forwardTelegramToTUI(app.TelegramBot)
+	// Start Telegram→TUI forwarding if a bot is already running.
+	app.telegramMu.Lock()
+	sess := app.telegramBot
+	app.telegramMu.Unlock()
+	if sess != nil {
+		go app.forwardTelegramToTUI(sess.ctx, sess)
 	}
 
 	events := app.events.Subscribe(tuiCtx)
@@ -776,20 +1135,29 @@ func (app *App) Subscribe(program *tea.Program) {
 	}
 }
 
-// forwardTelegramToTUI forwards incoming Telegram messages to the TUI program.
-func (app *App) forwardTelegramToTUI(bot *telegram.Bot) {
+// forwardTelegramToTUI forwards incoming Telegram messages and callback
+// queries for the bot's current session to the TUI program.
+func (app *App) forwardTelegramToTUI(ctx context.Context, sess *telegramSession) {
 	for {
 		select {
-		case <-app.globalCtx.Done():
+		case <-ctx.Done():
 			return
-		case msg, ok := <-bot.Incoming():
+		case msg, ok := <-sess.bot.Incoming():
 			if !ok {
 				return
 			}
 			if app.tuiProgram == nil {
 				continue
 			}
-			app.tuiProgram.Send(telegram.IncomingMessage{Text: msg})
+			app.tuiProgram.Send(telegram.IncomingMessage{SessionID: sess.target(), Text: msg})
+		case cb, ok := <-sess.bot.Callbacks():
+			if !ok {
+				return
+			}
+			if app.tuiProgram == nil {
+				continue
+			}
+			app.tuiProgram.Send(cb)
 		}
 	}
 }
@@ -817,6 +1185,16 @@ func (app *App) Shutdown() {
 		if err := app.Messages.FlushAll(shutdownCtx); err != nil {
 			slog.Error("Failed to flush pending message updates on shutdown", "error", err)
 		}
+	}
+
+	// Stop the Telegram mirror bot and flush anything still buffered.
+	app.telegramMu.Lock()
+	tgSess := app.telegramBot
+	app.telegramBot = nil
+	app.telegramMu.Unlock()
+	if tgSess != nil {
+		tgSess.cancel()
+		tgSess.bot.Shutdown(2 * time.Second)
 	}
 
 	// Now run remaining cleanup tasks in parallel.

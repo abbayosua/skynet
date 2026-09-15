@@ -12,8 +12,8 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/glamour/v2/ansi"
 	"charm.land/lipgloss/v2"
-	"github.com/alecthomas/chroma/v2"
 	"github.com/abbayosua/skynet/internal/ui/diffview"
+	"github.com/alecthomas/chroma/v2"
 )
 
 const (
@@ -613,4 +613,3 @@ func chromaStyle(style ansi.StylePrimitive) string {
 
 	return s.String()
 }
-

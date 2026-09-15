@@ -116,4 +116,3 @@ func (c *github) Latest(ctx context.Context) (*Release, error) {
 
 	return &release, nil
 }
-

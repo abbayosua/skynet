@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/abbayosua/skynet/internal/ansiext"
+	"github.com/abbayosua/skynet/internal/ui/xchroma"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/aymanbagabas/go-udiff"
-	"github.com/abbayosua/skynet/internal/ansiext"
-	"github.com/abbayosua/skynet/internal/ui/xchroma"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/zeebo/xxh3"
 )

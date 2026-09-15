@@ -43,12 +43,12 @@ func TestBackgroundShellManager_Kill_AbandonsHungJob(t *testing.T) {
 	// a job that ignores SIGTERM and holds pipe FDs open.
 	_, cancel := context.WithCancel(context.Background())
 	hung := &BackgroundShell{
-		ID:        "HUNG",
-		Command:   "hung",
-		done:      make(chan struct{}), // never closed
-		cancel:    cancel,
-		stdout:    &syncBuffer{},
-		stderr:    &syncBuffer{},
+		ID:         "HUNG",
+		Command:    "hung",
+		done:       make(chan struct{}), // never closed
+		cancel:     cancel,
+		stdout:     &syncBuffer{},
+		stderr:     &syncBuffer{},
 		WorkingDir: "/tmp",
 	}
 	manager.shells.Set(hung.ID, hung)

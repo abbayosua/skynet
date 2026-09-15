@@ -387,6 +387,22 @@ func (c *Client) AgentSummarizeSession(ctx context.Context, id string, sessionID
 		return fmt.Errorf("failed to summarize session: status code %d", rsp.StatusCode)
 	}
 	return nil
+	return nil
+}
+
+// AgentSetAutoCompactTokens enables custom auto-compact for a session.
+func (c *Client) AgentSetAutoCompactTokens(ctx context.Context, id string, sessionID string, tokens int64) error {
+	rsp, err := c.post(ctx, fmt.Sprintf("/workspaces/%s/agent/sessions/%s/auto-compact", id, sessionID), nil,
+		jsonBody(proto.AutoCompactTokensRequest{Tokens: tokens}),
+		http.Header{"Content-Type": []string{"application/json"}})
+	if err != nil {
+		return fmt.Errorf("failed to set auto-compact tokens: %w", err)
+	}
+	defer rsp.Body.Close()
+	if rsp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to set auto-compact tokens: status code %d", rsp.StatusCode)
+	}
+	return nil
 }
 
 // InitiateAgentProcessing triggers agent initialization on the server.

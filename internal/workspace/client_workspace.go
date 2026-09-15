@@ -231,6 +231,10 @@ func (w *ClientWorkspace) AgentSummarize(ctx context.Context, sessionID string) 
 	return w.client.AgentSummarizeSession(ctx, w.workspaceID(), sessionID)
 }
 
+// AgentSetAutoCompactTokens enables custom auto-compact for a session.
+func (w *ClientWorkspace) AgentSetAutoCompactTokens(sessionID string, tokens int64) error {
+	return w.client.AgentSetAutoCompactTokens(context.Background(), w.workspaceID(), sessionID, tokens)
+}
 func (w *ClientWorkspace) UpdateAgentModel(ctx context.Context) error {
 	return w.client.UpdateAgent(ctx, w.workspaceID())
 }
@@ -568,16 +572,35 @@ func (w *ClientWorkspace) Shutdown() {
 	_ = w.client.DeleteWorkspace(context.Background(), w.workspaceID())
 }
 
-func (w *ClientWorkspace) TelegramBotStart(token string) error {
+func (w *ClientWorkspace) TelegramBotStart(sessionID, token string) error {
 	return errors.New("Telegram bot not supported in client mode")
 }
 
-func (w *ClientWorkspace) TelegramBotStop() {
+func (w *ClientWorkspace) TelegramBotStop(sessionID string) {
 }
 
-func (w *ClientWorkspace) SendTelegramMessage(ctx context.Context, text string) error {
+func (w *ClientWorkspace) TelegramBotActive(sessionID string) bool {
+	return false
+}
+
+func (w *ClientWorkspace) TelegramBotRetarget(sessionID string) {
+}
+
+func (w *ClientWorkspace) SendTelegramMessage(ctx context.Context, sessionID, text string) error {
 	return errors.New("Telegram bot not supported in client mode")
 }
+
+func (w *ClientWorkspace) SendTelegramMessageWithKeyboard(sessionID, text, parseMode string, keyboard any) error {
+	return errors.New("Telegram bot not supported in client mode")
+}
+
+func (w *ClientWorkspace) TelegramSetVerbose(sessionID string, on bool) bool { return false }
+
+func (w *ClientWorkspace) TelegramSetThinking(sessionID string, on bool) bool { return false }
+
+func (w *ClientWorkspace) TelegramSetStream(sessionID string, on bool) bool { return false }
+
+func (w *ClientWorkspace) TelegramSetSubagents(sessionID string, on bool) bool { return false }
 
 // translateEvent converts proto-typed SSE events into the domain types
 // that the TUI's Update() method expects.

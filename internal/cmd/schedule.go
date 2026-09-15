@@ -21,15 +21,15 @@ Jobs run as non-interactive background tasks with auto-approved permissions.`,
 }
 
 var (
-	scheduleAddName      string
-	scheduleAddInterval  string
-	scheduleAddPrompt    string
-	scheduleAddDesc      string
-	scheduleAddTimeout   int
-	scheduleAddContinue  bool
-	scheduleListAll      bool
-	scheduleJSON         bool
-	scheduleAddEnabled   bool
+	scheduleAddName     string
+	scheduleAddInterval string
+	scheduleAddPrompt   string
+	scheduleAddDesc     string
+	scheduleAddTimeout  int
+	scheduleAddContinue bool
+	scheduleListAll     bool
+	scheduleJSON        bool
+	scheduleAddEnabled  bool
 )
 
 var scheduleAddCmd = &cobra.Command{
@@ -87,10 +87,10 @@ var scheduleListCmd = &cobra.Command{
 					continue
 				}
 				cont := ""
-			if j.Continue {
-				cont = "continue"
-			}
-			fmt.Printf("%s\t%s\t%s\t%s\truns=%d\tlast=%s\n",
+				if j.Continue {
+					cont = "continue"
+				}
+				fmt.Printf("%s\t%s\t%s\t%s\truns=%d\tlast=%s\n",
 					j.ID, j.Name, j.Interval, cont, j.RunCount, j.LastRunAt.Format(time.RFC3339))
 			}
 			return nil
@@ -126,9 +126,9 @@ var scheduleListCmd = &cobra.Command{
 }
 
 var scheduleGetCmd = &cobra.Command{
-	Use:     "get <id>",
-	Short:   "Show details of a scheduled job",
-	Args:    cobra.ExactArgs(1),
+	Use:   "get <id>",
+	Short: "Show details of a scheduled job",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sched, err := newSchedulerFromConfig(cmd)
 		if err != nil {

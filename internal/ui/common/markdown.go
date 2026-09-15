@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"charm.land/glamour/v2"
-	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/abbayosua/skynet/internal/ui/xchroma"
+	"github.com/alecthomas/chroma/v2/formatters"
 )
 
 const formatterName = "skynet"
@@ -137,4 +137,3 @@ func LockMarkdownRenderer(r *glamour.TermRenderer) *sync.Mutex {
 	rendererLocks[r] = mu
 	return mu
 }
-

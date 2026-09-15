@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bmatcuk/doublestar/v4"
-	"github.com/charlievieth/fastwalk"
 	"github.com/abbayosua/skynet/internal/csync"
 	"github.com/abbayosua/skynet/internal/home"
+	"github.com/bmatcuk/doublestar/v4"
+	"github.com/charlievieth/fastwalk"
 )
 
 type FileInfo struct {

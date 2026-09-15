@@ -525,6 +525,7 @@ func (c *Commands) defaultCommands() []*CommandItem {
 	}
 	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_answer_short", answerShortLabel, "", ActionToggleAnswerShort{}))
 	commands = append(commands, NewCommandItem(c.com.Styles, "edit_answer_short_prompt", "Edit Answer Short Prompt", "", ActionOpenDialog{DialogID: EditAnswerShortPromptID}))
+	commands = append(commands, NewCommandItem(c.com.Styles, "set_auto_compact", "Set Auto-Compact Threshold", "", ActionOpenDialog{DialogID: AutoCompactID}))
 
 	// Add Task Planner toggle.
 	taskPlannerLabel := "Disable Task Planner"
@@ -534,8 +535,16 @@ func (c *Commands) defaultCommands() []*CommandItem {
 	}
 	commands = append(commands, NewCommandItem(c.com.Styles, "toggle_task_planner", taskPlannerLabel, "", ActionToggleTaskPlanner{}))
 
-	// Add Telegram connect. Always show since it's in-memory per instance.
-	commands = append(commands, NewCommandItem(c.com.Styles, "connect_telegram", "Connect Telegram", "", ActionOpenDialog{TelegramID}))
+	// Telegram connect/disconnect. Bots are bound to the session and the
+	// token is entered manually (never persisted to disk).
+	if c.com.Workspace != nil && c.sessionID != "" && c.com.Workspace.TelegramBotActive(c.sessionID) {
+		commands = append(commands,
+			NewCommandItem(c.com.Styles, "connect_telegram", "Reconnect Telegram", "", ActionOpenDialog{TelegramID}),
+			NewCommandItem(c.com.Styles, "disconnect_telegram", "Disconnect Telegram", "", ActionDisconnectTelegram{}),
+		)
+	} else {
+		commands = append(commands, NewCommandItem(c.com.Styles, "connect_telegram", "Connect Telegram", "", ActionOpenDialog{TelegramID}))
+	}
 
 	// Add scheduler.
 	commands = append(commands, NewCommandItem(c.com.Styles, "scheduler", "Scheduled Jobs", "", ActionOpenDialog{SchedulerID}))

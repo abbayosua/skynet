@@ -1,9 +1,9 @@
 package common
 
 import (
-	"github.com/alecthomas/chroma/v2"
 	"github.com/abbayosua/skynet/internal/ui/diffview"
 	"github.com/abbayosua/skynet/internal/ui/styles"
+	"github.com/alecthomas/chroma/v2"
 )
 
 // DiffFormatter returns a diff formatter with the given styles that can be
@@ -14,4 +14,3 @@ func DiffFormatter(s *styles.Styles) *diffview.DiffView {
 	diff := formatDiff.ChromaStyle(style).Style(s.Diff).TabWidth(4)
 	return diff
 }
-

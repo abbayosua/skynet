@@ -184,4 +184,3 @@ func TestRegisterWithExternalDataDir(t *testing.T) {
 		t.Errorf("Expected data_dir /var/data/crush/myproject, got %s", projects[0].DataDir)
 	}
 }
-

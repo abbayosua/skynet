@@ -1,4 +1,4 @@
-﻿package hooks
+package hooks
 
 import (
 	"encoding/json"
@@ -33,17 +33,17 @@ type Payload struct {
 // multiple alias fields for host compatibility (Claude Code uses
 // hookEventName, some hosts use hook_event_name, skynet uses event).
 type PostPayload struct {
-	Event         string          `json:"event"`
-	HookEventName string          `json:"hookEventName"`
-	HookEventName2 string         `json:"hook_event_name"`
-	SessionID     string          `json:"session_id"`
-	SessionID2    string          `json:"sessionId"`
-	CWD           string          `json:"cwd"`
-	ToolName      string          `json:"tool_name"`
-	ToolInput     json.RawMessage `json:"tool_input"`
-	ToolResponse  json.RawMessage `json:"tool_response"`
-	ToolOutput    string          `json:"tool_output"`
-	ToolIsError   bool            `json:"tool_is_error"`
+	Event          string          `json:"event"`
+	HookEventName  string          `json:"hookEventName"`
+	HookEventName2 string          `json:"hook_event_name"`
+	SessionID      string          `json:"session_id"`
+	SessionID2     string          `json:"sessionId"`
+	CWD            string          `json:"cwd"`
+	ToolName       string          `json:"tool_name"`
+	ToolInput      json.RawMessage `json:"tool_input"`
+	ToolResponse   json.RawMessage `json:"tool_response"`
+	ToolOutput     string          `json:"tool_output"`
+	ToolIsError    bool            `json:"tool_is_error"`
 }
 
 // BuildPayload constructs the JSON stdin payload for a hook command.
@@ -168,8 +168,8 @@ func parseStdout(stdout string) HookResult {
 		UpdatedInput  json.RawMessage `json:"updated_input"`
 		UpdatedOutput json.RawMessage `json:"updated_output"`
 		// Also accept camelCase and alternative names for PostToolUse
-		UpdatedOutput2 json.RawMessage `json:"updatedOutput"`
-		UpdatedOutput3 json.RawMessage `json:"updated_tool_output"`
+		UpdatedOutput2    json.RawMessage `json:"updatedOutput"`
+		UpdatedOutput3    json.RawMessage `json:"updated_tool_output"`
 		AdditionalContext json.RawMessage `json:"additionalContext"`
 	}
 	if err := json.Unmarshal([]byte(stdout), &parsed); err != nil {

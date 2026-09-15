@@ -169,6 +169,15 @@ func (w *AppWorkspace) AgentSummarize(ctx context.Context, sessionID string) err
 	return w.app.AgentCoordinator.Summarize(ctx, sessionID)
 }
 
+// AgentSetAutoCompactTokens overrides the auto-compact threshold at runtime.
+func (w *AppWorkspace) AgentSetAutoCompactTokens(sessionID string, tokens int64) error {
+	if w.app.AgentCoordinator == nil {
+		return errors.New("agent coordinator not initialized")
+	}
+	w.app.AgentCoordinator.SetAutoCompactTokens(sessionID, tokens)
+	return nil
+}
+
 func (w *AppWorkspace) UpdateAgentModel(ctx context.Context) error {
 	return w.app.UpdateAgentModel(ctx)
 }
@@ -391,16 +400,44 @@ func (w *AppWorkspace) Shutdown() {
 	w.app.Shutdown()
 }
 
-func (w *AppWorkspace) TelegramBotStart(token string) error {
-	return w.app.StartTelegramBot(token)
+func (w *AppWorkspace) TelegramBotStart(sessionID, token string) error {
+	return w.app.StartTelegramBot(sessionID, token)
 }
 
-func (w *AppWorkspace) TelegramBotStop() {
-	w.app.StopTelegramBot()
+func (w *AppWorkspace) TelegramBotStop(sessionID string) {
+	w.app.StopTelegramBot(sessionID)
 }
 
-func (w *AppWorkspace) SendTelegramMessage(ctx context.Context, text string) error {
-	return w.app.SendTelegramMessage(ctx, text)
+func (w *AppWorkspace) TelegramBotActive(sessionID string) bool {
+	return w.app.TelegramBotActive(sessionID)
+}
+
+func (w *AppWorkspace) TelegramBotRetarget(sessionID string) {
+	w.app.RetargetTelegramBot(sessionID)
+}
+
+func (w *AppWorkspace) SendTelegramMessage(ctx context.Context, sessionID, text string) error {
+	return w.app.SendTelegramMessage(ctx, sessionID, text)
+}
+
+func (w *AppWorkspace) SendTelegramMessageWithKeyboard(sessionID, text, parseMode string, keyboard any) error {
+	return w.app.SendTelegramMessageWithKeyboard(context.Background(), sessionID, text, parseMode, keyboard)
+}
+
+func (w *AppWorkspace) TelegramSetVerbose(sessionID string, on bool) bool {
+	return w.app.TelegramSetVerbose(sessionID, on)
+}
+
+func (w *AppWorkspace) TelegramSetThinking(sessionID string, on bool) bool {
+	return w.app.TelegramSetThinking(sessionID, on)
+}
+
+func (w *AppWorkspace) TelegramSetStream(sessionID string, on bool) bool {
+	return w.app.TelegramSetStream(sessionID, on)
+}
+
+func (w *AppWorkspace) TelegramSetSubagents(sessionID string, on bool) bool {
+	return w.app.TelegramSetSubagents(sessionID, on)
 }
 
 // App returns the underlying app.App instance.

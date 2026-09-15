@@ -125,7 +125,7 @@ func buildCommandSources(cfg *config.Config) []commandSource {
 			prefix: userCommandPrefix,
 		},
 		{
-			path:   filepath.Join(home.Dir(), ".skynet", "commands"), 
+			path:   filepath.Join(home.Dir(), ".skynet", "commands"),
 			prefix: userCommandPrefix,
 		},
 		{
@@ -237,8 +237,3 @@ func GetMCPPrompt(cfg *config.ConfigStore, clientID, promptID string, args map[s
 	}
 	return strings.Join(result, " "), nil
 }
-
-
-
-
-

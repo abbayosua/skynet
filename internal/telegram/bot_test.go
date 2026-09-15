@@ -2,12 +2,21 @@ package telegram
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestScrubRemovesToken(t *testing.T) {
+	bot := &Bot{token: "SECRET123"}
+	err := bot.scrub(errors.New(`Get "https://api.telegram.org/botSECRET123/getMe": dial tcp: i/o timeout`))
+	require.NotContains(t, err.Error(), "SECRET123")
+	require.Contains(t, err.Error(), "***")
+	require.Nil(t, bot.scrub(nil))
+}
 
 func TestSplitMessage(t *testing.T) {
 	tests := []struct {
@@ -17,27 +26,27 @@ func TestSplitMessage(t *testing.T) {
 		wantMin int // minimum number of parts expected
 	}{
 		{
-			name:   "short text no split",
-			text:   "Hello, world!",
-			maxLen: 4000,
+			name:    "short text no split",
+			text:    "Hello, world!",
+			maxLen:  4000,
 			wantMin: 1,
 		},
 		{
-			name:   "long text splits",
-			text:   string(runes(5000)),
-			maxLen: 4000,
+			name:    "long text splits",
+			text:    string(runes(5000)),
+			maxLen:  4000,
 			wantMin: 2,
 		},
 		{
-			name:   "split at newline boundary",
-			text:   string(runes(2000)) + "\n" + string(runes(2000)) + "\n" + string(runes(1000)),
-			maxLen: 2500,
+			name:    "split at newline boundary",
+			text:    string(runes(2000)) + "\n" + string(runes(2000)) + "\n" + string(runes(1000)),
+			maxLen:  2500,
 			wantMin: 2,
 		},
 		{
-			name:   "empty text",
-			text:   "",
-			maxLen: 4000,
+			name:    "empty text",
+			text:    "",
+			maxLen:  4000,
 			wantMin: 0,
 		},
 	}
@@ -146,9 +155,11 @@ func TestSendMessageNoChat(t *testing.T) {
 		chatID: 0,
 	}
 
+	// With no chat registered the message is buffered (not an error) so
+	// it can be delivered once a chat contacts the bot.
 	err := bot.SendMessage("Hello")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no chat registered")
+	require.NoError(t, err)
+	require.Len(t, bot.pendingOutbound, 1)
 }
 
 func TestIncomingChannel(t *testing.T) {
@@ -162,4 +173,49 @@ func TestIncomingChannel(t *testing.T) {
 
 	msg := <-incoming
 	require.Equal(t, "test message", msg)
+}
+
+func TestMarkdownToTelegramHTML(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain", "hello world", "hello world"},
+		{"bold", "a **b** c", "a <b>b</b> c"},
+		{"italic", "a *b* c", "a <i>b</i> c"},
+		{"inline code", "run `a*b*c` now", "run <code>a*b*c</code> now"},
+		{"strikethrough", "~~gone~~", "<s>gone</s>"},
+		{"link", "see [docs](https://x.y)", `see <a href="https://x.y">docs</a>`},
+		{"heading", "## Title", "<b>Title</b>"},
+		{"bullet", "- item", "• item"},
+		{"escape", "a < b > c & d", "a &lt; b &gt; c &amp; d"},
+		{"code fence", "```\n<raw> & code\n```", "<pre>\n&lt;raw&gt; &amp; code\n</pre>"},
+		{"table separator skipped", "| a | b |\n|---|---|\n| 1 | 2 |", "a — b\n1 — 2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, markdownToTelegramHTML(tt.in))
+		})
+	}
+}
+
+func TestSendMessageRendersMarkdown(t *testing.T) {
+	var receivedPayload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&receivedPayload)
+		json.NewEncoder(w).Encode(map[string]any{"ok": true, "result": map[string]any{"message_id": 1}})
+	}))
+	defer server.Close()
+
+	bot := &Bot{
+		token:   "TestToken",
+		client:  server.Client(),
+		baseURL: server.URL + "/bot",
+		chatID:  1,
+	}
+
+	require.NoError(t, bot.SendMessage("**hi**"))
+	require.Equal(t, "<b>hi</b>", receivedPayload["text"])
+	require.Equal(t, "HTML", receivedPayload["parse_mode"])
 }

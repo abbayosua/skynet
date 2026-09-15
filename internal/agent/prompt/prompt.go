@@ -29,15 +29,15 @@ type Prompt struct {
 }
 
 type PromptDat struct {
-	Provider      string
-	Model         string
-	Config        config.Config
-	WorkingDir    string
-	IsGitRepo     bool
-	Platform      string
-	Date          string
-	GitStatus     string
-	ContextFiles  []ContextFile
+	Provider           string
+	Model              string
+	Config             config.Config
+	WorkingDir         string
+	IsGitRepo          bool
+	Platform           string
+	Date               string
+	GitStatus          string
+	ContextFiles       []ContextFile
 	AvailSkillXML      string
 	TaskPlannerEnabled bool
 }
@@ -210,14 +210,14 @@ func (p *Prompt) promptData(ctx context.Context, provider, model string, store *
 		dateStr = "1/1/2006"
 	}
 	data := PromptDat{
-		Provider:      provider,
-		Model:         model,
-		Config:        *cfg,
-		WorkingDir:    filepath.ToSlash(workingDir),
-		IsGitRepo:     isGit,
-		Platform:      platform,
-		Date:          dateStr,
-		AvailSkillXML: availSkillXML,
+		Provider:           provider,
+		Model:              model,
+		Config:             *cfg,
+		WorkingDir:         filepath.ToSlash(workingDir),
+		IsGitRepo:          isGit,
+		Platform:           platform,
+		Date:               dateStr,
+		AvailSkillXML:      availSkillXML,
 		TaskPlannerEnabled: cfg.Options != nil && cfg.Options.TaskPlanner != nil && cfg.Options.TaskPlanner.Enabled,
 	}
 	if isGit {
@@ -248,8 +248,8 @@ func isGitRepo(dir string) bool {
 func isDeepSeekCachePrompt(provider, model string) bool {
 	pl := strings.ToLower(provider)
 	ml := strings.ToLower(model)
-	// DeepSeek and Mimo benefit from prefix cache (stable system prompt)
-	return strings.Contains(pl, "deepseek") || strings.Contains(ml, "deepseek") || strings.Contains(pl, "mimo") || strings.Contains(ml, "mimo")
+	// All opencode providers + DeepSeek/Mimo benefit from stable prefix (prefix-cache: Date fixed, GitStatus branch-only)
+	return strings.Contains(pl, "deepseek") || strings.Contains(ml, "deepseek") || strings.Contains(pl, "mimo") || strings.Contains(ml, "mimo") || strings.HasPrefix(pl, "opencode")
 }
 
 func getGitStatus(ctx context.Context, dir string) (string, error) {

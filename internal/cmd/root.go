@@ -23,7 +23,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	fang "charm.land/fang/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/colorprofile"
 	"github.com/abbayosua/skynet/internal/app"
 	"github.com/abbayosua/skynet/internal/client"
 	"github.com/abbayosua/skynet/internal/config"
@@ -38,6 +37,7 @@ import (
 	ui "github.com/abbayosua/skynet/internal/ui/model"
 	"github.com/abbayosua/skynet/internal/version"
 	"github.com/abbayosua/skynet/internal/workspace"
+	"github.com/charmbracelet/colorprofile"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
@@ -50,12 +50,13 @@ var clientHost string
 
 func init() {
 	rootCmd.PersistentFlags().StringP("cwd", "c", "", "Current working directory")
-	rootCmd.PersistentFlags().StringP("data-dir", "D", "", 		"Custom skynet data directory")
+	rootCmd.PersistentFlags().StringP("data-dir", "D", "", "Custom skynet data directory")
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Debug")
 	rootCmd.PersistentFlags().StringVarP(&clientHost, "host", "H", server.DefaultHost(), "Connect to a specific crush server host (for advanced users)")
 	rootCmd.Flags().BoolP("help", "h", false, "Help")
 	rootCmd.Flags().BoolP("yolo", "y", false, "Automatically accept all permissions (dangerous mode)")
-	rootCmd.Flags().StringP("telegram", "t", "", "Telegram bot token for chat mirroring")
+	rootCmd.Flags().StringP("telegram", "t", "", "Telegram bot token for chat mirroring (bound to the session, never persisted)")
+
 	rootCmd.Flags().StringP("session", "s", "", "Continue a previous session by ID")
 	rootCmd.Flags().BoolP("continue", "C", false, "Continue the most recent session")
 	rootCmd.MarkFlagsMutuallyExclusive("session", "continue")
@@ -104,26 +105,21 @@ skynet --session {session-id}
 
 # Continue the most recent session
 skynet --continue
-
-# Run with Telegram bot mirroring
-skynet --yolo --telegram {bot-token}
   `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sessionID, _ := cmd.Flags().GetString("session")
 		continueLast, _ := cmd.Flags().GetBool("continue")
+		telegramToken, _ := cmd.Flags().GetString("telegram")
+		// Fallback to env if flag is empty.
+		if telegramToken == "" {
+			telegramToken = os.Getenv("SKYNET_TELEGRAM_TOKEN")
+		}
 
 		ws, cleanup, err := setupWorkspaceWithProgressBar(cmd)
 		if err != nil {
 			return err
 		}
 		defer cleanup()
-
-		// Start Telegram bot if token provided via --telegram flag.
-		if token, _ := cmd.Flags().GetString("telegram"); token != "" {
-			if err := ws.TelegramBotStart(token); err != nil {
-				slog.Warn("Failed to start Telegram bot", "error", err)
-			}
-		}
 
 		if sessionID != "" {
 			sess, err := resolveWorkspaceSessionID(cmd.Context(), ws, sessionID)
@@ -136,7 +132,7 @@ skynet --yolo --telegram {bot-token}
 		event.AppInitialized()
 
 		com := common.DefaultCommon(ws)
-		model := ui.New(com, sessionID, continueLast)
+		model := ui.New(com, sessionID, continueLast, telegramToken)
 
 		var env uv.Environ = os.Environ()
 		program := tea.NewProgram(
@@ -821,4 +817,3 @@ var oldGitIgnore string
 
 //go:embed gitignore/default
 var defaultGitIgnore string
-

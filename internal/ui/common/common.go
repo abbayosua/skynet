@@ -6,11 +6,11 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/atotto/clipboard"
 	"github.com/abbayosua/skynet/internal/config"
 	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/abbayosua/skynet/internal/ui/util"
 	"github.com/abbayosua/skynet/internal/workspace"
+	"github.com/atotto/clipboard"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 

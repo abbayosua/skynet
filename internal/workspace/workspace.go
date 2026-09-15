@@ -85,9 +85,15 @@ type Workspace interface {
 	AgentQueuedPromptsList(sessionID string) []string
 	AgentClearQueue(sessionID string)
 	AgentSummarize(ctx context.Context, sessionID string) error
+	// AgentSetAutoCompactTokens enables custom auto-compact for a session.
+	// A positive value compacts at an exact token count; zero disables
+	// custom compaction (context-window default).
+	AgentSetAutoCompactTokens(sessionID string, tokens int64) error
 	UpdateAgentModel(ctx context.Context) error
 	InitCoderAgent(ctx context.Context) error
 	GetDefaultSmallModel(providerID string) config.SelectedModel
+
+	// Permissions
 
 	// Permissions
 	PermissionGrant(perm permission.PermissionRequest)
@@ -143,10 +149,21 @@ type Workspace interface {
 	Subscribe(program *tea.Program)
 	Shutdown()
 
-	// Telegram bot runtime management
-	TelegramBotStart(token string) error
-	TelegramBotStop()
-	SendTelegramMessage(ctx context.Context, text string) error
+	// Telegram bot runtime management. Bots are bound to a session ID and
+	// the token is held in memory only (never persisted).
+	TelegramBotStart(sessionID, token string) error
+	TelegramBotStop(sessionID string)
+	TelegramBotActive(sessionID string) bool
+	TelegramBotRetarget(sessionID string)
+	SendTelegramMessage(ctx context.Context, sessionID, text string) error
+	SendTelegramMessageWithKeyboard(sessionID, text, parseMode string, keyboard any) error
+
+	// Telegram mirror toggles. Each reports whether the bot was bound to
+	// the session (and therefore the toggle was applied).
+	TelegramSetVerbose(sessionID string, on bool) bool
+	TelegramSetThinking(sessionID string, on bool) bool
+	TelegramSetStream(sessionID string, on bool) bool
+	TelegramSetSubagents(sessionID string, on bool) bool
 }
 
 // TelegramBotInfo holds saved bot info exposed to the UI.

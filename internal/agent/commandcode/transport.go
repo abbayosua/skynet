@@ -78,28 +78,38 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			if mm, ok := m.(map[string]any); ok {
 				if c, ok := mm["content"]; ok {
 					var s string
-					if str, ok := c.(string); ok { s = str } else if arr, ok := c.([]any); ok {
-						for _, p := range arr { if pm, ok := p.(map[string]any); ok { if txt, ok := pm["text"].(string); ok { s+=txt } } }
+					if str, ok := c.(string); ok {
+						s = str
+					} else if arr, ok := c.([]any); ok {
+						for _, p := range arr {
+							if pm, ok := p.(map[string]any); ok {
+								if txt, ok := pm["text"].(string); ok {
+									s += txt
+								}
+							}
+						}
 					}
-					if len(s)>0 && strings.Contains(s, "Generate a concise title") {
+					if len(s) > 0 && strings.Contains(s, "Generate a concise title") {
 						title := "Hi pong"
 						// Return synthetic NDJSON response directly without upstream
-						body := "{\"type\":\"text-delta\",\"text\":\""+title+"\"}\n{\"type\":\"finish-step\",\"usage\":{}}"
+						body := "{\"type\":\"text-delta\",\"text\":\"" + title + "\"}\n{\"type\":\"finish-step\",\"usage\":{}}"
 						resp := &http.Response{StatusCode: 200, Status: "200 OK", Header: make(http.Header), Body: io.NopCloser(bytes.NewReader([]byte(body)))}
 						resp.Header.Set("Content-Type", "application/x-ndjson")
 						// Reuse existing translation logic: if original stream true, emit SSE
 						origStreamInner := raw["stream"]
 						isOrigStreamInner := true
-						if b, ok := origStreamInner.(bool); ok && !b { isOrigStreamInner = false }
+						if b, ok := origStreamInner.(bool); ok && !b {
+							isOrigStreamInner = false
+						}
 						if !isOrigStreamInner {
-							b, _ := json.Marshal(map[string]any{"id":"chatcmpl-commandcode","object":"chat.completion","choices":[]map[string]any{{"message":map[string]any{"role":"assistant","content":title},"finish_reason":"stop"}}})
+							b, _ := json.Marshal(map[string]any{"id": "chatcmpl-commandcode", "object": "chat.completion", "choices": []map[string]any{{"message": map[string]any{"role": "assistant", "content": title}, "finish_reason": "stop"}}})
 							resp.Body = io.NopCloser(bytes.NewReader(b))
-							resp.Header.Set("Content-Type","application/json")
+							resp.Header.Set("Content-Type", "application/json")
 						} else {
 							// Wrap as SSE via existing path: create pipe and translate
 							pr, pw := io.Pipe()
 							resp.Body = pr
-							resp.Header.Set("Content-Type","text/event-stream")
+							resp.Header.Set("Content-Type", "text/event-stream")
 							go func() { defer pw.Close(); translateNDJSONToSSE(bytes.NewReader([]byte(body)), pw, raw["model"]) }()
 						}
 						return resp, nil
@@ -257,33 +267,43 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		isOrigStream = false
 	}
 	if !isOrigStream {
-			bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, _ := io.ReadAll(resp.Body)
 		_ = os.WriteFile("/tmp/cc_resp.log", bodyBytes, 0644)
 		resp.Body.Close()
 		text := ""
 		usageMap := map[string]any{}
 		for _, line := range bytes.Split(bodyBytes, []byte("\n")) {
 			line = bytes.TrimSpace(line)
-			if len(line)==0 { continue }
+			if len(line) == 0 {
+				continue
+			}
 			var obj map[string]any
-			if err := json.Unmarshal(line, &obj); err != nil { continue }
-			if obj["type"]=="text-delta" {
-				if s, ok := obj["text"].(string); ok { text+=s }
+			if err := json.Unmarshal(line, &obj); err != nil {
+				continue
+			}
+			if obj["type"] == "text-delta" {
+				if s, ok := obj["text"].(string); ok {
+					text += s
+				}
 				if d, ok := obj["delta"].(map[string]any); ok {
-					if s, ok := d["text"].(string); ok { text+=s }
+					if s, ok := d["text"].(string); ok {
+						text += s
+					}
 				}
 			}
-			if obj["type"]=="finish-step" {
-				if u, ok := obj["usage"].(map[string]any); ok { usageMap=u }
+			if obj["type"] == "finish-step" {
+				if u, ok := obj["usage"].(map[string]any); ok {
+					usageMap = u
+				}
 			}
 		}
 		respObj := map[string]any{
-			"id": "chatcmpl-commandcode",
-			"object": "chat.completion",
+			"id":      "chatcmpl-commandcode",
+			"object":  "chat.completion",
 			"created": 0,
-			"model": raw["model"],
-			"choices": []map[string]any{{"index":0,"message":map[string]any{"role":"assistant","content":text},"finish_reason":"stop"}},
-			"usage": usageMap,
+			"model":   raw["model"],
+			"choices": []map[string]any{{"index": 0, "message": map[string]any{"role": "assistant", "content": text}, "finish_reason": "stop"}},
+			"usage":   usageMap,
 		}
 		b, _ := json.Marshal(respObj)
 		resp.Body = io.NopCloser(bytes.NewReader(b))
@@ -534,5 +554,3 @@ func emitSSELine(line string, w io.Writer, model any) {
 		_, _ = io.WriteString(w, "data: "+string(b)+"\n\n")
 	}
 }
-
-

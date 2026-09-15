@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/charlievieth/fastwalk"
 	"github.com/abbayosua/skynet/internal/csync"
 	"github.com/abbayosua/skynet/internal/home"
+	"github.com/charlievieth/fastwalk"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
@@ -34,7 +34,7 @@ var fastIgnoreDirs = map[string]bool{
 	".Trash":          true,
 	".Spotlight-V100": true,
 	".fseventsd":      true,
-	".crush":          true,  // backward compatibility
+	".crush":          true, // backward compatibility
 	".skynet":         true,
 	"OrbStack":        true,
 	".local":          true,
@@ -319,5 +319,3 @@ func ListDirectory(initialPath string, ignorePatterns []string, depth, limit int
 	matches, truncated := truncate(slices.Collect(found.Seq()), limit)
 	return matches, truncated || errors.Is(err, filepath.SkipAll), nil
 }
-
-

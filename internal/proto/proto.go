@@ -90,6 +90,12 @@ type PermissionSkipRequest struct {
 	Skip bool `json:"skip"`
 }
 
+// AutoCompactTokensRequest sets the agent auto-compact threshold. Zero
+// restores the context-window based compaction behavior.
+type AutoCompactTokensRequest struct {
+	Tokens int64 `json:"tokens"`
+}
+
 // LSPEventType represents the type of LSP event.
 type LSPEventType string
 

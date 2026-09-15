@@ -91,6 +91,21 @@ func (b *Backend) SummarizeSession(ctx context.Context, workspaceID, sessionID s
 	return ws.AgentCoordinator.Summarize(ctx, sessionID)
 }
 
+// SetAutoCompactTokens enables custom auto-compact for a session.
+func (b *Backend) SetAutoCompactTokens(workspaceID, sessionID string, tokens int64) error {
+	ws, err := b.GetWorkspace(workspaceID)
+	if err != nil {
+		return err
+	}
+
+	if ws.AgentCoordinator == nil {
+		return ErrAgentNotInitialized
+	}
+
+	ws.AgentCoordinator.SetAutoCompactTokens(sessionID, tokens)
+	return nil
+}
+
 // QueuedPrompts returns the number of queued prompts for the session.
 func (b *Backend) QueuedPrompts(workspaceID, sessionID string) (int, error) {
 	ws, err := b.GetWorkspace(workspaceID)

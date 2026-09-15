@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/colorprofile"
 	"github.com/abbayosua/skynet/internal/agent/tools"
 	"github.com/abbayosua/skynet/internal/config"
 	"github.com/abbayosua/skynet/internal/db"
@@ -24,6 +23,7 @@ import (
 	"github.com/abbayosua/skynet/internal/session"
 	"github.com/abbayosua/skynet/internal/ui/chat"
 	"github.com/abbayosua/skynet/internal/ui/styles"
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/charmtone"
 	"github.com/charmbracelet/x/term"

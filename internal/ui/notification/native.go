@@ -47,4 +47,3 @@ func (b *NativeBackend) SetNotifyFunc(fn func(title, message string, icon any) e
 func (b *NativeBackend) ResetNotifyFunc() {
 	b.notifyFunc = beeep.Notify
 }
-

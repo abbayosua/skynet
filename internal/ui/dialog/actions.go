@@ -76,6 +76,11 @@ type (
 	ActionSummarize struct {
 		SessionID string
 	}
+	// ActionSetAutoCompact is sent when the user confirms an auto-compact
+	// threshold. Zero restores the context-window based behavior.
+	ActionSetAutoCompact struct {
+		Tokens int64
+	}
 	// ActionSelectReasoningEffort is a message indicating a reasoning effort
 	// has been selected.
 	ActionSelectReasoningEffort struct {

@@ -202,4 +202,3 @@ func (c *coordinator) agenticFetchTool(_ context.Context, client *http.Client) (
 			})
 		}), nil
 }
-

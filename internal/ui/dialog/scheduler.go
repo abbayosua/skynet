@@ -36,9 +36,9 @@ type SchedulerDialog struct {
 	list *list.List
 	mode schedulerMode
 
-	jobs       []*scheduler.Job
-	store      *scheduler.Store
-	input      textinput.Model
+	jobs        []*scheduler.Job
+	store       *scheduler.Store
+	input       textinput.Model
 	addName     string
 	addInterval string
 	sessionID   string
@@ -356,5 +356,3 @@ func (i *SchedulerItem) Render(width int) string {
 	}
 	return first + "\n" + second
 }
-
-

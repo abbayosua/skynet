@@ -11,7 +11,8 @@ import (
 // getMaxRetries returns higher max retries for B.AI/DeepSeek providers
 // to handle rate limits gracefully. Other providers use default (2).
 func getMaxRetries(model Model) *int {
-	if strings.HasPrefix(model.ModelCfg.Provider, "b-ai") {
+	if strings.HasPrefix(model.ModelCfg.Provider, "b-ai") ||
+		strings.Contains(model.ModelCfg.Provider, "deepseek") {
 		n := 10 // More retries for rate-limited providers
 		return &n
 	}
@@ -65,7 +66,7 @@ type deepseekLanguageModel struct {
 }
 
 func (m *deepseekLanguageModel) Provider() string { return m.inner.Provider() }
-func (m *deepseekLanguageModel) Model() string     { return m.inner.Model() }
+func (m *deepseekLanguageModel) Model() string    { return m.inner.Model() }
 
 func (m *deepseekLanguageModel) Generate(ctx context.Context, call fantasy.Call) (*fantasy.Response, error) {
 	call.Prompt = m.provider.ensureReasoningInPrompt(call.Prompt)
@@ -124,6 +125,10 @@ func (p *deepseekProvider) captureReasoning(resp *fantasy.Response) {
 // requests with "reasoning_content": "". Only inject when we have a
 // non-empty reasoning string from a previous turn.
 func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantasy.Prompt {
+	return prompt
+}
+
+func (p *deepseekProvider) ensureReasoningInPromptOrig(prompt fantasy.Prompt) fantasy.Prompt {
 	// First, try to extract reasoning from the prompt's assistant messages
 	// This is more reliable than capturing from responses (which doesn't work for streaming)
 	reasoningFromHistory := extractLastReasoning(prompt)
@@ -151,7 +156,17 @@ func (p *deepseekProvider) ensureReasoningInPrompt(prompt fantasy.Prompt) fantas
 			continue
 		}
 
-		// Check if this message already has reasoning content
+		hasToolCall := false
+		for _, c2 := range msg.Content {
+			if c2.GetType() == fantasy.ContentTypeToolCall {
+				hasToolCall = true
+				break
+			}
+		}
+		if hasToolCall {
+			patched[i] = msg
+			continue
+		}
 		hasReasoning := false
 		for _, c := range msg.Content {
 			if c.GetType() == fantasy.ContentTypeReasoning {

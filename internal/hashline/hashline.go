@@ -2,9 +2,9 @@
 //
 // Every line displayed by the View tool is annotated with a content hash:
 //
-//	 15#VK|func hello() {
-//	 16#XJ|  return "world"
-//	 17#MB|}
+//	15#VK|func hello() {
+//	16#XJ|  return "world"
+//	17#MB|}
 //
 // When the agent edits via hashline_edit, it references the LINE#ID tag.
 // The edit is only applied if the content hash still matches, which proves

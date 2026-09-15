@@ -164,7 +164,7 @@ type sessionAgent struct {
 	activeRequests *csync.Map[string, context.CancelFunc]
 	ralphLoop      *ralphLoopState
 
-	currentActivity string
+	currentActivity *csync.Map[string, string]
 }
 
 type ralphLoopState struct {
@@ -211,6 +211,7 @@ func NewSessionAgent(
 		ralphLoop:            newRalphLoopState(opts.RalphLoop),
 		answerShort:          csync.NewValue(opts.AnswerShort),
 		answerShortPrompt:    csync.NewValue(opts.AnswerShortPrompt),
+		currentActivity:      csync.NewMap[string, string](),
 	}
 }
 
@@ -456,12 +457,14 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			callContext = context.WithValue(callContext, tools.MessageIDContextKey, assistantMsg.ID)
 			callContext = context.WithValue(callContext, tools.SupportsImagesContextKey, largeModel.CatwalkCfg.SupportsImages)
 			callContext = context.WithValue(callContext, tools.ModelNameContextKey, largeModel.CatwalkCfg.Name)
-			callContext = context.WithValue(callContext, tools.ActivityContextKey, a.setCurrentActivity)
+			callContext = context.WithValue(callContext, tools.ActivityContextKey, func(activity string) {
+				a.setCurrentActivity(call.SessionID, activity)
+			})
 			currentAssistant = &assistantMsg
 			return callContext, prepared, err
 		},
 		OnReasoningStart: func(id string, reasoning fantasy.ReasoningContent) error {
-			a.setCurrentActivity("Thinking...")
+			a.setCurrentActivity(call.SessionID, "Thinking...")
 			currentAssistant.AppendReasoningContent(reasoning.Text)
 			return a.messages.Update(genCtx, *currentAssistant)
 		},
@@ -486,11 +489,23 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 					currentAssistant.SetReasoningResponsesData(reasoning)
 				}
 			}
+			if a.notify != nil {
+				if txt := strings.TrimSpace(currentAssistant.ReasoningContent().String()); txt != "" {
+					if len(txt) > 2000 {
+						txt = txt[:2000] + "…"
+					}
+					a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
+						SessionID: call.SessionID,
+						Type:      notify.TypeReasoning,
+						Activity:  txt,
+					})
+				}
+			}
 			currentAssistant.FinishThinking()
 			return a.messages.Update(genCtx, *currentAssistant)
 		},
 		OnTextDelta: func(id string, text string) error {
-			a.setCurrentActivity("Writing...")
+			a.setCurrentActivity(call.SessionID, "Writing...")
 			// Strip leading newline from initial text content. This is is
 			// particularly important in non-interactive mode where leading
 			// newlines are very visible.
@@ -499,10 +514,17 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			}
 
 			currentAssistant.AppendContent(text)
+			if a.notify != nil {
+				a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
+					SessionID: call.SessionID,
+					Type:      notify.TypeStreamDelta,
+					Activity:  currentAssistant.AllText(),
+				})
+			}
 			return a.messages.Update(genCtx, *currentAssistant)
 		},
 		OnToolInputStart: func(id string, toolName string) error {
-			a.setCurrentActivity("Running: " + toolName)
+			a.setCurrentActivity(call.SessionID, "Running: "+toolName)
 			toolCall := message.ToolCall{
 				ID:               id,
 				Name:             toolName,
@@ -510,8 +532,6 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 				Finished:         false,
 			}
 			currentAssistant.AddToolCall(toolCall)
-			// Use parent ctx instead of genCtx to ensure the update succeeds
-			// even if the request is canceled mid-stream
 			return a.messages.Update(ctx, *currentAssistant)
 		},
 		OnRetry: func(err *fantasy.ProviderError, delay time.Duration) {
@@ -532,18 +552,39 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		},
 		OnToolResult: func(result fantasy.ToolResultContent) error {
 			toolResult := a.convertToToolResult(result)
-			// Use parent ctx instead of genCtx to ensure the message is created
-			// even if the request is canceled mid-stream
 			_, createMsgErr := a.messages.Create(ctx, currentAssistant.SessionID, message.CreateMessageParams{
 				Role: message.Tool,
 				Parts: []message.ContentPart{
 					toolResult,
 				},
 			})
+			if a.notify != nil {
+				if errPart, ok := fantasy.AsToolResultOutputType[fantasy.ToolResultOutputContentError](result.Result); ok && errPart.Error != nil {
+					errText := errPart.Error.Error()
+					if len(errText) > 200 {
+						errText = errText[:200] + "…"
+					}
+					a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
+						SessionID: call.SessionID,
+						Type:      notify.TypeToolError,
+						Activity:  "❌ " + result.ToolName + ": " + errText,
+					})
+				} else if okText, ok := fantasy.AsToolResultOutputType[fantasy.ToolResultOutputContentText](result.Result); ok && strings.TrimSpace(okText.Text) != "" {
+					out := strings.TrimSpace(okText.Text)
+					if len(out) > 1000 {
+						out = out[:1000] + "…"
+					}
+					a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
+						SessionID: call.SessionID,
+						Type:      notify.TypeToolOutput,
+						Activity:  "🔧 " + result.ToolName + ": " + out,
+					})
+				}
+			}
 			return createMsgErr
 		},
 		OnStepFinish: func(stepResult fantasy.StepResult) error {
-			a.setCurrentActivity("Processing...")
+			a.setCurrentActivity(call.SessionID, "Processing...")
 			finishReason := message.FinishReasonUnknown
 			switch stepResult.FinishReason {
 			case fantasy.FinishReasonLength:
@@ -618,17 +659,24 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 	})
 
 	// Clear activity when processing completes.
-	a.setCurrentActivity("")
+	a.setCurrentActivity(call.SessionID, "")
 
 	// Publish final assistant content for Telegram activity mirror.
 	// This is a more reliable delivery path than the message pubsub
 	// (mirrorMessagesToTelegram) which can drop events under contention.
 	if currentAssistant != nil && err == nil && a.notify != nil {
-		content := currentAssistant.Content().String()
+		content := currentAssistant.AllText()
 		if content != "" {
+			// Annotate canceled turns so Telegram users know the answer
+			// may be incomplete.
+			fp := currentAssistant.FinishPart()
+			if fp != nil && fp.Reason == message.FinishReasonCanceled {
+				content += "\n\n_(dibatalkan)_"
+			}
 			a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
-				Type:     notify.TypeAgentResponded,
-				Activity: content,
+				SessionID: call.SessionID,
+				Type:      notify.TypeAgentResponded,
+				Activity:  content,
 			})
 		}
 	}
@@ -739,6 +787,14 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		updateErr := a.messages.Update(ctx, *currentAssistant)
 		if updateErr != nil {
 			return nil, updateErr
+		}
+		if !isCancelErr && a.notify != nil {
+			a.notify.Publish(pubsub.CreatedEvent, notify.Notification{
+				SessionID:    call.SessionID,
+				SessionTitle: currentSession.Title,
+				Type:         notify.TypeAgentError,
+				Activity:     err.Error(),
+			})
 		}
 		return nil, err
 	}
@@ -1393,15 +1449,22 @@ func (a *sessionAgent) updateSessionUsage(model Model, session *session.Session,
 // setCurrentActivity updates the current activity string and publishes
 // an activity notification so downstream consumers (e.g. Telegram mirror)
 // can show what the agent is doing right now.
-func (a *sessionAgent) setCurrentActivity(activity string) {
-	if a.currentActivity == activity {
+// setCurrentActivity updates the current activity string for a session and
+// publishes an activity notification so downstream consumers (e.g. Telegram
+// mirror) can show what the agent is doing right now.
+func (a *sessionAgent) setCurrentActivity(sessionID, activity string) {
+	if sessionID == "" {
 		return
 	}
-	a.currentActivity = activity
+	if prev, ok := a.currentActivity.Get(sessionID); ok && prev == activity {
+		return
+	}
+	a.currentActivity.Set(sessionID, activity)
 	if a.notify != nil {
 		a.notify.Publish(pubsub.UpdatedEvent, notify.Notification{
-			Type:     notify.TypeActivityUpdate,
-			Activity: activity,
+			SessionID: sessionID,
+			Type:      notify.TypeActivityUpdate,
+			Activity:  activity,
 		})
 	}
 }

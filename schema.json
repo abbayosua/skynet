@@ -543,10 +543,6 @@
           "$ref": "#/$defs/RalphLoop",
           "description": "Auto-continuation loop settings"
         },
-        "telegram": {
-          "$ref": "#/$defs/Telegram",
-          "description": "Telegram mirror bot settings"
-        },
         "team_mode": {
           "$ref": "#/$defs/TeamMode",
           "description": "Team mode for multi-agent coordination"
@@ -816,20 +812,6 @@
           "type": "integer",
           "description": "Maximum number of team members running in parallel",
           "default": 4
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "Telegram": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable Telegram mirror"
-        },
-        "bot_token": {
-          "type": "string",
-          "description": "Telegram bot token"
         }
       },
       "additionalProperties": false,

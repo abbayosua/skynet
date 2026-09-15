@@ -175,6 +175,22 @@ type UI struct {
 	// continueLastSession is set to continue the most recent session on startup.
 	continueLastSession bool
 
+	// telegramToken, when non-empty, starts a Telegram mirror bot bound to
+	// the first session that becomes active. It is held in memory only.
+	telegramToken string
+
+	// pendingPermission holds the most recent permission request awaiting a
+	// decision, so it can also be answered from Telegram via /approve.
+	pendingPermission *permission.PermissionRequest
+
+	// telegramSessions caches the session list shown by /sessions so that
+	// /switch <n> can refer to it deterministically.
+	telegramSessions []session.Session
+
+	// autoCompactTokens tracks the custom auto-compact threshold applied
+	// at runtime. Zero means the context-window based default is active.
+	autoCompactTokens int64
+
 	lastUserMessageTime int64
 
 	// The width and height of the terminal in cells.
@@ -285,7 +301,7 @@ type UI struct {
 }
 
 // New creates a new instance of the [UI] model.
-func New(com *common.Common, initialSessionID string, continueLast bool) *UI {
+func New(com *common.Common, initialSessionID string, continueLast bool, telegramToken string) *UI {
 	// Editor components
 	ta := textarea.New()
 	ta.SetStyles(com.Styles.Editor.Textarea)
@@ -346,6 +362,7 @@ func New(com *common.Common, initialSessionID string, continueLast bool) *UI {
 		notifyWindowFocused: true,
 		initialSessionID:    initialSessionID,
 		continueLastSession: continueLast,
+		telegramToken:       telegramToken,
 		skillStates:         skills.GetLatestStates(),
 	}
 
@@ -540,6 +557,24 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.setState(uiChat, m.focus)
 		m.session = msg.session
+		// Keep the Telegram bot bound to the session the user is viewing.
+		if m.session != nil {
+			m.com.Workspace.TelegramBotRetarget(m.session.ID)
+		}
+		m.pendingPermission = nil
+		// Start the Telegram mirror bot supplied via --telegram once a
+		// session is active. The token is memory-only and never saved.
+		if m.telegramToken != "" && m.session != nil {
+			token := m.telegramToken
+			sessionID := m.session.ID
+			m.telegramToken = ""
+			cmds = append(cmds, func() tea.Msg {
+				if err := m.com.Workspace.TelegramBotStart(sessionID, token); err != nil {
+					return util.ReportError(err)()
+				}
+				return util.NewInfoMsg("Telegram connected! Send /start to your bot.")
+			})
+		}
 		m.sessionFiles = msg.files
 		cmds = append(cmds, m.startLSPs(msg.lspFilePaths()))
 		msgs, err := m.com.Workspace.ListMessages(context.Background(), m.session.ID)
@@ -574,17 +609,55 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sendMessageMsg:
 		cmds = append(cmds, m.sendMessage(msg.Content, msg.Attachments...))
 
+	case telegram.IncomingCallback:
+		if m.session == nil || msg.SessionID != m.session.ID {
+			break
+		}
+		if m.pendingPermission == nil {
+			break
+		}
+		p := *m.pendingPermission
+		m.pendingPermission = nil
+		m.dialog.CloseDialog(dialog.PermissionsID)
+		approve := msg.CallbackData == "approve"
+		cmds = append(cmds, func() tea.Msg {
+			if approve {
+				m.com.Workspace.PermissionGrant(p)
+			} else {
+				m.com.Workspace.PermissionDeny(p)
+			}
+			verb := "denied"
+			if approve {
+				verb = "approved"
+			}
+			_ = m.com.Workspace.SendTelegramMessage(context.Background(), msg.SessionID, fmt.Sprintf("✅ Permission %s: %s", verb, p.ToolName))
+			return nil
+		})
+
 	case telegram.IncomingMessage:
+		if m.session == nil || msg.SessionID != m.session.ID {
+			break
+		}
 		if m.state == uiChat || m.state == uiLanding {
 			m.com.Workspace.PermissionSetSkipRequests(true)
 
+			sessionID := m.session.ID
 			text := strings.TrimSpace(msg.Text)
 			switch {
+			case text == "/start":
+				title := "session"
+				if m.session != nil && m.session.Title != "" {
+					title = m.session.Title
+				}
+				cmds = append(cmds, func() tea.Msg {
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "✅ Connected to session: "+title+"\nSend a message or /help to begin.")
+					return nil
+				})
 			case text == "/new":
 				// Create a new session and confirm via Telegram.
 				if m.isAgentBusy() {
 					cmds = append(cmds, func() tea.Msg {
-						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "Agent is busy, please wait...")
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "Agent is busy, please wait...")
 						return nil
 					})
 					break
@@ -593,7 +666,7 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmds = append(cmds, cmd)
 				}
 				cmds = append(cmds, func() tea.Msg {
-					_ = m.com.Workspace.SendTelegramMessage(context.Background(), "✅ New session created. Send a message to start.")
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "✅ New session created. Send a message to start.")
 					return nil
 				})
 
@@ -601,15 +674,14 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Summarize the current session.
 				if m.isAgentBusy() {
 					cmds = append(cmds, func() tea.Msg {
-						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "Agent is busy, please wait...")
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "Agent is busy, please wait...")
 						return nil
 					})
 					break
 				}
-				sessionID := m.session.ID
 				if sessionID == "" {
 					cmds = append(cmds, func() tea.Msg {
-						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "No active session to summarize.")
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "No active session to summarize.")
 						return nil
 					})
 					break
@@ -617,10 +689,10 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, func() tea.Msg {
 					err := m.com.Workspace.AgentSummarize(context.Background(), sessionID)
 					if err != nil {
-						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "❌ Failed to summarize: "+err.Error())
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "❌ Failed to summarize: "+err.Error())
 						return util.ReportError(err)()
 					}
-					_ = m.com.Workspace.SendTelegramMessage(context.Background(), "✅ Session summarized successfully.")
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "✅ Session summarized successfully.")
 					return nil
 				})
 
@@ -628,20 +700,123 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, func() tea.Msg {
 					cfg := m.com.Config()
 					if cfg == nil {
-						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "❌ Configuration not found.")
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "❌ Configuration not found.")
 						return nil
 					}
 					isEnabled := cfg.Options != nil && cfg.Options.RalphLoop != nil && cfg.Options.RalphLoop.Enabled
 					newValue := !isEnabled
 					if err := m.com.Workspace.SetConfigField(config.ScopeGlobal, "options.ralph_loop.enabled", newValue); err != nil {
-						_ = m.com.Workspace.SendTelegramMessage(context.Background(), "❌ Failed to toggle Ralph Loop: "+err.Error())
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "❌ Failed to toggle Ralph Loop: "+err.Error())
 						return nil
 					}
 					status := "disabled"
 					if newValue {
 						status = "enabled"
 					}
-					_ = m.com.Workspace.SendTelegramMessage(context.Background(), "🔄 Ralph Loop "+status)
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "🔄 Ralph Loop "+status)
+					return nil
+				})
+
+			case text == "/cancel":
+				m.com.Workspace.AgentCancel(sessionID)
+				cmds = append(cmds, m.telegramReply(sessionID, "🛑 Cancellation requested."))
+
+			case text == "/sessions":
+				sessions, err := m.com.Workspace.ListSessions(context.Background())
+				if err != nil {
+					cmds = append(cmds, m.telegramReply(sessionID, "❌ Failed to list sessions: "+err.Error()))
+					break
+				}
+				m.telegramSessions = sessions
+				if len(sessions) == 0 {
+					cmds = append(cmds, m.telegramReply(sessionID, "No sessions found."))
+					break
+				}
+				var b strings.Builder
+				b.WriteString("📂 Recent sessions:\n")
+				for i, s := range sessions {
+					if i >= 10 {
+						break
+					}
+					title := s.Title
+					if title == "" {
+						title = "(untitled)"
+					}
+					fmt.Fprintf(&b, "%d. %s\n", i+1, title)
+				}
+				b.WriteString("\nSwitch with /switch <n>")
+				cmds = append(cmds, m.telegramReply(sessionID, b.String()))
+
+			case strings.HasPrefix(text, "/switch"):
+				arg := strings.TrimSpace(strings.TrimPrefix(text, "/switch"))
+				idx, err := strconv.Atoi(arg)
+				if err != nil || idx < 1 || idx > len(m.telegramSessions) {
+					cmds = append(cmds, m.telegramReply(sessionID, "Usage: /switch <n> (run /sessions first)"))
+					break
+				}
+				target := m.telegramSessions[idx-1]
+				title := target.Title
+				if title == "" {
+					title = "(untitled)"
+				}
+				cmds = append(cmds, m.loadSession(target.ID))
+				cmds = append(cmds, m.telegramReply(sessionID, "🔀 Switched to: "+title))
+
+			case strings.HasPrefix(text, "/verbose"),
+				strings.HasPrefix(text, "/thinking"),
+				strings.HasPrefix(text, "/stream"),
+				strings.HasPrefix(text, "/subagents"):
+				on := telegramToggleArg(text)
+				var ok bool
+				var label string
+				switch {
+				case strings.HasPrefix(text, "/verbose"):
+					ok = m.com.Workspace.TelegramSetVerbose(sessionID, on)
+					label = "Tool output"
+				case strings.HasPrefix(text, "/thinking"):
+					ok = m.com.Workspace.TelegramSetThinking(sessionID, on)
+					label = "Reasoning"
+				case strings.HasPrefix(text, "/stream"):
+					ok = m.com.Workspace.TelegramSetStream(sessionID, on)
+					label = "Streaming status"
+				default:
+					ok = m.com.Workspace.TelegramSetSubagents(sessionID, on)
+					label = "Sub-agent mirroring"
+				}
+				if !ok {
+					cmds = append(cmds, m.telegramReply(sessionID, "Telegram bot not connected to this session."))
+					break
+				}
+				state := "on"
+				if !on {
+					state = "off"
+				}
+				cmds = append(cmds, m.telegramReply(sessionID, "⚙️ "+label+": "+state))
+
+			case text == "/approve" || text == "/deny":
+				perm := m.pendingPermission
+				if perm == nil || perm.SessionID != sessionID {
+					cmds = append(cmds, func() tea.Msg {
+						_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, "No pending permission request.")
+						return nil
+					})
+					break
+				}
+				approve := text == "/approve"
+				p := *perm
+				m.pendingPermission = nil
+				m.dialog.CloseDialog(dialog.PermissionsID)
+				cmds = append(cmds, func() tea.Msg {
+					if approve {
+						m.com.Workspace.PermissionGrant(p)
+					} else {
+						m.com.Workspace.PermissionDeny(p)
+					}
+					verb := "denied"
+					if approve {
+						verb = "approved"
+					}
+					_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, fmt.Sprintf("✅ Permission %s: %s", verb, p.ToolName))
 					return nil
 				})
 
@@ -759,15 +934,37 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, handleMCPResourcesEvent(m.com.Workspace, msg.Payload.Name)
 		}
 	case pubsub.Event[permission.PermissionRequest]:
-		if cmd := m.openPermissionsDialog(msg.Payload); cmd != nil {
+		perm := msg.Payload
+		m.pendingPermission = &perm
+		if cmd := m.openPermissionsDialog(perm); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 		if cmd := m.sendNotification(notification.Notification{
 			Title:   "SkyNet is waiting...",
-			Message: fmt.Sprintf("Permission required to execute \"%s\"", msg.Payload.ToolName),
+			Message: fmt.Sprintf("Permission required to execute \"%s\"", perm.ToolName),
 		}); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+		// Mirror the permission prompt to Telegram with inline buttons.
+		sessionID := perm.SessionID
+		toolName := perm.ToolName
+		action := perm.Action
+		path := perm.Path
+		detail := fmt.Sprintf("🔐 Permission required\nTool: %s\nAction: %s", toolName, action)
+		if path != "" {
+			detail += "\nPath: " + path
+		}
+		cmds = append(cmds, func() tea.Msg {
+			kb := telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: "✅ Approve", CallbackData: "approve"}, {Text: "❌ Deny", CallbackData: "deny"}},
+				},
+			}
+			if err := m.com.Workspace.SendTelegramMessageWithKeyboard(sessionID, detail, "", kb); err != nil {
+				slog.Warn("Telegram: failed to send permission prompt", "error", err)
+			}
+			return nil
+		})
 	case pubsub.Event[permission.PermissionNotification]:
 		m.handlePermissionNotification(msg.Payload)
 	case cancelTimerExpiredMsg:
@@ -1522,16 +1719,29 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		})
 	case dialog.ActionConnectTelegram:
 		m.dialog.CloseDialog(dialog.TelegramID)
+		sessionID := ""
+		if m.session != nil {
+			sessionID = m.session.ID
+		}
 		cmds = append(cmds, func() tea.Msg {
-			if err := m.com.Workspace.TelegramBotStart(msg.Token); err != nil {
+			if sessionID == "" {
+				return util.NewInfoMsg("No active session to connect Telegram")
+			}
+			if err := m.com.Workspace.TelegramBotStart(sessionID, msg.Token); err != nil {
 				return util.ReportError(err)()
 			}
 			return util.NewInfoMsg("Telegram connected! Send /start to your bot.")
 		})
 	case dialog.ActionDisconnectTelegram:
 		m.dialog.CloseDialog(dialog.TelegramID)
+		sessionID := ""
+		if m.session != nil {
+			sessionID = m.session.ID
+		}
 		cmds = append(cmds, func() tea.Msg {
-			m.com.Workspace.TelegramBotStop()
+			if sessionID != "" {
+				m.com.Workspace.TelegramBotStop(sessionID)
+			}
 			return util.NewInfoMsg("Telegram disconnected")
 		})
 	case dialog.ActionToggleNotifications:
@@ -1572,6 +1782,20 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			return nil
 		})
 		m.dialog.CloseDialog(dialog.CommandsID)
+	case dialog.ActionSetAutoCompact:
+		tokens := msg.Tokens
+		sessionID := m.session.ID
+		cmds = append(cmds, func() tea.Msg {
+			if err := m.com.Workspace.AgentSetAutoCompactTokens(sessionID, tokens); err != nil {
+				return util.ReportError(err)()
+			}
+			if tokens > 0 {
+				return util.NewInfoMsg(fmt.Sprintf("Auto-compact enabled for this session at %d tokens", tokens))
+			}
+			return util.NewInfoMsg("Auto-compact disabled for this session (context-window based)")
+		})
+		m.autoCompactTokens = tokens
+		m.dialog.CloseFrontDialog()
 	case dialog.ActionToggleHelp:
 		m.status.ToggleHelp()
 		m.dialog.CloseDialog(dialog.CommandsID)
@@ -1688,6 +1912,7 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 		m.dialog.CloseDialog(dialog.ReasoningID)
 	case dialog.ActionPermissionResponse:
 		m.dialog.CloseDialog(dialog.PermissionsID)
+		m.pendingPermission = nil
 		switch msg.Action {
 		case dialog.PermissionAllow:
 			m.com.Workspace.PermissionGrant(msg.Permission)
@@ -3504,6 +3729,10 @@ func (m *UI) openDialog(id string) tea.Cmd {
 		if cmd := m.openEditAnswerShortPromptDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+	case dialog.AutoCompactID:
+		if cmd := m.openAutoCompactDialog(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	case dialog.AutopilotID:
 		if cmd := m.openAutopilotDialog(); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -3538,6 +3767,22 @@ func (m *UI) openTelegramDialog() tea.Cmd {
 	dia, cmd := dialog.NewTelegramConnect(m.com)
 	m.dialog.OpenDialog(dia)
 	return cmd
+}
+
+// telegramReply returns a command that sends a confirmation message back to
+// the session's Telegram chat.
+func (m *UI) telegramReply(sessionID, text string) tea.Cmd {
+	return func() tea.Msg {
+		_ = m.com.Workspace.SendTelegramMessage(context.Background(), sessionID, text)
+		return nil
+	}
+}
+
+// telegramToggleArg interprets a "/cmd on|off" argument. The default (no
+// explicit value) is on.
+func telegramToggleArg(text string) bool {
+	t := strings.ToLower(text)
+	return !strings.Contains(t, "off") && !strings.Contains(t, "false") && !strings.Contains(t, " 0")
 }
 
 // openSchedulerDialog opens the scheduler dialog.
@@ -3596,6 +3841,18 @@ func (m *UI) openAutopilotDialog() tea.Cmd {
 	}
 
 	dia, cmd := dialog.NewAutopilot(m.com)
+	m.dialog.OpenDialog(dia)
+	return cmd
+}
+
+// openAutoCompactDialog opens the auto-compact threshold dialog.
+func (m *UI) openAutoCompactDialog() tea.Cmd {
+	if m.dialog.ContainsDialog(dialog.AutoCompactID) {
+		m.dialog.BringToFront(dialog.AutoCompactID)
+		return nil
+	}
+
+	dia, cmd := dialog.NewAutoCompact(m.com, m.autoCompactTokens)
 	m.dialog.OpenDialog(dia)
 	return cmd
 }

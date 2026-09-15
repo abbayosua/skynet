@@ -150,6 +150,22 @@ func (m *Message) Content() TextContent {
 	return TextContent{}
 }
 
+// AllText returns the concatenation of every text part in the message,
+// joined with "\n\n". Unlike [Message.Content], it does not drop additional
+// text parts that appear after tool calls or reasoning blocks.
+func (m *Message) AllText() string {
+	var b strings.Builder
+	for i, part := range m.Parts {
+		if c, ok := part.(TextContent); ok {
+			if b.Len() > 0 && i > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString(c.Text)
+		}
+	}
+	return b.String()
+}
+
 func (m *Message) ReasoningContent() ReasoningContent {
 	for _, part := range m.Parts {
 		if c, ok := part.(ReasoningContent); ok {

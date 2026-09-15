@@ -57,10 +57,10 @@ func NewHashlineEditTool(
 			// Parse the LINE#ID reference.
 			lid := hashline.ParseLineID(params.LineID)
 			if lid == nil {
-	return fantasy.NewTextErrorResponse(fmt.Sprintf(
-				"invalid line_id format: %q. Expected format is LINE#HASH (e.g. \"15#VKMB\") as shown in View output",
-				params.LineID,
-			)), nil
+				return fantasy.NewTextErrorResponse(fmt.Sprintf(
+					"invalid line_id format: %q. Expected format is LINE#HASH (e.g. \"15#VKMB\") as shown in View output",
+					params.LineID,
+				)), nil
 			}
 
 			// Check file exists and is not a directory.

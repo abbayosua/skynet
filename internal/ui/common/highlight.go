@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"image/color"
 
+	"github.com/abbayosua/skynet/internal/ui/styles"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	chromastyles "github.com/alecthomas/chroma/v2/styles"
-	"github.com/abbayosua/skynet/internal/ui/styles"
 )
 
 // SyntaxHighlight applies syntax highlighting to the given source code based
@@ -55,4 +55,3 @@ func SyntaxHighlight(st *styles.Styles, source, fileName string, bg color.Color)
 	err = f.Format(&buf, s, it)
 	return buf.String(), err
 }
-

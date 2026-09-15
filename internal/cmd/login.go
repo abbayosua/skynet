@@ -8,12 +8,12 @@ import (
 	"os/signal"
 
 	"charm.land/lipgloss/v2"
-	"github.com/atotto/clipboard"
 	"github.com/abbayosua/skynet/internal/client"
 	"github.com/abbayosua/skynet/internal/config"
 	"github.com/abbayosua/skynet/internal/oauth"
 	"github.com/abbayosua/skynet/internal/oauth/copilot"
 	"github.com/abbayosua/skynet/internal/oauth/hyper"
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"

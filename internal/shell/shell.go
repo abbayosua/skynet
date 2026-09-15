@@ -41,9 +41,9 @@ const (
 // Keeping them in one place guarantees the two shell surfaces cannot drift.
 func SkyNetEnvMarkers() []string {
 	return []string{
-		"CRUSH=1",         // backward compatibility
-		"AGENT=crush",     // backward compatibility
-		"AI_AGENT=crush",  // backward compatibility
+		"CRUSH=1",        // backward compatibility
+		"AGENT=crush",    // backward compatibility
+		"AI_AGENT=crush", // backward compatibility
 		"SKYNET=1",
 		"AGENT=skynet",
 		"AI_AGENT=skynet",
@@ -307,4 +307,3 @@ func ExitCode(err error) int {
 	}
 	return 1
 }
-

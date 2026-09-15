@@ -50,7 +50,7 @@ func TestParseLineID(t *testing.T) {
 		{"#VKMB", nil, true},
 		{"abc#VKMB", nil, true},
 		{"15#VKMB#extra", nil, true},
-		{"15#ABC", nil, true},   // 3 chars — wrong length
+		{"15#ABC", nil, true}, // 3 chars — wrong length
 	}
 
 	for _, tt := range tests {

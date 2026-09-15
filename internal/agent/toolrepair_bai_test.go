@@ -44,6 +44,42 @@ func TestRepairToolCallArgs_FillDescriptionFromCommand(t *testing.T) {
 	require.Contains(t, result.Input, `"description"`)
 }
 
+func TestRepairToolCallArgs_BashMissingCommand_EmptyRequired(t *testing.T) {
+	t.Parallel()
+
+	opts := fantasy.ToolCallRepairOptions{
+		OriginalToolCall: fantasy.ToolCallContent{
+			ToolName: "bash",
+			Input:    `{"description": "run echo"}`,
+		},
+		AvailableTools: []fantasy.AgentTool{fakeBashTool()},
+	}
+
+	result, err := repairToolCallArgs(context.Background(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, result, "should repair bash input missing command even with empty required")
+	require.Contains(t, result.Input, `"command"`)
+	require.Contains(t, result.Input, `"run echo"`)
+}
+
+func TestRepairToolCallArgs_BashEmptyCommand(t *testing.T) {
+	t.Parallel()
+
+	opts := fantasy.ToolCallRepairOptions{
+		OriginalToolCall: fantasy.ToolCallContent{
+			ToolName: "bash",
+			Input:    `{"command": "", "description": "run something"}`,
+		},
+		AvailableTools: []fantasy.AgentTool{fakeBashTool()},
+	}
+
+	result, err := repairToolCallArgs(context.Background(), opts)
+	require.NoError(t, err)
+	require.NotNil(t, result, "should repair bash input with empty command")
+	require.Contains(t, result.Input, `"command"`)
+	require.Contains(t, result.Input, `"run something"`)
+}
+
 func TestShouldUseArgsRepair_BAI(t *testing.T) {
 	t.Parallel()
 
@@ -52,6 +88,7 @@ func TestShouldUseArgsRepair_BAI(t *testing.T) {
 	require.True(t, shouldUseArgsRepair("b-ai-nvbsei"), "b-ai-nvbsei provider should use args repair")
 	require.True(t, shouldUseArgsRepair("b-ai-bangdjarot"), "b-ai-bangdjarot provider should use args repair")
 	require.True(t, shouldUseArgsRepair("b-ai-any-new-provider"), "any b-ai-* provider should use args repair")
+	require.True(t, shouldUseArgsRepair("deepseek"), "deepseek provider should use args repair")
 	require.True(t, shouldUseArgsRepair("opencode-go"), "opencode-go provider should use args repair")
 	require.False(t, shouldUseArgsRepair("anthropic"), "anthropic should not use args repair")
 	require.False(t, shouldUseArgsRepair("gemini"), "gemini should not use args repair")

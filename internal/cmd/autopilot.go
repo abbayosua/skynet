@@ -37,9 +37,10 @@ skynet autopilot --continue "add tests for the job output timeout"
 		goal := strings.TrimSpace(args[0])
 
 		var (
-			sessionID, _ = cmd.Flags().GetString("session")
-			useLast, _   = cmd.Flags().GetBool("continue")
-			maxSteps, _  = cmd.Flags().GetInt("max-steps")
+			sessionID, _   = cmd.Flags().GetString("session")
+			useLast, _     = cmd.Flags().GetBool("continue")
+			maxSteps, _    = cmd.Flags().GetInt("max-steps")
+			autoCompact, _ = cmd.Flags().GetInt64("auto-compact")
 		)
 
 		ws, cleanup, err := setupLocalWorkspace(cmd)
@@ -112,6 +113,10 @@ skynet autopilot --continue "add tests for the job output timeout"
 		)
 		fmt.Printf("Goal: %s\nSession: %s\n\n", goal, sess.ID)
 
+		if autoCompact > 0 {
+			a.AgentCoordinator.SetAutoCompactTokens(sess.ID, autoCompact)
+		}
+
 		return a.AgentCoordinator.RunAutoPilotGoal(ctx, sess.ID, goal, maxSteps, os.Stdout)
 	},
 }
@@ -120,5 +125,6 @@ func init() {
 	autopilotCmd.Flags().StringP("session", "s", "", "Existing session ID to continue in")
 	autopilotCmd.Flags().BoolP("continue", "C", false, "Continue in the most recent session")
 	autopilotCmd.Flags().IntP("max-steps", "m", 10, "Maximum number of steps/iterations")
+	autopilotCmd.Flags().Int64("auto-compact", 0, "Auto-compact threshold in tokens; overrides context-window based compaction for this run (0 = default)")
 	autopilotCmd.MarkFlagsMutuallyExclusive("session", "continue")
 }

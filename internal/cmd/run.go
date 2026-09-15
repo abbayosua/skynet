@@ -61,12 +61,13 @@ crush run --continue "Follow up on your last response"
   `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
-			quiet, _      = cmd.Flags().GetBool("quiet")
-			verbose, _    = cmd.Flags().GetBool("verbose")
-			largeModel, _ = cmd.Flags().GetString("model")
-			smallModel, _ = cmd.Flags().GetString("small-model")
-			sessionID, _  = cmd.Flags().GetString("session")
-			useLast, _    = cmd.Flags().GetBool("continue")
+			quiet, _       = cmd.Flags().GetBool("quiet")
+			verbose, _     = cmd.Flags().GetBool("verbose")
+			largeModel, _  = cmd.Flags().GetString("model")
+			smallModel, _  = cmd.Flags().GetString("small-model")
+			sessionID, _   = cmd.Flags().GetString("session")
+			useLast, _     = cmd.Flags().GetBool("continue")
+			autoCompact, _ = cmd.Flags().GetInt64("auto-compact")
 		)
 
 		// Cancel on SIGINT or SIGTERM.
@@ -139,7 +140,7 @@ crush run --continue "Follow up on your last response"
 		}
 
 		appWs := ws.(*workspace.AppWorkspace)
-		return appWs.App().RunNonInteractive(ctx, os.Stdout, prompt, largeModel, smallModel, quiet || verbose, sessionID, useLast)
+		return appWs.App().RunNonInteractive(ctx, os.Stdout, prompt, largeModel, smallModel, quiet || verbose, sessionID, useLast, autoCompact)
 	},
 }
 
@@ -150,6 +151,7 @@ func init() {
 	runCmd.Flags().String("small-model", "", "Small model to use. If not provided, uses the default small model for the provider")
 	runCmd.Flags().StringP("session", "s", "", "Continue a previous session by ID")
 	runCmd.Flags().BoolP("continue", "C", false, "Continue the most recent session")
+	runCmd.Flags().Int64("auto-compact", 0, "Auto-compact threshold in tokens; overrides context-window based compaction for this run (0 = default)")
 	runCmd.MarkFlagsMutuallyExclusive("session", "continue")
 }
 
