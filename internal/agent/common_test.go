@@ -63,11 +63,18 @@ func hyperBuilder(model string) builderFunc {
 
 // zenBuilder builds a model served by the opencode zen gateway
 // (https://opencode.ai/zen). The API key comes from OPENCODE_API_KEY.
+//
+// The gateway rejects requests without x-opencode-session ("cannot be routed
+// efficiently"), so the deterministic id below mirrors what
+// stableOpenCodeSessionID sends in production.
 func zenBuilder(model string) builderFunc {
 	return func(t *testing.T, r *vcr.Recorder) (fantasy.LanguageModel, error) {
 		provider, err := openaicompat.New(
 			openaicompat.WithBaseURL("https://opencode.ai/zen/go/v1"),
 			openaicompat.WithAPIKey(os.Getenv("OPENCODE_API_KEY")),
+			openaicompat.WithHeaders(map[string]string{
+				"x-opencode-session": "ses_0000000000000000000000000a",
+			}),
 			openaicompat.WithHTTPClient(&http.Client{Transport: r}),
 		)
 		if err != nil {

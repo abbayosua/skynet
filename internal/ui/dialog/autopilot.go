@@ -109,6 +109,15 @@ func (a *Autopilot) HandleMsg(msg tea.Msg) Action {
 			}
 			return ActionCmd{Cmd: cmd}
 		}
+	case tea.PasteMsg:
+		// The goal is free-form prose, so paste is the normal way in.
+		var cmd tea.Cmd
+		if a.stepsFocused {
+			a.stepsInput, cmd = a.stepsInput.Update(msg)
+		} else {
+			a.goalInput, cmd = a.goalInput.Update(msg)
+		}
+		return ActionCmd{Cmd: cmd}
 	}
 	return nil
 }

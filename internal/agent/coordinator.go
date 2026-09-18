@@ -234,7 +234,7 @@ func (c *coordinator) Run(ctx context.Context, sessionID string, prompt string, 
 			c.currentAgent.SetAnswerShortPrompt(cfg.Options.AnswerShortPrompt)
 		}
 		if p, err := coderPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir())); err == nil {
-			if systemPrompt, err := p.Build(ctx, model.Model.Provider(), model.Model.Model(), c.cfg); err == nil {
+			if systemPrompt, err := p.Build(ctx, model.ModelCfg.Provider, model.Model.Model(), c.cfg); err == nil {
 				c.currentAgent.SetSystemPrompt(systemPrompt)
 			}
 		}
@@ -756,7 +756,7 @@ func (c *coordinator) buildAgent(ctx context.Context, prompt *promptpkg.Prompt, 
 	})
 
 	c.readyWg.Go(func() error {
-		systemPrompt, err := prompt.Build(ctx, large.Model.Provider(), large.Model.Model(), c.cfg)
+		systemPrompt, err := prompt.Build(ctx, large.ModelCfg.Provider, large.Model.Model(), c.cfg)
 		if err != nil {
 			return err
 		}
@@ -1135,6 +1135,22 @@ func (c *coordinator) buildOpenaiCompatProvider(baseURL, apiKey string, headers 
 			openaicompat.WithUseResponsesAPI(),
 			openaicompat.WithResponsesAPIFunc(opencodeNeedsResponsesAPI),
 		)
+		// Fantasy applies per-call ExtraBody only on the chat completions
+		// path, so the prompt_cache_key set in getProviderOptions never
+		// reaches /responses. Inject it at the transport level instead,
+		// reusing the same stable session id the gateway routes on.
+		base := http.DefaultTransport
+		if c.cfg.Config().Options.Debug {
+			if dbg := log.NewHTTPClient(); dbg.Transport != nil {
+				base = dbg.Transport
+			}
+		}
+		httpClient = &http.Client{
+			Transport: newOpencodeCacheTransport(
+				base,
+				stableOpenCodeSessionID(c.cfg.Config().Options.DataDirectory),
+			),
+		}
 	} else if c.cfg.Config().Options.Debug {
 		httpClient = log.NewHTTPClient()
 	}
@@ -1166,6 +1182,92 @@ func opencodeNeedsResponsesAPI(modelID string) bool {
 		return true
 	}
 	return false
+}
+
+// opencodeCacheTransport injects prompt_cache_key into /responses request
+// bodies bound for the opencode gateway.
+//
+// The official opencode CLI sends prompt_cache_key on every Responses API
+// call; upstream groups and reuses its prefix cache by that value. Skynet
+// sets the field via per-call ExtraBody, but fantasy only applies ExtraBody
+// on the chat completions path, so it silently disappears for models routed
+// to /responses (muse, grok-4.6, gpt-5.6). Injecting at the transport level
+// keeps the fix inside Skynet.
+type opencodeCacheTransport struct {
+	base      http.RoundTripper
+	sessionID string
+}
+
+// newOpencodeCacheTransport wraps base so that Responses API requests carry
+// prompt_cache_key. It returns base unchanged when there is no session id to
+// send, so nothing is ever injected with an empty value.
+func newOpencodeCacheTransport(base http.RoundTripper, sessionID string) http.RoundTripper {
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	if sessionID == "" {
+		return base
+	}
+	return &opencodeCacheTransport{base: base, sessionID: sessionID}
+}
+
+func (t *opencodeCacheTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Body == nil || !strings.HasSuffix(req.URL.Path, "/responses") {
+		return t.base.RoundTrip(req)
+	}
+
+	body, err := io.ReadAll(req.Body)
+	_ = req.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	patched, err := withPromptCacheKey(body, t.sessionID)
+	if err != nil {
+		// Malformed or already-keyed body: forward it untouched rather than
+		// failing a request that might otherwise succeed.
+		patched = body
+	}
+
+	req.Body = io.NopCloser(bytes.NewReader(patched))
+	req.ContentLength = int64(len(patched))
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(patched)), nil
+	}
+	return t.base.RoundTrip(req)
+}
+
+// withPromptCacheKey inserts prompt_cache_key at the head of a JSON object
+// without re-encoding it.
+//
+// Re-marshalling would reorder every field; a textual splice keeps the rest
+// of the payload byte-identical across turns, which is what upstream's prefix
+// cache actually keys on.
+func withPromptCacheKey(body []byte, key string) ([]byte, error) {
+	trimmed := bytes.TrimLeft(body, " \t\r\n")
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return nil, errors.New("opencode cache: body is not a JSON object")
+	}
+	if bytes.Contains(trimmed, []byte(`"prompt_cache_key"`)) {
+		return body, nil
+	}
+
+	encodedKey, err := json.Marshal(key)
+	if err != nil {
+		return nil, fmt.Errorf("opencode cache: marshal key: %w", err)
+	}
+
+	field := make([]byte, 0, len(encodedKey)+21)
+	field = append(field, `"prompt_cache_key":`...)
+	field = append(field, encodedKey...)
+	field = append(field, ',')
+
+	out := make([]byte, 0, len(body)+len(field))
+	out = append(out, body[:len(body)-len(trimmed)]...)
+	out = append(out, '{')
+	out = append(out, field...)
+	out = append(out, trimmed[1:]...)
+	return out, nil
 }
 
 func (c *coordinator) buildAzureProvider(baseURL, apiKey string, headers map[string]string, options map[string]string) (fantasy.Provider, error) {

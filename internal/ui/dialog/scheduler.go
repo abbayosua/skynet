@@ -112,6 +112,14 @@ func (d *SchedulerDialog) HandleMsg(msg tea.Msg) Action {
 		case schedulerModeDelete:
 			return d.handleDeleteKey(msg)
 		}
+	case tea.PasteMsg:
+		// The prompt step is free-form prose, so paste is the normal way in.
+		switch d.mode {
+		case schedulerModeAddName, schedulerModeAddInterval, schedulerModeAddPrompt:
+			var cmd tea.Cmd
+			d.input, cmd = d.input.Update(msg)
+			return ActionCmd{Cmd: cmd}
+		}
 	}
 	return nil
 }

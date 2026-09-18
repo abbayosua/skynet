@@ -92,6 +92,10 @@ func (a *AutoCompact) HandleMsg(msg tea.Msg) Action {
 			a.input, cmd = a.input.Update(msg)
 			return ActionCmd{Cmd: cmd}
 		}
+	case tea.PasteMsg:
+		var cmd tea.Cmd
+		a.input, cmd = a.input.Update(msg)
+		return ActionCmd{Cmd: cmd}
 	}
 	return nil
 }

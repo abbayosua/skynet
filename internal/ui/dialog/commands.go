@@ -221,6 +221,14 @@ func (c *Commands) HandleMsg(msg tea.Msg) Action {
 			c.list.SetSelected(0)
 			return ActionCmd{cmd}
 		}
+	case tea.PasteMsg:
+		var cmd tea.Cmd
+		c.input, cmd = c.input.Update(msg)
+		value := c.input.Value()
+		c.list.SetFilter(value)
+		c.list.ScrollToTop()
+		c.list.SetSelected(0)
+		return ActionCmd{cmd}
 	}
 	return nil
 }

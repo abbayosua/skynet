@@ -1730,6 +1730,9 @@ func (m *UI) handleDialogMsg(msg tea.Msg) tea.Cmd {
 			if err := m.com.Workspace.TelegramBotStart(sessionID, msg.Token); err != nil {
 				return util.ReportError(err)()
 			}
+			if msg.Takeover {
+				return util.NewInfoMsg("Telegram connected! Took over the bot from the other session.")
+			}
 			return util.NewInfoMsg("Telegram connected! Send /start to your bot.")
 		})
 	case dialog.ActionDisconnectTelegram:
@@ -3764,7 +3767,11 @@ func (m *UI) openTelegramDialog() tea.Cmd {
 		return nil
 	}
 
-	dia, cmd := dialog.NewTelegramConnect(m.com)
+	sessionForTg := ""
+	if m.session != nil {
+		sessionForTg = m.session.ID
+	}
+	dia, cmd := dialog.NewTelegramConnect(m.com, sessionForTg)
 	m.dialog.OpenDialog(dia)
 	return cmd
 }

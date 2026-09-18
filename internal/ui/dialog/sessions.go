@@ -217,6 +217,25 @@ func (s *Session) HandleMsg(msg tea.Msg) Action {
 				return ActionCmd{cmd}
 			}
 		}
+	case tea.PasteMsg:
+		// While renaming, the paste belongs to the item's title input.
+		if s.sessionsMode == sessionsModeUpdating {
+			item := s.list.SelectedItem()
+			if item == nil {
+				return nil
+			}
+			if sessionItem, ok := item.(*SessionItem); ok {
+				return sessionItem.HandleInput(msg)
+			}
+			return nil
+		}
+		var cmd tea.Cmd
+		s.input, cmd = s.input.Update(msg)
+		value := s.input.Value()
+		s.list.SetFilter(value)
+		s.list.ScrollToTop()
+		s.list.SetSelected(0)
+		return ActionCmd{cmd}
 	}
 	return nil
 }

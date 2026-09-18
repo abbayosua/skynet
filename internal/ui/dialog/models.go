@@ -224,6 +224,15 @@ func (m *Models) HandleMsg(msg tea.Msg) Action {
 			m.list.ScrollToTop()
 			return ActionCmd{cmd}
 		}
+	case tea.PasteMsg:
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		value := m.input.Value()
+		m.list.Focus()
+		m.list.SetFilter(value)
+		m.list.SelectFirst()
+		m.list.ScrollToTop()
+		return ActionCmd{cmd}
 	}
 	return nil
 }

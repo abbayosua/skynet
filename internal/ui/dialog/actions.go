@@ -65,8 +65,13 @@ type (
 	ActionEditAnswerShortPrompt struct {
 		Prompt string
 	}
-	ActionToggleTaskPlanner  struct{}
-	ActionConnectTelegram    struct{ Token string }
+	ActionToggleTaskPlanner struct{}
+	ActionConnectTelegram   struct {
+		Token string
+		// Takeover is true when the user confirmed taking the bot
+		// over from another live session.
+		Takeover bool
+	}
 	ActionDisconnectTelegram struct{}
 	ActionInitializeProject  struct{}
 	ActionAutopilot          struct {

@@ -152,6 +152,14 @@ func (r *Reasoning) HandleMsg(msg tea.Msg) Action {
 			r.list.SetSelected(0)
 			return ActionCmd{cmd}
 		}
+	case tea.PasteMsg:
+		var cmd tea.Cmd
+		r.input, cmd = r.input.Update(msg)
+		value := r.input.Value()
+		r.list.SetFilter(value)
+		r.list.ScrollToTop()
+		r.list.SetSelected(0)
+		return ActionCmd{cmd}
 	}
 	return nil
 }

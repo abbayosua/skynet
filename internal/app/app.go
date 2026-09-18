@@ -575,11 +575,17 @@ func (app *App) AgentNotifications() *pubsub.Broker[notify.Notification] {
 }
 
 // StartTelegramBot creates and starts a Telegram bot for the given session.
-// The token is held only in memory and never persisted. Any existing bot is
+// The last used token is remembered per project (text file, no sqlite) and
+// the bot is claimed for this session so a second session must confirm a
+// takeover instead of conflicting over getUpdates. Any existing bot is
 // replaced.
 func (app *App) StartTelegramBot(sessionID, token string) error {
 	if sessionID == "" {
 		return fmt.Errorf("no active session")
+	}
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return fmt.Errorf("token is empty")
 	}
 
 	app.telegramMu.Lock()
@@ -590,8 +596,17 @@ func (app *App) StartTelegramBot(sessionID, token string) error {
 	ctx, cancel := context.WithCancel(app.globalCtx)
 	bot := telegram.NewBot(token)
 	bot.SetSessionID(sessionID)
+	dataDir := ""
 	if cfg := app.config.Config(); cfg != nil && cfg.Options != nil && cfg.Options.DataDirectory != "" {
-		bot.SetDataDir(cfg.Options.DataDirectory)
+		dataDir = cfg.Options.DataDirectory
+		bot.SetDataDir(dataDir)
+	}
+	// Remember the last working token for this project and claim the bot
+	// for this session. Verification already succeeded in the dialog, so
+	// getMe here only resolves the username for the claim.
+	telegram.SaveToken(dataDir, token)
+	if bot.TestToken() {
+		telegram.ClaimOwner(dataDir, telegram.Owner{Username: bot.Username(), SessionID: sessionID, PID: os.Getpid()})
 	}
 	sess := &telegramSession{bot: bot, ctx: ctx, cancel: cancel, sessionID: sessionID}
 	app.telegramBot = sess
@@ -645,6 +660,10 @@ func (app *App) StopTelegramBot(sessionID string) {
 		app.telegramBot = nil
 	}
 	app.telegramMu.Unlock()
+
+	if app.config != nil && app.config.Config() != nil && app.config.Config().Options != nil {
+		telegram.ReleaseOwner(app.config.Config().Options.DataDirectory, sessionID)
+	}
 
 	if sess != nil && sess.target() == sessionID {
 		sess.cancel()

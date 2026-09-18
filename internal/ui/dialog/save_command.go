@@ -78,6 +78,10 @@ func (s *SaveCommand) HandleMsg(msg tea.Msg) Action {
 			s.input, cmd = s.input.Update(msg)
 			return ActionCmd{Cmd: cmd}
 		}
+	case tea.PasteMsg:
+		var cmd tea.Cmd
+		s.input, cmd = s.input.Update(msg)
+		return ActionCmd{Cmd: cmd}
 	}
 	return nil
 }

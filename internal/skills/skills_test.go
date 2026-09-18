@@ -350,7 +350,7 @@ func TestToPromptXMLBuiltinType(t *testing.T) {
 	t.Parallel()
 
 	skills := []*Skill{
-		{Name: "builtin-skill", Description: "A builtin.", SkillFilePath: "crush://skills/builtin-skill/SKILL.md", Builtin: true},
+		{Name: "builtin-skill", Description: "A builtin.", SkillFilePath: "skynet://skills/builtin-skill/SKILL.md", Builtin: true},
 		{Name: "user-skill", Description: "A user skill.", SkillFilePath: "/home/user/.config/crush/skills/user-skill/SKILL.md"},
 	}
 	xml := ToPromptXML(skills)
@@ -398,8 +398,8 @@ func TestDiscoverBuiltin(t *testing.T) {
 			found = true
 			require.True(t, strings.HasPrefix(s.SkillFilePath, BuiltinPrefix))
 			require.True(t, strings.HasPrefix(s.Path, BuiltinPrefix))
-			require.Equal(t, "crush://skills/crush-config/SKILL.md", s.SkillFilePath)
-			require.Equal(t, "crush://skills/crush-config", s.Path)
+			require.Equal(t, "skynet://skills/crush-config/SKILL.md", s.SkillFilePath)
+			require.Equal(t, "skynet://skills/crush-config", s.Path)
 			require.NotEmpty(t, s.Description)
 			require.NotEmpty(t, s.Instructions)
 			require.True(t, s.Builtin)
@@ -411,8 +411,8 @@ func TestDiscoverBuiltin(t *testing.T) {
 	for _, s := range discovered {
 		if s.Name == "jq" {
 			foundJQ = true
-			require.Equal(t, "crush://skills/jq/SKILL.md", s.SkillFilePath)
-			require.Equal(t, "crush://skills/jq", s.Path)
+			require.Equal(t, "skynet://skills/jq/SKILL.md", s.SkillFilePath)
+			require.Equal(t, "skynet://skills/jq", s.Path)
 			require.NotEmpty(t, s.Description)
 			require.NotEmpty(t, s.Instructions)
 			require.True(t, s.Builtin)
@@ -424,8 +424,8 @@ func TestDiscoverBuiltin(t *testing.T) {
 	for _, s := range discovered {
 		if s.Name == "crush-hooks" {
 			foundHooks = true
-			require.Equal(t, "crush://skills/crush-hooks/SKILL.md", s.SkillFilePath)
-			require.Equal(t, "crush://skills/crush-hooks", s.Path)
+			require.Equal(t, "skynet://skills/crush-hooks/SKILL.md", s.SkillFilePath)
+			require.Equal(t, "skynet://skills/crush-hooks", s.Path)
 			require.NotEmpty(t, s.Description)
 			require.NotEmpty(t, s.Instructions)
 			require.True(t, s.Builtin)
@@ -451,7 +451,7 @@ func TestDeduplicate(t *testing.T) {
 		},
 		{
 			name:     "user overrides builtin",
-			input:    []*Skill{{Name: "crush-config", Path: "crush://skills/crush-config"}, {Name: "crush-config", Path: "/user/crush-config"}},
+			input:    []*Skill{{Name: "crush-config", Path: "skynet://skills/crush-config"}, {Name: "crush-config", Path: "/user/crush-config"}},
 			wantLen:  1,
 			wantName: "crush-config",
 			wantPath: "/user/crush-config",

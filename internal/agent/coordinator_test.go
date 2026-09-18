@@ -2,10 +2,14 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"charm.land/catwalk/pkg/catwalk"
@@ -543,6 +547,124 @@ func TestGetProviderOptionsOpencodeCacheKey(t *testing.T) {
 	parsed = opts[openaicompat.Name].(*openaicompat.ProviderOptions)
 	require.NotContains(t, parsed.ExtraBody, "prompt_cache_key")
 }
+
+func TestWithPromptCacheKeyInsertsField(t *testing.T) {
+	t.Parallel()
+
+	original := []byte(`{"model":"muse-spark-1.3-contributor","store":false,"input":[]}`)
+	patched, err := withPromptCacheKey(original, "ses_abc")
+	require.NoError(t, err)
+
+	assert.JSONEq(t, `{
+		"prompt_cache_key": "ses_abc",
+		"model": "muse-spark-1.3-contributor",
+		"store": false,
+		"input": []
+	}`, string(patched))
+
+	// Everything after the leading brace must stay byte-identical, otherwise
+	// upstream's prefix cache would miss on every turn.
+	assert.Equal(t, original[1:], patched[len(patched)-len(original)+1:],
+		"the original payload must be preserved verbatim")
+}
+
+func TestWithPromptCacheKeyPreservesExistingValue(t *testing.T) {
+	t.Parallel()
+
+	original := []byte(`{"prompt_cache_key":"already","model":"x"}`)
+	patched, err := withPromptCacheKey(original, "ses_new")
+	require.NoError(t, err)
+	assert.Equal(t, original, patched, "an existing key must not be overwritten")
+}
+
+func TestWithPromptCacheKeyRejectsNonObject(t *testing.T) {
+	t.Parallel()
+
+	_, err := withPromptCacheKey([]byte(`[1,2,3]`), "ses_abc")
+	require.Error(t, err)
+
+	_, err = withPromptCacheKey(nil, "ses_abc")
+	require.Error(t, err)
+}
+
+func TestOpencodeCacheTransportInjectsOnlyOnResponsesPath(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mu     sync.Mutex
+		seen   []string
+		bodies []string
+	)
+	base := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+
+		mu.Lock()
+		seen = append(seen, req.URL.Path)
+		bodies = append(bodies, string(body))
+		mu.Unlock()
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("{}")),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})
+
+	transport := newOpencodeCacheTransport(base, "ses_persistent_123")
+
+	for _, path := range []string{"/zen/go/v1/responses", "/zen/go/v1/chat/completions"} {
+		req, err := http.NewRequest(http.MethodPost, "https://opencode.ai"+path,
+			strings.NewReader(`{"model":"muse-spark-1.3-contributor","stream":true}`))
+		require.NoError(t, err)
+
+		resp, err := transport.RoundTrip(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+	}
+
+	require.Equal(t, []string{"/zen/go/v1/responses", "/zen/go/v1/chat/completions"}, seen)
+
+	var responseBody, chatBody map[string]any
+	require.NoError(t, json.Unmarshal([]byte(bodies[0]), &responseBody))
+	require.NoError(t, json.Unmarshal([]byte(bodies[1]), &chatBody))
+
+	assert.Equal(t, "ses_persistent_123", responseBody["prompt_cache_key"],
+		"/responses must carry the cache key")
+	assert.NotContains(t, chatBody, "prompt_cache_key",
+		"chat completions must be left untouched")
+}
+
+func TestOpencodeCacheTransportWithoutSessionIDIsPassthrough(t *testing.T) {
+	t.Parallel()
+
+	base := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		assert.NotContains(t, string(body), "prompt_cache_key")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("{}")),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})
+
+	transport := newOpencodeCacheTransport(base, "")
+	req, err := http.NewRequest(http.MethodPost, "https://opencode.ai/zen/go/v1/responses",
+		strings.NewReader(`{"model":"muse-spark-1.3-contributor"}`))
+	require.NoError(t, err)
+
+	resp, err := transport.RoundTrip(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+}
+
+// roundTripFunc adapts a function to http.RoundTripper for tests.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 func TestOpencodeNeedsResponsesAPI(t *testing.T) {
 	require.True(t, opencodeNeedsResponsesAPI("muse-spark-1.2-contributor"))

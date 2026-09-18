@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 var modelPairs = []modelPair{
-	{"ox-alpha-free", zenBuilder("ox-alpha-free"), zenBuilder("gpt-oss-120b")},
+	{"deepseek-v4.1-flash", zenBuilder("deepseek-v4.1-flash"), zenBuilder("minimax-m3")},
 }
 
 func getModels(t *testing.T, r *vcr.Recorder, pair modelPair) (fantasy.LanguageModel, fantasy.LanguageModel) {
@@ -218,7 +218,7 @@ func TestCoderAgent(t *testing.T) {
 				require.NoError(t, err)
 
 				res, err := agent.Run(t.Context(), SessionAgentCall{
-					Prompt:          "download the file from https://example-files.online-convert.com/document/txt/example.txt and save it as example.txt",
+					Prompt:          "download the file from https://example-files.online-convert.com/document/txt/example.txt and save it as example.txt. Use only the download tool, do not run bash or any other tool.",
 					SessionID:       session.ID,
 					MaxOutputTokens: 10000,
 				})

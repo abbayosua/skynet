@@ -81,6 +81,11 @@ func (e *EditAnswerShortPrompt) HandleMsg(msg tea.Msg) Action {
 			e.area, cmd = e.area.Update(msg)
 			return ActionCmd{Cmd: cmd}
 		}
+	case tea.PasteMsg:
+		// This field holds a long prose prompt, so paste is the normal way in.
+		var cmd tea.Cmd
+		e.area, cmd = e.area.Update(msg)
+		return ActionCmd{Cmd: cmd}
 	}
 	return nil
 }
