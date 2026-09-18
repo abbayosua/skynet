@@ -387,7 +387,6 @@ func (c *Client) AgentSummarizeSession(ctx context.Context, id string, sessionID
 		return fmt.Errorf("failed to summarize session: status code %d", rsp.StatusCode)
 	}
 	return nil
-	return nil
 }
 
 // AgentSetAutoCompactTokens enables custom auto-compact for a session.
