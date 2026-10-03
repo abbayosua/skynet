@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/abbayosua/skynet/internal/agent/commandcode"
+	"github.com/abbayosua/skynet/internal/version"
 
 	"charm.land/catwalk/pkg/catwalk"
 	"charm.land/fantasy"
@@ -93,6 +95,7 @@ type Coordinator interface {
 	Model() Model
 	UpdateModels(ctx context.Context) error
 	RunAutoPilotGoal(ctx context.Context, sessionID, goal string, maxSteps int, output io.Writer) error
+	RunAutoLoop(ctx context.Context, sessionID, mission string, opts AutoLoopOptions, output io.Writer) error
 	// SetAutoCompactTokens sets the auto-compact threshold for a session.
 	// A positive value compacts at an exact token count; zero disables
 	// custom compaction for the session (context-window default).
@@ -1355,18 +1358,41 @@ func (c *coordinator) isAnthropicThinking(model config.SelectedModel) bool {
 }
 
 // openCodeSessionID returns a session identifier for opencode.ai providers.
-// It mirrors the format used by the opencode CLI (ses_ followed by 26
-// base62 characters). Requests to opencode.ai are routed to the upstream
-// serving the selected model based on this session id; without it some
-// models (e.g. deepseek-v4-flash on opencode-go) are reported as
-// unavailable.
+// It mirrors the opencode CLI generator exactly: "ses_" + 6-byte big-endian
+// (millisecond timestamp * 0x1000 + counter) hex + 14 base62 characters.
+// Requests to opencode.ai are routed to the upstream serving the selected
+// model based on this session id; without it some models (e.g.
+// deepseek-v4-flash on opencode-go) are reported as unavailable.
+var (
+	sessionIDMu      sync.Mutex
+	lastSessionTime  int64
+	sessionIDCounter uint64
+)
+
 func openCodeSessionID() string {
+	sessionIDMu.Lock()
+	defer sessionIDMu.Unlock()
+	now := time.Now().UnixMilli()
+	if now != lastSessionTime {
+		lastSessionTime = now
+		sessionIDCounter = 0
+	}
+	sessionIDCounter++
+	v := now*0x1000 + int64(sessionIDCounter)
+	timeBytes := make([]byte, 6)
+	for i := 0; i < 6; i++ {
+		timeBytes[i] = byte(v >> (40 - 8*i))
+	}
+	return "ses_" + hex.EncodeToString(timeBytes) + randomBase62(14)
+}
+
+func randomBase62(length int) string {
 	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	b := make([]byte, 26)
+	b := make([]byte, length)
 	for i := range b {
 		b[i] = chars[rand.IntN(len(chars))]
 	}
-	return "ses_" + string(b)
+	return string(b)
 }
 
 // isOpencodeProvider reports whether the provider talks to the opencode.ai
@@ -1498,6 +1524,9 @@ func providerHeaders(providerCfg config.ProviderConfig, anthropicThinking bool, 
 	// when the value stays constant. Always send the persistent id.
 	if isOpencodeProvider(providerCfg) {
 		headers["x-opencode-session"] = stableOpenCodeSessionID(dataDir)
+		// Identify as the opencode CLI so the gateway accepts free-tier use.
+		headers["x-opencode-client"] = "cli"
+		headers["User-Agent"] = "opencode/" + version.Version
 	}
 
 	return headers

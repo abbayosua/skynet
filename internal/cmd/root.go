@@ -74,6 +74,7 @@ func init() {
 		sessionCmd,
 		scheduleCmd,
 		autopilotCmd,
+		autoLoopCmd,
 	)
 }
 

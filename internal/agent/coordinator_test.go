@@ -18,6 +18,7 @@ import (
 	"charm.land/fantasy/providers/bedrock"
 	"charm.land/fantasy/providers/openaicompat"
 	"github.com/abbayosua/skynet/internal/config"
+	"github.com/abbayosua/skynet/internal/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -462,6 +463,10 @@ func TestProviderHeadersOpencodeSession(t *testing.T) {
 		headers := providerHeaders(providerCfg, false, tmpDir)
 		assert.Regexp(t, `^ses_[0-9A-Za-z]{26}$`, headers["x-opencode-session"],
 			"provider %q should get a persistent session id", providerCfg.ID)
+		assert.Equal(t, "cli", headers["x-opencode-client"],
+			"provider %q should identify as the opencode CLI", providerCfg.ID)
+		assert.Equal(t, "opencode/"+version.Version, headers["User-Agent"],
+			"provider %q should send the opencode user agent", providerCfg.ID)
 	}
 
 	other := providerHeaders(config.ProviderConfig{ID: "openai", Type: catwalk.Type("openai")}, false, tmpDir)
