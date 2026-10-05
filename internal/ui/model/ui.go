@@ -358,7 +358,7 @@ func New(com *common.Common, initialSessionID string, continueLast bool, telegra
 		todoSpinner:         todoSpinner,
 		lspStates:           make(map[string]app.LSPClientInfo),
 		mcpStates:           make(map[string]mcp.ClientInfo),
-		notifyBackend:       notification.NoopBackend{},
+		notifyBackend:       notification.NewNativeBackend(notification.Icon),
 		notifyWindowFocused: true,
 		initialSessionID:    initialSessionID,
 		continueLastSession: continueLast,

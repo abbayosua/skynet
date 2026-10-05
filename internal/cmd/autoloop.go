@@ -10,6 +10,8 @@ import (
 
 	"github.com/abbayosua/skynet/internal/agent"
 	"github.com/abbayosua/skynet/internal/agent/notify"
+	"github.com/abbayosua/skynet/internal/app"
+	"github.com/abbayosua/skynet/internal/config"
 	"github.com/abbayosua/skynet/internal/event"
 	"github.com/abbayosua/skynet/internal/session"
 	"github.com/abbayosua/skynet/internal/workspace"
@@ -52,9 +54,11 @@ skynet autoloop --continue "keep improving test coverage"
 			budget, _      = cmd.Flags().GetDuration("budget")
 			mode, _        = cmd.Flags().GetString("mode")
 			autoCompact, _ = cmd.Flags().GetInt64("auto-compact")
+			largeModel, _  = cmd.Flags().GetString("model")
+			smallModel, _  = cmd.Flags().GetString("small-model")
 		)
-		if mode != "normal" && mode != "hunt" {
-			return fmt.Errorf("invalid --mode %q: must be \"normal\" or \"hunt\"", mode)
+		if mode != "normal" && mode != "hunt" && mode != "swarm-fast" {
+			return fmt.Errorf("invalid --mode %q: must be \"normal\", \"hunt\", or \"swarm-fast\"", mode)
 		}
 
 		if mission == "" && !useLast && sessionID == "" {
@@ -142,6 +146,24 @@ skynet autoloop --continue "keep improving test coverage"
 			}
 		}()
 
+		if largeModel != "" || smallModel != "" {
+			if err := overrideAutoLoopModels(ctx, a, largeModel, smallModel); err != nil {
+				return err
+			}
+		}
+
+		if mode == "swarm-fast" {
+			workers, _ := cmd.Flags().GetInt("workers")
+			reviewers, _ := cmd.Flags().GetInt("reviewers")
+			return a.AgentCoordinator.RunAutoLoopSwarm(ctx, sess.ID, mission, agent.SwarmFastOptions{
+				Branch:    branch,
+				Push:      push,
+				Workers:   workers,
+				Reviewers: reviewers,
+				Budget:    budget,
+			}, os.Stdout)
+		}
+
 		return a.AgentCoordinator.RunAutoLoop(ctx, sess.ID, mission, agent.AutoLoopOptions{
 			Branch:        branch,
 			Push:          push,
@@ -160,6 +182,47 @@ func truncate(s string, n int) string {
 	return s[:n] + "…"
 }
 
+// overrideAutoLoopModels resolves --model and --small-model overrides and
+// updates the workspace preferred models, mirroring `skynet run`.
+func overrideAutoLoopModels(ctx context.Context, a *app.App, largeModel, smallModel string) error {
+	cfg := a.Config()
+	providers := cfg.Providers.Copy()
+	largeMatches, smallMatches := findModelMatches(providers, largeModel, smallModel)
+
+	if largeModel != "" {
+		found, err := validateModelMatches(largeMatches, largeModel, "large")
+		if err != nil {
+			return err
+		}
+		if err := a.Store().UpdatePreferredModel(config.ScopeWorkspace, config.SelectedModelTypeLarge, config.SelectedModel{
+			Provider: found.provider,
+			Model:    found.modelID,
+		}); err != nil {
+			return fmt.Errorf("failed to set large model: %w", err)
+		}
+		slog.Info("AutoLoop overriding large model", "provider", found.provider, "model", found.modelID)
+	}
+
+	if smallModel != "" {
+		found, err := validateModelMatches(smallMatches, smallModel, "small")
+		if err != nil {
+			return err
+		}
+		if err := a.Store().UpdatePreferredModel(config.ScopeWorkspace, config.SelectedModelTypeSmall, config.SelectedModel{
+			Provider: found.provider,
+			Model:    found.modelID,
+		}); err != nil {
+			return fmt.Errorf("failed to set small model: %w", err)
+		}
+		slog.Info("AutoLoop overriding small model", "provider", found.provider, "model", found.modelID)
+	}
+
+	if err := a.AgentCoordinator.UpdateModels(ctx); err != nil {
+		return fmt.Errorf("failed to apply models: %w", err)
+	}
+	return nil
+}
+
 func init() {
 	autoLoopCmd.Flags().StringP("session", "s", "", "Existing session ID to continue in")
 	autoLoopCmd.Flags().BoolP("continue", "C", false, "Continue in the most recent session")
@@ -168,7 +231,11 @@ func init() {
 	autoLoopCmd.Flags().Bool("no-review", false, "Skip the reviewer turn")
 	autoLoopCmd.Flags().IntP("max-iterations", "m", 0, "Maximum iterations (0 = unlimited)")
 	autoLoopCmd.Flags().Duration("budget", 0, "Wall-clock budget, e.g. 2h (0 = unlimited)")
-	autoLoopCmd.Flags().String("mode", "normal", "Run mode: normal or hunt (hunt never stops on reviewer DONE)")
+	autoLoopCmd.Flags().String("mode", "normal", "Run mode: normal, hunt, or swarm-fast")
+	autoLoopCmd.Flags().String("model", "", "Model to use. Accepts 'model' or 'provider/model'")
+	autoLoopCmd.Flags().String("small-model", "", "Small/worker model override ('model' or 'provider/model')")
+	autoLoopCmd.Flags().Int("workers", 3, "swarm-fast: max parallel workers")
+	autoLoopCmd.Flags().Int("reviewers", 2, "swarm-fast: max parallel reviewers")
 	autoLoopCmd.Flags().Int64("auto-compact", 0, "Auto-compact threshold in tokens (0 = default)")
 	autoLoopCmd.MarkFlagsMutuallyExclusive("session", "continue")
 }

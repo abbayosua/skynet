@@ -96,6 +96,7 @@ type Coordinator interface {
 	UpdateModels(ctx context.Context) error
 	RunAutoPilotGoal(ctx context.Context, sessionID, goal string, maxSteps int, output io.Writer) error
 	RunAutoLoop(ctx context.Context, sessionID, mission string, opts AutoLoopOptions, output io.Writer) error
+	RunAutoLoopSwarm(ctx context.Context, sessionID, mission string, opts SwarmFastOptions, output io.Writer) error
 	// SetAutoCompactTokens sets the auto-compact threshold for a session.
 	// A positive value compacts at an exact token count; zero disables
 	// custom compaction for the session (context-window default).
@@ -1808,9 +1809,16 @@ func (c *coordinator) runSubAgent(ctx context.Context, params subAgentParams) (f
 // and returns the text result. The caller is responsible for timeout/cancellation
 // via the supplied context.
 func (c *coordinator) runBackgroundTask(ctx context.Context, userPrompt string) (string, error) {
-	agentCfg, ok := c.cfg.Config().Agents[config.AgentTask]
+	return c.runBackgroundTaskWithAgent(ctx, config.AgentTask, userPrompt)
+}
+
+// runBackgroundTaskWithAgent is runBackgroundTask with a selectable agent.
+// Workers in swarm mode need the coder agent because the task agent is
+// read-only by design.
+func (c *coordinator) runBackgroundTaskWithAgent(ctx context.Context, agentID string, userPrompt string) (string, error) {
+	agentCfg, ok := c.cfg.Config().Agents[agentID]
 	if !ok {
-		return "", errors.New("task agent not configured")
+		return "", fmt.Errorf("%s agent not configured", agentID)
 	}
 
 	p, err := taskPrompt(promptpkg.WithWorkingDir(c.cfg.WorkingDir()))
