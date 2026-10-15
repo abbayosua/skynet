@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -85,9 +86,34 @@ func (m *UI) handleHistoryDown(msg tea.Msg) tea.Cmd {
 	return m.updateTextarea(msg)
 }
 
-// handleHistoryEscape handles escape for exiting history navigation.
+// escapeClearCount is how many consecutive Escape presses clear the editor.
+const escapeClearCount = 3
+
+// escapeClearWindow is the max gap between escapes to count as consecutive.
+const escapeClearWindow = 500 * time.Millisecond
+
+// handleHistoryEscape handles escape for exiting history navigation, and
+// clears the whole editor after three quick consecutive Escape presses.
 func (m *UI) handleHistoryEscape(msg tea.Msg) tea.Cmd {
 	prevHeight := m.textarea.Height()
+
+	now := time.Now()
+	if now.Sub(m.escapeLastTime) > escapeClearWindow {
+		m.escapeCount = 0
+	}
+	m.escapeLastTime = now
+	m.escapeCount++
+
+	if m.escapeCount >= escapeClearCount {
+		m.escapeCount = 0
+		if m.textarea.Value() != "" || m.promptHistory.index >= 0 {
+			m.promptHistory.index = -1
+			m.promptHistory.draft = ""
+			m.textarea.Reset()
+			return m.updateTextareaWithPrevHeight(nil, prevHeight)
+		}
+	}
+
 	// Return to current draft when browsing history.
 	if m.promptHistory.index >= 0 {
 		m.promptHistory.index = -1

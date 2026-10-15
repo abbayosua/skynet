@@ -298,6 +298,10 @@ type UI struct {
 		index    int
 		draft    string
 	}
+
+	// Consecutive escape presses used to clear the editor.
+	escapeCount    int
+	escapeLastTime time.Time
 }
 
 // New creates a new instance of the [UI] model.

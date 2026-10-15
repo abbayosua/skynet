@@ -20,7 +20,7 @@ func NewNativeBackend(icon any) *NativeBackend {
 	beeep.AppName = "SkyNet"
 	return &NativeBackend{
 		icon:       icon,
-		notifyFunc: beeep.Notify,
+		notifyFunc: platformNotify,
 	}
 }
 
@@ -45,5 +45,5 @@ func (b *NativeBackend) SetNotifyFunc(fn func(title, message string, icon any) e
 
 // ResetNotifyFunc resets the notification function to the default.
 func (b *NativeBackend) ResetNotifyFunc() {
-	b.notifyFunc = beeep.Notify
+	b.notifyFunc = platformNotify
 }

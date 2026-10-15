@@ -1,0 +1,1 @@
+When testing Skynet (especially provider/model tests), disable serena MCP first: set `mcp.serena.disabled = true` in `~/.local/share/skynet/skynet.json`, then re-enable (`false`) after testing. User preference, session 2026-09-03.
