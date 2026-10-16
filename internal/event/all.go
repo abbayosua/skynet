@@ -81,3 +81,11 @@ func SessionDeletedCommand(json bool) {
 func SessionRenamed(json bool) {
 	send("session renamed", "json", json)
 }
+
+func SessionForked() {
+	send("session forked")
+}
+
+func SessionForkedCommand(json bool) {
+	send("session forked", "json", json)
+}

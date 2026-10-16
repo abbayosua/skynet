@@ -72,6 +72,7 @@ type Service interface {
 	UpdateTitleAndUsage(ctx context.Context, sessionID, title string, promptTokens, completionTokens int64, cost float64) error
 	Rename(ctx context.Context, id string, title string) error
 	Delete(ctx context.Context, id string) error
+	Fork(ctx context.Context, id string) (Session, error)
 
 	// Agent tool session management
 	CreateAgentToolSessionID(messageID, toolCallID string) string
@@ -223,6 +224,94 @@ func (s *service) Rename(ctx context.Context, id string, title string) error {
 		ID:    id,
 		Title: title,
 	})
+}
+
+// Fork duplicates a session into a new independent top-level session. The
+// fork gets a new ID and inherits the full history (messages, history
+// files, read files, title, todos, usage, summary). The source session is
+// only read, never modified, so both sessions evolve independently
+// afterwards.
+func (s *service) Fork(ctx context.Context, id string) (Session, error) {
+	src, err := s.q.GetSessionByID(ctx, id)
+	if err != nil {
+		return Session{}, err
+	}
+
+	newID := uuid.New().String()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Session{}, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	qtx := s.q.WithTx(tx)
+
+	dbSession, err := qtx.CreateSession(ctx, db.CreateSessionParams{
+		ID:               newID,
+		Title:            src.Title + " (fork)",
+		PromptTokens:     src.PromptTokens,
+		CompletionTokens: src.CompletionTokens,
+		Cost:             src.Cost,
+	})
+	if err != nil {
+		return Session{}, fmt.Errorf("creating forked session: %w", err)
+	}
+
+	if src.SummaryMessageID.Valid && src.SummaryMessageID.String != "" {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE sessions SET summary_message_id = ? WHERE id = ?`,
+			src.SummaryMessageID.String, newID); err != nil {
+			return Session{}, fmt.Errorf("copying summary message id: %w", err)
+		}
+	}
+	if src.Todos.Valid && src.Todos.String != "" {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE sessions SET todos = ? WHERE id = ?`,
+			src.Todos.String, newID); err != nil {
+			return Session{}, fmt.Errorf("copying todos: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO messages (id, session_id, role, parts, model, provider, is_summary_message, created_at, updated_at, finished_at)
+		 SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))), 2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))), 2) || '-' || lower(hex(randomblob(6))), ?, role, parts, model, provider, is_summary_message, created_at, updated_at, finished_at
+		 FROM messages WHERE session_id = ? ORDER BY created_at ASC`,
+		newID, src.ID); err != nil {
+		return Session{}, fmt.Errorf("copying messages: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO files (id, session_id, path, content, version, created_at, updated_at)
+		 SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))), 2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))), 2) || '-' || lower(hex(randomblob(6))), ?, path, content, version, created_at, updated_at
+		 FROM files WHERE session_id = ?`,
+		newID, src.ID); err != nil {
+		return Session{}, fmt.Errorf("copying history files: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO read_files (session_id, path, read_at)
+		 SELECT ?, path, read_at FROM read_files WHERE session_id = ?
+		 ON CONFLICT(path, session_id) DO NOTHING`,
+		newID, src.ID); err != nil {
+		// The read_files table may not exist on very old databases; do
+		// not fail the fork for auxiliary data.
+		slog.Warn("Failed to copy read files on fork", "error", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return Session{}, fmt.Errorf("committing transaction: %w", err)
+	}
+
+	forked, err := s.q.GetSessionByID(ctx, newID)
+	if err != nil {
+		return Session{}, err
+	}
+	_ = dbSession
+
+	session := s.fromDBItem(forked)
+	s.Publish(pubsub.CreatedEvent, session)
+	event.SessionForked()
+	return session, nil
 }
 
 func (s *service) List(ctx context.Context) ([]Session, error) {

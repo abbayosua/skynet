@@ -46,6 +46,7 @@ type Session struct {
 		UpDown        key.Binding
 		Delete        key.Binding
 		Rename        key.Binding
+		Fork          key.Binding
 		ConfirmRename key.Binding
 		CancelRename  key.Binding
 		ConfirmDelete key.Binding
@@ -111,6 +112,10 @@ func NewSessions(com *common.Common, selectedSessionID string) (*Session, error)
 	s.keyMap.Rename = key.NewBinding(
 		key.WithKeys("ctrl+r"),
 		key.WithHelp("ctrl+r", "rename"),
+	)
+	s.keyMap.Fork = key.NewBinding(
+		key.WithKeys("ctrl+f"),
+		key.WithHelp("ctrl+f", "fork"),
 	)
 	s.keyMap.ConfirmRename = key.NewBinding(
 		key.WithKeys("enter"),
@@ -180,6 +185,14 @@ func (s *Session) HandleMsg(msg tea.Msg) Action {
 			case key.Matches(msg, s.keyMap.Rename):
 				s.sessionsMode = sessionsModeUpdating
 				s.list.SetItems(sessionItems(s.com.Styles, sessionsModeUpdating, s.sessions...)...)
+			case key.Matches(msg, s.keyMap.Fork):
+				if s.isCurrentSessionBusy() {
+					return ActionCmd{util.ReportWarn("Agent is busy, please wait...")}
+				}
+				if item := s.list.SelectedItem(); item != nil {
+					sessionItem := item.(*SessionItem)
+					return ActionCmd{s.forkSessionCmd(sessionItem.ID())}
+				}
 			case key.Matches(msg, s.keyMap.Delete):
 				if s.isCurrentSessionBusy() {
 					return ActionCmd{util.ReportWarn("Agent is busy, please wait...")}
@@ -376,6 +389,16 @@ func (s *Session) deleteSessionCmd(id string) tea.Cmd {
 	}
 }
 
+func (s *Session) forkSessionCmd(id string) tea.Cmd {
+	return func() tea.Msg {
+		forked, err := s.com.Workspace.ForkSession(context.TODO(), id)
+		if err != nil {
+			return util.NewErrorMsg(err)
+		}
+		return ActionSelectSession{forked}
+	}
+}
+
 func (s *Session) confirmRenameSession() Action {
 	sessionItem := s.selectedSessionItem()
 	s.sessionsMode = sessionsModeNormal
@@ -442,6 +465,7 @@ func (s *Session) ShortHelp() []key.Binding {
 		return []key.Binding{
 			s.keyMap.UpDown,
 			s.keyMap.Rename,
+			s.keyMap.Fork,
 			s.keyMap.Delete,
 			s.keyMap.Select,
 			s.keyMap.Close,
@@ -455,6 +479,7 @@ func (s *Session) FullHelp() [][]key.Binding {
 	slice := []key.Binding{
 		s.keyMap.UpDown,
 		s.keyMap.Rename,
+		s.keyMap.Fork,
 		s.keyMap.Delete,
 		s.keyMap.Select,
 		s.keyMap.Close,

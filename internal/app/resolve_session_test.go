@@ -72,6 +72,18 @@ func (m *mockSessionService) Delete(context.Context, string) error {
 	return nil
 }
 
+func (m *mockSessionService) Fork(_ context.Context, id string) (session.Session, error) {
+	for _, s := range m.sessions {
+		if s.ID == id {
+			forked := s
+			forked.ID = "forked-" + id
+			forked.Title = s.Title + " (fork)"
+			return forked, nil
+		}
+	}
+	return session.Session{}, sql.ErrNoRows
+}
+
 func (m *mockSessionService) CreateAgentToolSessionID(messageID, toolCallID string) string {
 	return fmt.Sprintf("%s$$%s", messageID, toolCallID)
 }
