@@ -373,12 +373,17 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		}
 	}()
 
-	history, files := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, largeModel.ModelCfg.Provider == "MuseV1Responses", call.Attachments...)
+	history, files := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, true, call.Attachments...)
 
 	startTime := time.Now()
 	a.eventPromptSent(call.SessionID)
 
 	var currentAssistant *message.Message
+	// lastInputEstimate is the estimated token size of the payload sent in
+	// the current step. Provider usage only reflects the last successful
+	// request, so a session grown large through tool results would otherwise
+	// never reach the compaction threshold.
+	var lastInputEstimate int64
 	var shouldSummarize bool
 	// Don't send MaxOutputTokens if 0 — some providers (e.g. LM Studio) reject it
 	var maxOutputTokens *int64
@@ -424,6 +429,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 			}
 
 			prepared.Messages = a.workaroundProviderMediaLimitations(prepared.Messages, largeModel)
+			lastInputEstimate = estimateMessagesTokens(prepared.Messages)
 
 			lastSystemRoleInx := 0
 			systemMessageUpdated := false
@@ -625,13 +631,26 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		},
 		StopWhen: []fantasy.StopCondition{
 			func(_ []fantasy.StepResult) bool {
+				// A per-session auto-compact threshold takes precedence over the
+				// context-window heuristics below. It is set by --auto-compact and
+				// by the UI compaction controls.
+				if custom := a.AutoCompactTokens(call.SessionID); custom > 0 {
+					if lastInputEstimate >= custom && !a.disableAutoSummarize {
+						shouldSummarize = true
+						return true
+					}
+					return false
+				}
 				cw := int64(largeModel.CatwalkCfg.ContextWindow)
 				// If context window is unknown (0), skip auto-summarize
 				// to avoid immediately truncating custom/local models.
 				if cw == 0 {
 					return false
 				}
-				tokens := currentSession.CompletionTokens + currentSession.PromptTokens
+				tokens := lastInputEstimate
+				if tokens == 0 {
+					tokens = currentSession.CompletionTokens + currentSession.PromptTokens
+				}
 				remaining := cw - tokens
 				var threshold int64
 				if cw > largeContextWindowThreshold {
@@ -937,7 +956,7 @@ func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fan
 		return nil
 	}
 
-	aiMsgs, _ := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, false)
+	aiMsgs, _ := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, true)
 
 	genCtx, cancel := context.WithCancel(ctx)
 	a.activeRequests.Set(sessionID, cancel)
@@ -971,6 +990,12 @@ func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fan
 		ProviderOptions: opts,
 		PrepareStep: func(callContext context.Context, options fantasy.PrepareStepFunctionOptions) (_ context.Context, prepared fantasy.PrepareStepResult, err error) {
 			prepared.Messages = options.Messages
+			// Media inside tool results is not accepted by OpenAI-compatible
+			// providers (e.g. api.meta.ai muse), which silently drops the
+			// part and then rejects the request with "Missing tool response
+			// for tool_call_id". The main Run path already reshapes this;
+			// summarization needs the same treatment.
+			prepared.Messages = a.workaroundProviderMediaLimitations(prepared.Messages, largeModel)
 			if systemPromptPrefix != "" {
 				prepared.Messages = append([]fantasy.Message{fantasy.NewSystemMessage(systemPromptPrefix)}, prepared.Messages...)
 			}
@@ -1099,7 +1124,41 @@ func (a *sessionAgent) createUserMessage(ctx context.Context, call SessionAgentC
 	return msg, nil
 }
 
+// sanitizeEmptyNameToolCalls drops tool_call parts whose Name is empty. Such a
+// call is invalid for every provider: api.meta.ai rejects the whole request
+// with "tool_call function `name` must be non-empty". Because the call is
+// removed before the known-tool-call set is built, its paired tool result is
+// treated as orphaned and dropped as well, so the history stays consistent.
+func sanitizeEmptyNameToolCalls(msgs []message.Message) []message.Message {
+	for i := range msgs {
+		if msgs[i].Role != message.Assistant {
+			continue
+		}
+		kept := make([]message.ContentPart, 0, len(msgs[i].Parts))
+		dropped := false
+		for _, part := range msgs[i].Parts {
+			tc, ok := part.(message.ToolCall)
+			if ok && strings.TrimSpace(tc.Name) == "" {
+				dropped = true
+				slog.Warn("Dropping tool call with empty name",
+					"session_id", msgs[i].SessionID,
+					"message_id", msgs[i].ID,
+					"tool_call_id", tc.ID,
+				)
+				continue
+			}
+			kept = append(kept, part)
+		}
+		if dropped {
+			msgs[i].Parts = kept
+		}
+	}
+	return msgs
+}
+
 func (a *sessionAgent) preparePrompt(msgs []message.Message, supportsImages bool, sanitizeHistory bool, attachments ...message.Attachment) ([]fantasy.Message, []fantasy.FilePart) {
+	msgs = sanitizeEmptyNameToolCalls(msgs)
+
 	var history []fantasy.Message
 	if !a.isSubAgent {
 		history = append(history, fantasy.NewUserMessage(
@@ -1173,6 +1232,13 @@ If not, please feel free to ignore. Again do not mention this message to the use
 			Data:      attachment.Content,
 			MediaType: attachment.MimeType,
 		})
+	}
+
+	history = compactToolResultsForReplay(history)
+
+	// Keep the payload inside the context window even after compaction.
+	if cw := int64(a.largeModel.Get().CatwalkCfg.ContextWindow); cw > 0 {
+		history = enforceHistoryBudget(history, cw*9/10)
 	}
 
 	return history, files
