@@ -3,13 +3,14 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"strings"
 
 	"charm.land/fantasy"
 )
 
 func patchToolSchemas(tools []fantasy.AgentTool, providerID, modelID string) []fantasy.AgentTool {
-	if !strings.HasPrefix(providerID, "opencode") {
+	if !strings.HasPrefix(providerID, "opencode") && providerID != "MuseV1Responses" {
 		return tools
 	}
 	hasReqHint := strings.Contains(strings.ToLower(modelID), "muse")
@@ -93,6 +94,50 @@ func repairOpencodeInput(input string, info fantasy.ToolInfo) string {
 		}
 	}
 	if len(info.Required) == 0 {
+		if len(raw) == origLen {
+			// No structural change from unwrap (e.g. truncated multi-layer
+			// Muse wrapper): try last-resort field salvage before giving up.
+			if salvaged := salvageRequiredFields(input, info); salvaged != "" {
+				return salvaged
+			}
+			// Bash fallback independent of unwrap: a healthy-but-incomplete
+			// input like {"description": "..."} has no wrapper damage,
+			// so nothing above fires — yet the tool would fail with
+			// "missing command". Fill command from description instead.
+			// Only fires when command is actually missing, so healthy
+			// inputs stay byte-identical (prefix cache safe).
+			if info.Name == "bash" && !isNonEmptyString(raw["command"]) {
+				if v, ok := raw["description"]; ok {
+					var s string
+					if err := json.Unmarshal(v, &s); err == nil && strings.TrimSpace(s) != "" {
+						if b, err := json.Marshal(s); err == nil {
+							raw["command"] = b
+							if out, err := json.Marshal(raw); err == nil {
+								return string(out)
+							}
+						}
+					}
+				}
+				if m := extractJSONField(input, "command"); m != "" {
+					if b, err := json.Marshal(m); err == nil {
+						raw["command"] = b
+						if out, err := json.Marshal(raw); err == nil {
+							return string(out)
+						}
+					}
+				} else if m := extractJSONField(input, "description"); m != "" {
+					if b, err := json.Marshal(m); err == nil {
+						raw["command"] = b
+						if _, ok := raw["description"]; !ok {
+							raw["description"] = b
+						}
+						if out, err := json.Marshal(raw); err == nil {
+							return string(out)
+						}
+					}
+				}
+			}
+		}
 		if len(raw) != origLen {
 			if info.Name == "bash" {
 				changed := false
@@ -277,9 +322,94 @@ func repairOpencodeInput(input string, info fantasy.ToolInfo) string {
 		}
 	}
 	if !changed {
+		// Last resort: cross-layer salvage. Deeply nested Muse wrappers
+		// (arguments-in-arguments, sometimes truncated) can still contain
+		// the required fields as plain text. Extract them so the tool can
+		// run instead of failing with "field is required".
+		salvaged := salvageRequiredFields(input, info)
+		if salvaged != "" {
+			return salvaged
+		}
 		return ""
 	}
 	b, err := json.Marshal(raw)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// salvageRequiredFields extracts required tool fields from a deeply
+// nested or truncated wrapper payload where normal JSON parsing fails.
+// It unescapes layer by layer, then regex-scans for "field": "value"
+// pairs. Only fires when at least one required field is found, so
+// healthy inputs are never rewritten (prefix cache stays identical).
+func salvageRequiredFields(input string, info fantasy.ToolInfo) string {
+	// Strict mode: only fire when the tool's primary field is found.
+	// A partial salvage (e.g. description without command) would mask
+	// the bash-specific repair below, so require the key field.
+	var keyField string
+	fields := append([]string{}, info.Required...)
+	if len(fields) == 0 {
+		switch info.Name {
+		case "bash":
+			keyField = "command"
+			fields = []string{"command", "description"}
+		case "view", "write", "edit", "multiedit":
+			keyField = "file_path"
+			fields = []string{"file_path"}
+		default:
+			return ""
+		}
+	} else {
+		keyField = fields[0]
+	}
+	// Only salvage payloads that actually look wrapped or broken. Healthy
+	//-but-incomplete inputs (e.g. bash with command but no description)
+	// must fall through to the tool-specific repair below.
+	lowered := strings.ToLower(input)
+	wrapped := strings.Contains(lowered, "\"arguments\"") || strings.Contains(lowered, "params") || strings.Contains(lowered, "tool_input")
+	var probe map[string]json.RawMessage
+	validJSON := json.Unmarshal([]byte(strings.TrimSpace(input)), &probe) == nil
+	if !wrapped && validJSON {
+		return ""
+	}
+	tmp := input
+	for i := 0; i < 10; i++ {
+		next := strings.ReplaceAll(tmp, `\\`, `\`)
+		next = strings.ReplaceAll(next, `\"`, `"`)
+		if next == tmp {
+			break
+		}
+		tmp = next
+	}
+	for i := 0; i < 10; i++ {
+		next := strings.ReplaceAll(tmp, `\"`, `"`)
+		if next == tmp {
+			break
+		}
+		tmp = next
+	}
+
+	out := map[string]string{}
+	for _, f := range fields {
+		re := regexp.MustCompile(`"` + f + `"\s*:\s*"((?:[^"\\]|\\.)*)"`)
+		if m := re.FindStringSubmatch(tmp); m != nil {
+			val := strings.ReplaceAll(m[1], `\"`, `"`)
+			val = strings.ReplaceAll(val, `\\`, `\`)
+			if strings.TrimSpace(val) != "" {
+				out[f] = val
+			}
+		}
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	if _, ok := out[keyField]; !ok {
+		return ""
+	}
+
+	b, err := json.Marshal(out)
 	if err != nil {
 		return ""
 	}

@@ -12,6 +12,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -62,8 +63,8 @@ func isDeepSeekCacheModel(m Model) bool {
 	if strings.Contains(idLower, "deepseek") || strings.Contains(providerLower, "deepseek") || strings.Contains(modelLower, "deepseek") || strings.Contains(idLower, "mimo") || strings.Contains(providerLower, "mimo") || strings.Contains(modelLower, "mimo") {
 		return true
 	}
-	// All opencode providers benefit from stable prefix (Date fixed, GitStatus branch-only) + lower summarize threshold
-	return strings.HasPrefix(providerLower, "opencode")
+	// All opencode and MuseV1Responses providers benefit from stable prefix (Date fixed, GitStatus branch-only) + lower summarize threshold
+	return strings.HasPrefix(providerLower, "opencode") || providerLower == "musev1responses"
 }
 
 var userAgent = fmt.Sprintf("SkyNet/%s", version.Version)
@@ -372,7 +373,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		}
 	}()
 
-	history, files := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, call.Attachments...)
+	history, files := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, largeModel.ModelCfg.Provider == "MuseV1Responses", call.Attachments...)
 
 	startTime := time.Now()
 	a.eventPromptSent(call.SessionID)
@@ -936,7 +937,7 @@ func (a *sessionAgent) Summarize(ctx context.Context, sessionID string, opts fan
 		return nil
 	}
 
-	aiMsgs, _ := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages)
+	aiMsgs, _ := a.preparePrompt(msgs, largeModel.CatwalkCfg.SupportsImages, false)
 
 	genCtx, cancel := context.WithCancel(ctx)
 	a.activeRequests.Set(sessionID, cancel)
@@ -1098,7 +1099,7 @@ func (a *sessionAgent) createUserMessage(ctx context.Context, call SessionAgentC
 	return msg, nil
 }
 
-func (a *sessionAgent) preparePrompt(msgs []message.Message, supportsImages bool, attachments ...message.Attachment) ([]fantasy.Message, []fantasy.FilePart) {
+func (a *sessionAgent) preparePrompt(msgs []message.Message, supportsImages bool, sanitizeHistory bool, attachments ...message.Attachment) ([]fantasy.Message, []fantasy.FilePart) {
 	var history []fantasy.Message
 	if !a.isSubAgent {
 		history = append(history, fantasy.NewUserMessage(
@@ -1143,6 +1144,9 @@ If not, please feel free to ignore. Again do not mention this message to the use
 			continue
 		}
 		aiMsgs := m.ToAIMessage()
+		if sanitizeHistory {
+			sanitizeInvalidToolCallArgs(aiMsgs)
+		}
 		if !supportsImages {
 			for i := range aiMsgs {
 				if aiMsgs[i].Role == fantasy.MessageRoleUser {
@@ -1172,6 +1176,35 @@ If not, please feel free to ignore. Again do not mention this message to the use
 	}
 
 	return history, files
+}
+
+// sanitizeInvalidToolCallArgs rewrites ToolCallPart inputs that are not
+// valid JSON into "{}" before history is sent to the provider. Strict
+// providers (e.g. api.meta.ai) reject the whole request with 400
+// "`arguments` must be valid JSON" when a past turn contains a corrupted
+// tool_call, permanently locking the session. Repairing in-memory keeps the
+// DB untouched so prefix-cache keys stay stable.
+func sanitizeInvalidToolCallArgs(msgs []fantasy.Message) {
+	for i := range msgs {
+		if msgs[i].Role != fantasy.MessageRoleAssistant {
+			continue
+		}
+		for j, part := range msgs[i].Content {
+			tc, ok := fantasy.AsMessagePart[fantasy.ToolCallPart](part)
+			if !ok {
+				continue
+			}
+			if json.Valid([]byte(tc.Input)) {
+				continue
+			}
+			slog.Warn("Rewriting invalid tool_call arguments to {}",
+				"tool_call_id", tc.ToolCallID,
+				"tool_name", tc.ToolName,
+			)
+			tc.Input = "{}"
+			msgs[i].Content[j] = tc
+		}
+	}
 }
 
 // filterFileParts removes fantasy.FilePart entries from a slice of message

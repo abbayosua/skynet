@@ -335,6 +335,11 @@ func shouldUseArgsRepair(providerID string) bool {
 	if strings.HasPrefix(providerID, "opencode") {
 		return true
 	}
+	// MuseV1Responses (/v1/responses) emits nested {"arguments": ...} wrapper
+	// shape as opencode zen models, so it needs the same repair path. The direct chat-completions muse provider stays untouched.
+	if providerID == "MuseV1Responses" {
+		return true
+	}
 	// B.ai uses DeepSeek models which sometimes omit required tool params.
 	if providerID == "b-ai" || strings.HasPrefix(providerID, "b-ai-") || strings.Contains(providerID, "deepseek") {
 		return true

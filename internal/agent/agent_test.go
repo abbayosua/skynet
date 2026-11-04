@@ -680,7 +680,7 @@ func TestPreparePrompt_FiltersImageAttachments(t *testing.T) {
 	require.NoError(t, err)
 
 	// When supportsImages is false, image attachments should be stripped.
-	history, _ := agent.preparePrompt(msgs, false)
+	history, _ := agent.preparePrompt(msgs, false, false)
 	// First message is the system reminder, second is the user message.
 	require.Len(t, history, 2)
 	require.Len(t, history[1].Content, 1)
@@ -690,7 +690,7 @@ func TestPreparePrompt_FiltersImageAttachments(t *testing.T) {
 	require.Contains(t, text.Text, "important notes")
 
 	// When supportsImages is true, image attachments should remain.
-	history, _ = agent.preparePrompt(msgs, true)
+	history, _ = agent.preparePrompt(msgs, true, false)
 	require.Len(t, history, 2)
 	require.Len(t, history[1].Content, 2)
 	text, ok = fantasy.AsMessagePart[fantasy.TextPart](history[1].Content[0])
@@ -747,7 +747,7 @@ func TestPreparePrompt_OrphanedToolUse(t *testing.T) {
 	msgs, err := env.messages.List(ctx, sess.ID)
 	require.NoError(t, err)
 
-	history, _ := agent.preparePrompt(msgs, true)
+	history, _ := agent.preparePrompt(msgs, true, false)
 
 	// The history must contain a synthetic tool result for the orphaned call.
 	found := false
@@ -821,7 +821,7 @@ func TestPreparePrompt_OrphanedToolUseMixed(t *testing.T) {
 	msgs, err := env.messages.List(ctx, sess.ID)
 	require.NoError(t, err)
 
-	history, _ := agent.preparePrompt(msgs, true)
+	history, _ := agent.preparePrompt(msgs, true, false)
 
 	// Should have a synthetic result only for the orphaned call.
 	var syntheticCount int
@@ -838,6 +838,83 @@ func TestPreparePrompt_OrphanedToolUseMixed(t *testing.T) {
 		}
 	}
 	require.Equal(t, 1, syntheticCount, "expected exactly one synthetic result for the orphaned call")
+}
+
+func TestPreparePrompt_SanitizesInvalidToolCallArgs(t *testing.T) {
+	env := testEnv(t)
+	sa := testSessionAgent(env, nil, nil, "test prompt")
+	agent := sa.(*sessionAgent)
+
+	ctx := t.Context()
+	sess, err := env.sessions.Create(ctx, "test")
+	require.NoError(t, err)
+
+	_, err = env.messages.Create(ctx, sess.ID, message.CreateMessageParams{
+		Role: message.User,
+		Parts: []message.ContentPart{
+			message.TextContent{Text: "run echo hi"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Assistant message with a CORRUPTED tool_call (not valid JSON),
+	// as produced by muse streaming glitches.
+	_, err = env.messages.Create(ctx, sess.ID, message.CreateMessageParams{
+		Role: message.Assistant,
+		Parts: []message.ContentPart{
+			message.ToolCall{
+				ID:       "call_corrupt_1",
+				Name:     "bash",
+				Input:    `{"command":"echo hi","descrip`,
+				Finished: true,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = env.messages.Create(ctx, sess.ID, message.CreateMessageParams{
+		Role: message.Tool,
+		Parts: []message.ContentPart{
+			message.ToolResult{
+				ToolCallID: "call_corrupt_1",
+				Content:    "hi",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	msgs, err := env.messages.List(ctx, sess.ID)
+	require.NoError(t, err)
+
+	history, _ := agent.preparePrompt(msgs, true, true)
+
+	// Every ToolCallPart in history must carry valid JSON, or strict
+	// providers (api.meta.ai) reject the whole request with 400.
+	for _, msg := range history {
+		for _, part := range msg.Content {
+			if tc, ok := fantasy.AsMessagePart[fantasy.ToolCallPart](part); ok {
+				require.JSONEq(t, `{}`, tc.Input, "corrupted tool_call args must be rewritten to {}")
+			}
+		}
+	}
+}
+
+func TestSanitizeInvalidToolCallArgs_LeavesHealthyHistoryUntouched(t *testing.T) {
+	t.Parallel()
+
+	healthy := []fantasy.Message{
+		{
+			Role: fantasy.MessageRoleAssistant,
+			Content: []fantasy.MessagePart{
+				fantasy.ToolCallPart{ToolCallID: "call_1", ToolName: "bash", Input: `{"command":"echo hi","description":"run echo"}`},
+			},
+		},
+	}
+	sanitizeInvalidToolCallArgs(healthy)
+	tc, ok := fantasy.AsMessagePart[fantasy.ToolCallPart](healthy[0].Content[0])
+	require.True(t, ok)
+	require.Equal(t, `{"command":"echo hi","description":"run echo"}`, tc.Input,
+		"healthy history must stay byte-identical so Meta prefix cache still hits")
 }
 
 func TestProviderRetryLogFields(t *testing.T) {

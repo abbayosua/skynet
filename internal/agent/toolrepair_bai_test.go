@@ -90,6 +90,8 @@ func TestShouldUseArgsRepair_BAI(t *testing.T) {
 	require.True(t, shouldUseArgsRepair("b-ai-any-new-provider"), "any b-ai-* provider should use args repair")
 	require.True(t, shouldUseArgsRepair("deepseek"), "deepseek provider should use args repair")
 	require.True(t, shouldUseArgsRepair("opencode-go"), "opencode-go provider should use args repair")
+	require.True(t, shouldUseArgsRepair("MuseV1Responses"), "MuseV1Responses provider should use args repair")
+	require.False(t, shouldUseArgsRepair("muse"), "direct chat-completions muse provider must stay untouched")
 	require.False(t, shouldUseArgsRepair("anthropic"), "anthropic should not use args repair")
 	require.False(t, shouldUseArgsRepair("gemini"), "gemini should not use args repair")
 }

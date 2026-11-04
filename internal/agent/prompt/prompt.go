@@ -248,8 +248,8 @@ func isGitRepo(dir string) bool {
 func isDeepSeekCachePrompt(provider, model string) bool {
 	pl := strings.ToLower(provider)
 	ml := strings.ToLower(model)
-	// All opencode providers + DeepSeek/Mimo benefit from stable prefix (prefix-cache: Date fixed, GitStatus branch-only)
-	return strings.Contains(pl, "deepseek") || strings.Contains(ml, "deepseek") || strings.Contains(pl, "mimo") || strings.Contains(ml, "mimo") || strings.HasPrefix(pl, "opencode")
+	// All opencode and MuseV1Responses providers + DeepSeek/Mimo benefit from stable prefix (prefix-cache: Date fixed, GitStatus branch-only)
+	return strings.Contains(pl, "deepseek") || strings.Contains(ml, "deepseek") || strings.Contains(pl, "mimo") || strings.Contains(ml, "mimo") || strings.Contains(pl, "musev1responses") || strings.Contains(ml, "musev1responses") || strings.HasPrefix(pl, "opencode")
 }
 
 func getGitStatus(ctx context.Context, dir string) (string, error) {

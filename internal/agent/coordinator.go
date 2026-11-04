@@ -1155,6 +1155,13 @@ func (c *coordinator) buildOpenaiCompatProvider(baseURL, apiKey string, headers 
 				stableOpenCodeSessionID(c.cfg.Config().Options.DataDirectory),
 			),
 		}
+	} else if providerID == "MuseV1Responses" {
+		// Direct api.meta.ai provider: vision (input_image) and tool calls
+		// only work via /v1/responses. Route every model there.
+		opts = append(opts,
+			openaicompat.WithUseResponsesAPI(),
+			openaicompat.WithResponsesAPIFunc(museV1ResponsesAlways),
+		)
 	} else if c.cfg.Config().Options.Debug {
 		httpClient = log.NewHTTPClient()
 	}
@@ -1186,6 +1193,15 @@ func opencodeNeedsResponsesAPI(modelID string) bool {
 		return true
 	}
 	return false
+}
+
+// museV1ResponsesAlways reports whether the model must use the Responses API.
+// The MuseV1Responses provider talks directly to api.meta.ai, where vision
+// (input_image) and tool calls only work via /v1/responses; the chat
+// completions endpoint ignores images (content: null) and rejects malformed
+// arguments. So every model on this provider is responses-only.
+func museV1ResponsesAlways(_ string) bool {
+	return true
 }
 
 // opencodeCacheTransport injects prompt_cache_key into /responses request
