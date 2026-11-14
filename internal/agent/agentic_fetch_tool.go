@@ -178,15 +178,15 @@ func (c *coordinator) agenticFetchTool(_ context.Context, client *http.Client) (
 			// the user's hooks N times per delegated turn.
 
 			agent := NewSessionAgent(SessionAgentOptions{
-				LargeModel:           small, // Use small model for both (fetch doesn't need large)
-				SmallModel:           small,
-				SystemPromptPrefix:   smallProviderCfg.SystemPromptPrefix,
-				SystemPrompt:         systemPrompt,
-				DisableAutoSummarize: c.cfg.Config().Options.DisableAutoSummarize,
-				IsYolo:               c.permissions.SkipRequests(),
-				Sessions:             c.sessions,
-				Messages:             c.messages,
-				Tools:                fetchTools,
+				LargeModel:          small, // Use small model for both (fetch doesn't need large)
+				SmallModel:          small,
+				SystemPromptPrefix:  smallProviderCfg.SystemPromptPrefix,
+				SystemPrompt:        systemPrompt,
+				EnableAutoSummarize: c.cfg.Config().Options.EnableAutoSummarize,
+				IsYolo:              c.permissions.SkipRequests(),
+				Sessions:            c.sessions,
+				Messages:            c.messages,
+				Tools:               fetchTools,
 			})
 
 			return c.runSubAgent(ctx, subAgentParams{

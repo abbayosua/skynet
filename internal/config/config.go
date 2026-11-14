@@ -275,18 +275,19 @@ func (Attribution) JSONSchemaExtend(schema *jsonschema.Schema) {
 }
 
 type Options struct {
-	ContextPaths         []string    `json:"context_paths,omitempty" jsonschema:"description=Paths to files containing context information for the AI,example=.cursorrules,example=CRUSH.md"`
-	SkillsPaths          []string    `json:"skills_paths,omitempty" jsonschema:"description=Paths to directories containing Agent Skills (folders with SKILL.md files),example=~/.config/crush/skills,example=./skills"`
-	TUI                  *TUIOptions `json:"tui,omitempty" jsonschema:"description=Terminal user interface options"`
-	Debug                bool        `json:"debug,omitempty" jsonschema:"description=Enable debug logging,default=false"`
-	DebugLSP             bool        `json:"debug_lsp,omitempty" jsonschema:"description=Enable debug logging for LSP servers,default=false"`
-	// DisableAutoSummarize gates every automatic-summarization decision in the
-	// agent (context-window based and custom thresholds alike). Manual
-	// summarize (e.g. /compact) always works. Defaults to true so long
-	// sessions keep flowing until the user opts into summarization.
-	DisableAutoSummarize bool        `json:"disable_auto_summarize,omitempty" jsonschema:"description=Disable automatic conversation summarization,default=true"`
-	AnswerShort          bool        `json:"answer_short,omitempty" jsonschema:"description=Append a directive to every prompt asking the model to answer briefly without overthinking,default=false"`
-	AnswerShortPrompt    string      `json:"answer_short_prompt,omitempty" jsonschema:"description=The directive appended to every prompt when answer_short is enabled,example=Jawab singkat, jangan perlu banyak mikir,example=Answer briefly"`
+	ContextPaths []string    `json:"context_paths,omitempty" jsonschema:"description=Paths to files containing context information for the AI,example=.cursorrules,example=CRUSH.md"`
+	SkillsPaths  []string    `json:"skills_paths,omitempty" jsonschema:"description=Paths to directories containing Agent Skills (folders with SKILL.md files),example=~/.config/crush/skills,example=./skills"`
+	TUI          *TUIOptions `json:"tui,omitempty" jsonschema:"description=Terminal user interface options"`
+	Debug        bool        `json:"debug,omitempty" jsonschema:"description=Enable debug logging,default=false"`
+	DebugLSP     bool        `json:"debug_lsp,omitempty" jsonschema:"description=Enable debug logging for LSP servers,default=false"`
+	// EnableAutoSummarize opts into automatic conversation summarization.
+	// By default summarization stays off: the agent keeps working through
+	// long contexts, and only stops to summarize when the user opts in,
+	// or when the payload no longer fits the model's context window
+	// (in which case the provider would reject the request anyway).
+	EnableAutoSummarize bool   `json:"enable_auto_summarize,omitempty" jsonschema:"description=Enable automatic conversation summarization,default=false"`
+	AnswerShort         bool   `json:"answer_short,omitempty" jsonschema:"description=Append a directive to every prompt asking the model to answer briefly without overthinking,default=false"`
+	AnswerShortPrompt   string `json:"answer_short_prompt,omitempty" jsonschema:"description=The directive appended to every prompt when answer_short is enabled,example=Jawab singkat, jangan perlu banyak mikir,example=Answer briefly"`
 	// DataDirectory is where Crush keeps per-project state such as
 	// the SQLite database and workspace overrides. Relative paths are
 	// resolved against the working directory; absolute paths are used

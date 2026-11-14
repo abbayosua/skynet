@@ -196,9 +196,9 @@ func TestCrushInfo_Options(t *testing.T) {
 	cfg := config.NewTestStore(&config.Config{
 		Providers: csync.NewMap[string, config.ProviderConfig](),
 		Options: &config.Options{
-			DataDirectory:        "/Users/user/project/.crush",
-			Debug:                true,
-			DisableAutoSummarize: true,
+			DataDirectory:       "/Users/user/project/.crush",
+			Debug:               true,
+			EnableAutoSummarize: false,
 		},
 	})
 
@@ -213,16 +213,16 @@ func TestCrushInfo_Options(t *testing.T) {
 func TestCrushInfo_AutoSummarizeInversion(t *testing.T) {
 	t.Parallel()
 
-	cfgFalse := config.NewTestStore(&config.Config{
+	cfgDefault := config.NewTestStore(&config.Config{
 		Providers: csync.NewMap[string, config.ProviderConfig](),
-		Options:   &config.Options{DisableAutoSummarize: true},
+		Options:   &config.Options{},
 	})
-	outputFalse := buildCrushInfo(cfgFalse, nil, nil, nil, nil)
-	require.Contains(t, outputFalse, "auto_summarize = false")
+	outputDefault := buildCrushInfo(cfgDefault, nil, nil, nil, nil)
+	require.Contains(t, outputDefault, "auto_summarize = false")
 
 	cfgTrue := config.NewTestStore(&config.Config{
 		Providers: csync.NewMap[string, config.ProviderConfig](),
-		Options:   &config.Options{DisableAutoSummarize: false},
+		Options:   &config.Options{EnableAutoSummarize: true},
 	})
 	outputTrue := buildCrushInfo(cfgTrue, nil, nil, nil, nil)
 	require.Contains(t, outputTrue, "auto_summarize = true")

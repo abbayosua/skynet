@@ -148,10 +148,10 @@ type sessionAgent struct {
 	systemPrompt       *csync.Value[string]
 	tools              *csync.Slice[fantasy.AgentTool]
 
-	isSubAgent           bool
-	sessions             session.Service
-	messages             message.Service
-	disableAutoSummarize bool
+	isSubAgent          bool
+	sessions            session.Service
+	messages            message.Service
+	enableAutoSummarize bool
 	// autoCompactTokens stores the custom auto-compact threshold per
 	// session ID. Sessions without an entry use the context-window based
 	// default compaction.
@@ -175,44 +175,44 @@ type ralphLoopState struct {
 }
 
 type SessionAgentOptions struct {
-	LargeModel           Model
-	SmallModel           Model
-	SystemPromptPrefix   string
-	SystemPrompt         string
-	IsSubAgent           bool
-	DisableAutoSummarize bool
-	IsYolo               bool
-	Sessions             session.Service
-	Messages             message.Service
-	Tools                []fantasy.AgentTool
-	Notify               pubsub.Publisher[notify.Notification]
-	RalphLoop            *config.RalphLoop
-	AnswerShort          bool
-	AnswerShortPrompt    string
+	LargeModel          Model
+	SmallModel          Model
+	SystemPromptPrefix  string
+	SystemPrompt        string
+	IsSubAgent          bool
+	EnableAutoSummarize bool
+	IsYolo              bool
+	Sessions            session.Service
+	Messages            message.Service
+	Tools               []fantasy.AgentTool
+	Notify              pubsub.Publisher[notify.Notification]
+	RalphLoop           *config.RalphLoop
+	AnswerShort         bool
+	AnswerShortPrompt   string
 }
 
 func NewSessionAgent(
 	opts SessionAgentOptions,
 ) SessionAgent {
 	return &sessionAgent{
-		largeModel:           csync.NewValue(opts.LargeModel),
-		smallModel:           csync.NewValue(opts.SmallModel),
-		systemPromptPrefix:   csync.NewValue(opts.SystemPromptPrefix),
-		systemPrompt:         csync.NewValue(opts.SystemPrompt),
-		isSubAgent:           opts.IsSubAgent,
-		sessions:             opts.Sessions,
-		messages:             opts.Messages,
-		disableAutoSummarize: opts.DisableAutoSummarize,
-		tools:                csync.NewSliceFrom(opts.Tools),
-		isYolo:               opts.IsYolo,
-		notify:               opts.Notify,
-		messageQueue:         csync.NewMap[string, []SessionAgentCall](),
-		activeRequests:       csync.NewMap[string, context.CancelFunc](),
-		autoCompactTokens:    csync.NewMap[string, int64](),
-		ralphLoop:            newRalphLoopState(opts.RalphLoop),
-		answerShort:          csync.NewValue(opts.AnswerShort),
-		answerShortPrompt:    csync.NewValue(opts.AnswerShortPrompt),
-		currentActivity:      csync.NewMap[string, string](),
+		largeModel:          csync.NewValue(opts.LargeModel),
+		smallModel:          csync.NewValue(opts.SmallModel),
+		systemPromptPrefix:  csync.NewValue(opts.SystemPromptPrefix),
+		systemPrompt:        csync.NewValue(opts.SystemPrompt),
+		isSubAgent:          opts.IsSubAgent,
+		sessions:            opts.Sessions,
+		messages:            opts.Messages,
+		enableAutoSummarize: opts.EnableAutoSummarize,
+		tools:               csync.NewSliceFrom(opts.Tools),
+		isYolo:              opts.IsYolo,
+		notify:              opts.Notify,
+		messageQueue:        csync.NewMap[string, []SessionAgentCall](),
+		activeRequests:      csync.NewMap[string, context.CancelFunc](),
+		autoCompactTokens:   csync.NewMap[string, int64](),
+		ralphLoop:           newRalphLoopState(opts.RalphLoop),
+		answerShort:         csync.NewValue(opts.AnswerShort),
+		answerShortPrompt:   csync.NewValue(opts.AnswerShortPrompt),
+		currentActivity:     csync.NewMap[string, string](),
 	}
 }
 
@@ -235,12 +235,12 @@ func newRalphLoopState(cfg *config.RalphLoop) *ralphLoopState {
 }
 
 // decideAutoSummarize contains the single rule deciding whether the agent
-// stops the current turn to summarize first. Auto-summarize is disabled by
-// default. It only fires when the user opts in: explicitly enabled in config,
-// a per-session auto-compact threshold, or the request would no longer fit
-// the model's context window.
-func decideAutoSummarize(disabled bool, customThreshold, estimatedTokens, sessionTokens, contextWindow int64, cacheModel bool) bool {
-	if disabled {
+// stops the current turn to summarize first. Summarization is always opt-in:
+// the user enables it in config, sets a per-session auto-compact threshold,
+// or the payload no longer fits the model's context window (in which case the
+// provider would reject the request anyway).
+func decideAutoSummarize(enabled bool, customThreshold, estimatedTokens, sessionTokens, contextWindow int64, cacheModel bool) bool {
+	if !enabled {
 		return false
 	}
 	// A per-session auto-compact threshold takes precedence over the
@@ -679,7 +679,7 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		StopWhen: []fantasy.StopCondition{
 			func(_ []fantasy.StepResult) bool {
 				if decideAutoSummarize(
-					a.disableAutoSummarize,
+					a.enableAutoSummarize,
 					a.AutoCompactTokens(call.SessionID),
 					lastInputEstimate,
 					currentSession.CompletionTokens+currentSession.PromptTokens,

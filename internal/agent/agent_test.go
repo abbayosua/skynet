@@ -951,34 +951,34 @@ func TestProviderRetryLogFields(t *testing.T) {
 func TestDecideAutoSummarize_DisabledByDefault(t *testing.T) {
 	t.Parallel()
 
-	// Disabled means never summarize, even for payloads far beyond the window
-	// and even with a custom auto-compact threshold set.
-	require.False(t, decideAutoSummarize(true, 0, 2_000_000, 0, 1_048_576, false),
-		"disabled must not summarize even when over the window")
-	require.False(t, decideAutoSummarize(true, 50_000, 2_000_000, 0, 1_048_576, false),
-		"disabled must ignore a custom threshold too")
+	// Opted-out (default): never summarize, even for payloads far beyond the
+	// window, and even with a custom auto-compact threshold set.
+	require.False(t, decideAutoSummarize(false, 0, 2_000_000, 0, 1_048_576, false),
+		"opted-out sessions must never summarize, even past the window")
+	require.False(t, decideAutoSummarize(false, 50_000, 2_000_000, 0, 1_048_576, false),
+		"opted-out sessions must ignore a custom auto-compact threshold too")
 }
 
 func TestDecideAutoSummarize_OptedInStillProtectsWindow(t *testing.T) {
 	t.Parallel()
 
 	// Opted in (disabled=false): summarize when the payload no longer fits.
-	require.True(t, decideAutoSummarize(false, 0, 1_048_576, 0, 1_048_576, false),
+	require.True(t, decideAutoSummarize(true, 0, 1_048_576, 0, 1_048_576, false),
 		"payload at the window edge must trigger summarize when opted in")
-	require.True(t, decideAutoSummarize(false, 0, 2_000_000, 0, 1_048_576, false),
+	require.True(t, decideAutoSummarize(true, 0, 2_000_000, 0, 1_048_576, false),
 		"oversized payload must trigger summarize when opted in")
 
 	// Small payload with no custom threshold stays quiet.
-	require.False(t, decideAutoSummarize(false, 0, 396_721, 0, 1_048_576, false),
+	require.False(t, decideAutoSummarize(true, 0, 396_721, 0, 1_048_576, false),
 		"small payload must not summarize")
 
 	// A custom auto-compact threshold still takes precedence when opted in.
-	require.True(t, decideAutoSummarize(false, 50_000, 60_000, 0, 1_048_576, false),
+	require.True(t, decideAutoSummarize(true, 50_000, 60_000, 0, 1_048_576, false),
 		"estimate above the custom threshold must summarize")
-	require.False(t, decideAutoSummarize(false, 50_000, 10_000, 0, 1_048_576, false),
+	require.False(t, decideAutoSummarize(true, 50_000, 10_000, 0, 1_048_576, false),
 		"estimate below the custom threshold must not summarize")
 
 	// Unknown context window (0) never summarizes.
-	require.False(t, decideAutoSummarize(false, 0, 9_000_000, 0, 0, false),
+	require.False(t, decideAutoSummarize(true, 0, 9_000_000, 0, 0, false),
 		"unknown window must not summarize (protects custom/local models)")
 }
