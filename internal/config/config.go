@@ -280,7 +280,11 @@ type Options struct {
 	TUI                  *TUIOptions `json:"tui,omitempty" jsonschema:"description=Terminal user interface options"`
 	Debug                bool        `json:"debug,omitempty" jsonschema:"description=Enable debug logging,default=false"`
 	DebugLSP             bool        `json:"debug_lsp,omitempty" jsonschema:"description=Enable debug logging for LSP servers,default=false"`
-	DisableAutoSummarize bool        `json:"disable_auto_summarize,omitempty" jsonschema:"description=Disable automatic conversation summarization,default=false"`
+	// DisableAutoSummarize gates every automatic-summarization decision in the
+	// agent (context-window based and custom thresholds alike). Manual
+	// summarize (e.g. /compact) always works. Defaults to true so long
+	// sessions keep flowing until the user opts into summarization.
+	DisableAutoSummarize bool        `json:"disable_auto_summarize,omitempty" jsonschema:"description=Disable automatic conversation summarization,default=true"`
 	AnswerShort          bool        `json:"answer_short,omitempty" jsonschema:"description=Append a directive to every prompt asking the model to answer briefly without overthinking,default=false"`
 	AnswerShortPrompt    string      `json:"answer_short_prompt,omitempty" jsonschema:"description=The directive appended to every prompt when answer_short is enabled,example=Jawab singkat, jangan perlu banyak mikir,example=Answer briefly"`
 	// DataDirectory is where Crush keeps per-project state such as

@@ -234,6 +234,53 @@ func newRalphLoopState(cfg *config.RalphLoop) *ralphLoopState {
 	}
 }
 
+// decideAutoSummarize contains the single rule deciding whether the agent
+// stops the current turn to summarize first. Auto-summarize is disabled by
+// default. It only fires when the user opts in: explicitly enabled in config,
+// a per-session auto-compact threshold, or the request would no longer fit
+// the model's context window.
+func decideAutoSummarize(disabled bool, customThreshold, estimatedTokens, sessionTokens, contextWindow int64, cacheModel bool) bool {
+	if disabled {
+		return false
+	}
+	// A per-session auto-compact threshold takes precedence over the
+	// context-window heuristics below. It is set by --auto-compact and
+	// by the UI compaction controls.
+	if customThreshold > 0 {
+		return estimatedTokens >= customThreshold
+	}
+	// If context window is unknown (0), skip auto-summarize
+	// to avoid immediately truncating custom/local models.
+	if contextWindow == 0 {
+		return false
+	}
+	tokens := estimatedTokens
+	if tokens == 0 {
+		tokens = sessionTokens
+	}
+	if tokens >= contextWindow {
+		// The payload no longer fits: summarize first instead of
+		// sending a request the provider is guaranteed to reject.
+		return true
+	}
+	remaining := contextWindow - tokens
+	var threshold int64
+	if contextWindow > largeContextWindowThreshold {
+		threshold = largeContextWindowBuffer
+	} else {
+		// For DeepSeek and other prefix-cache models, keep threshold small (10%)
+		// to maximize cache hit (prefix reuse). DeepSeek's 128k with 20% caused
+		// summarize at 102k, cutting prefix and forcing miss. With 10%, summarize at 115k,
+		// keeping 90% prefix stable for 50x cheaper hit ($0.0028 vs $0.14).
+		ratio := smallContextWindowRatio
+		if cacheModel {
+			ratio = 0.1
+		}
+		threshold = int64(float64(contextWindow) * ratio)
+	}
+	return remaining <= threshold
+}
+
 func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy.AgentResult, error) {
 	// Append the "answer short" directive to every prompt sent to the
 	// model when enabled via options.answer_short. The directive text is
@@ -631,42 +678,14 @@ func (a *sessionAgent) Run(ctx context.Context, call SessionAgentCall) (*fantasy
 		},
 		StopWhen: []fantasy.StopCondition{
 			func(_ []fantasy.StepResult) bool {
-				// A per-session auto-compact threshold takes precedence over the
-				// context-window heuristics below. It is set by --auto-compact and
-				// by the UI compaction controls.
-				if custom := a.AutoCompactTokens(call.SessionID); custom > 0 {
-					if lastInputEstimate >= custom && !a.disableAutoSummarize {
-						shouldSummarize = true
-						return true
-					}
-					return false
-				}
-				cw := int64(largeModel.CatwalkCfg.ContextWindow)
-				// If context window is unknown (0), skip auto-summarize
-				// to avoid immediately truncating custom/local models.
-				if cw == 0 {
-					return false
-				}
-				tokens := lastInputEstimate
-				if tokens == 0 {
-					tokens = currentSession.CompletionTokens + currentSession.PromptTokens
-				}
-				remaining := cw - tokens
-				var threshold int64
-				if cw > largeContextWindowThreshold {
-					threshold = largeContextWindowBuffer
-				} else {
-					// For DeepSeek and other prefix-cache models, keep threshold small (10%)
-					// to maximize cache hit (prefix reuse). DeepSeek's 128k with 20% caused
-					// summarize at 102k, cutting prefix and forcing miss. With 10%, summarize at 115k,
-					// keeping 90% prefix stable for 50x cheaper hit ($0.0028 vs $0.14).
-					ratio := smallContextWindowRatio
-					if isDeepSeekCacheModel(largeModel) {
-						ratio = 0.1
-					}
-					threshold = int64(float64(cw) * ratio)
-				}
-				if (remaining <= threshold) && !a.disableAutoSummarize {
+				if decideAutoSummarize(
+					a.disableAutoSummarize,
+					a.AutoCompactTokens(call.SessionID),
+					lastInputEstimate,
+					currentSession.CompletionTokens+currentSession.PromptTokens,
+					int64(largeModel.CatwalkCfg.ContextWindow),
+					isDeepSeekCacheModel(largeModel),
+				) {
 					shouldSummarize = true
 					return true
 				}

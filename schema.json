@@ -450,7 +450,7 @@
         "disable_auto_summarize": {
           "type": "boolean",
           "description": "Disable automatic conversation summarization",
-          "default": false
+          "default": true
         },
         "answer_short": {
           "type": "boolean",
